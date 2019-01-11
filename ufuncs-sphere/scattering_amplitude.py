@@ -34,7 +34,8 @@ from mie import mie_e_array
 
 @jit("float64(int64, float64, float64)", nopython=True)
 def chi(l, x, z):    
-    r"""Implementation of :math:`\chi(\ell, x, z)` where cancellation errors are minimized.
+    r"""Implementation of :math:`\chi(\ell, x, z)` where cancellation errors are minimized
+    by some algebraic manipulation of the expressions.
 
     Parameters
     ----------
@@ -60,44 +61,6 @@ def chi(l, x, z):
     t2 = np.log1p(t21/(y+np.sqrt(y**2+1))**2)
     return x*(y*t2 + 2*t1)
 
-@jit("float64(float64, float64)", nopython=True)
-def _nueta(nu, x):
-    """
-    nu*eta exponent of bessels
-    """
-    return np.sqrt(nu*nu+x*x) + nu*np.log(x/(nu+np.sqrt(nu*nu+x*x)))
-
-@jit("float64(int64, float64, float64)", nopython=True)
-#def _chi_high(l, x, z):
-def chi(l, x, z):
-    """
-    asymptotic exponent minus asymptotics of S1 and S2
-
-    """
-    return (l+0.5)*np.arccosh(z) + 2*_nueta(l+0.5, x) - 2*x*np.sqrt(np.abs(1.+z)/2)
-
-@jit("float64(int64, float64, float64, float64)", nopython=True)
-def _chi_low(l, x, z, dl):
-    # speed can be improved
-    ans = (-Sqrt(2))/Sqrt(1 + z)*dl**2/x
-    ans += (2*Sqrt((-1 + z)/(1 + z)**3))/3.*dl**3/x**2
-    ans += -(Sqrt(2)*(-2 + z))/(3.*(1 + z)**2.5)*dl**4/x**3
-    ans += (2*(-4 + z)*Sqrt(-1 + z))/(5.*(1 + z)**3.5)*dl**5/x**4
-    ans += (-2*Sqrt(2)*(17 - 16*z + 2*z**2))/(15.*(1 + z)**4.5)*dl**6/x**5
-    ans += (4*Sqrt(-1 + z)*(37 - 24*z + 2*z**2))/(21.*(1 + z)**5.5)*dl**7/x**6
-    return ans
-"""
-@jit("float64(int64, float64, float64, float64)", nopython=True)
-def chi(l, x, z, lest):
-    dl = l+0.5-lest
-    # heuristic, needs further analysis
-    #if dl/lest < 3.e-2 and z > 1.1:
-    if np.abs(dl/lest) < 3.e-2:
-        return _chi_low(l, x, z, dl)
-    else:
-        return _chi_high(l, x, z)
-    #return _chi_high(l, x, z)
-"""
 @jit("UniTuple(float64, 2)(float64, float64, float64[:], float64[:])", nopython=True)
 def S1S2(x, z, ale, ble):
     r"""Mie scattering amplitudes for plane waves.
