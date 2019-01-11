@@ -1,0 +1,6 @@
+Legendre
+========
+
+.. automodule:: legendre
+    :members:
+
