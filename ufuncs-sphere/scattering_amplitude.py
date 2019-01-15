@@ -61,6 +61,11 @@ def chi(l, x, z):
     t2 = np.log1p(t21/(y+np.sqrt(y**2+1))**2)
     return x*(y*t2 + 2*t1)
 
+@jit("float64(int64, float64, float64)", nopython=True)
+def chi_old(l, x, z):
+    nu = l + 0.5
+    return nu*np.arccosh(z) + 2*np.sqrt(nu**2 + x**2) - 2*nu*np.arcsinh(nu/x) - 2*x*np.sqrt((1+z)/2)
+
 @jit("UniTuple(float64, 2)(float64, float64, float64[:], float64[:])", nopython=True)
 def S1S2(x, z, ale, ble):
     r"""Mie scattering amplitudes for plane waves.
@@ -101,7 +106,7 @@ def S1S2(x, z, ale, ble):
         pe, te = pte(l, arccoshz, pte_cache)
         #pe, te = pte_asymptotics(l, arccoshz)
         #exp = np.exp(chi(l, x, z, lest))
-        exp = np.exp(chi(lest_int, x, z))
+        exp = np.exp(chi(l, x, z))
         S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
         S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
         if S1term/S1 < err:
@@ -111,7 +116,7 @@ def S1S2(x, z, ale, ble):
         S1 += S1term
         S2 += S2term
         l += 1
-    #print("dl+", l-lest_int)
+    print("dl+", l-lest_int)
     
     if lest_int == 1:
         return S1, S2 
@@ -121,7 +126,7 @@ def S1S2(x, z, ale, ble):
         pe, te = pte(l, arccoshz, pte_cache)
         #pe, te = pte_asymptotics(l, arccoshz)
         #exp = np.exp(chi(l, x, z, lest))
-        exp = np.exp(chi(lest_int, x, z))
+        exp = np.exp(chi(l, x, z))
         S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
         S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
         if S1term/S1 < err:
@@ -133,7 +138,7 @@ def S1S2(x, z, ale, ble):
         l -= 1
         if l == 0:
             break
-    #print("dl-",lest_int-l)
+    print("dl-",lest_int-l)
     return S1, S2
 
 @jit("float64(float64, float64)", nopython=True)
@@ -176,14 +181,15 @@ def S_back(x, ale, ble):
     return S
 
 if __name__ == "__main__":
-    x = 4000
-    z = 30
+    x = 100
+    z = 2.3
     ale, ble = mie_e_array(1e5, x)
-    """
+    
     S1, S2 = S1S2(x, z, ale, ble)
     sigma = np.sqrt((1+z)/2)
     S1a = 0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
     S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)
+    print("compare to asymptotics")
     print(S1)
     print(S1a)
     print((S1-S1a)/S1a)
@@ -193,26 +199,3 @@ if __name__ == "__main__":
     width = np.sqrt(x*np.sqrt((1+z)/2))
     print("width", width)
     print("6*width", 6*width)
-    """
-    import matplotlib.pyplot as plt
-    n=30
-    X = np.logspace(1, 3, n)
-    s = np.empty(n)
-    for i, x in enumerate(X):
-        ale, ble = mie_e_array(1e5, x)
-        s[i] = S_limit(x, ale, ble)
-    f, ax = plt.subplots()
-    #ax.loglog(X, np.abs(s), "b.")
-    #ax.loglog(X, X/2, "k--")
-    #ax.loglog(X, 1.5*X**3, "k--")
-    ax.loglog(X, 0.5*X**-4, "k", label=r"$1/2 (R\xi/c)^{-4}$")
-    ax.loglog(X, np.abs(s/(0.5*X)-(1-0.5/X)), "b.", label=r"$S_{1/2}$")
-    #ax.loglog(X, X**-2, "k--")
-
-    ax.set_title(r"$\cos\Theta=-1$")
-    ax.set_xlabel(r"$R\xi/c$")
-    ax.set_ylabel(r"$S_p/S_{p,\mathrm{WKB}}-(1+s_p/R)$")
-
-    ax.legend()
-    plt.savefig("fig5.pdf")
-    #plt.show()
