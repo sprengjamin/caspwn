@@ -87,6 +87,8 @@ def S1S2(x, z, ale, ble):
         Understand behavior close to z=1. for large x,
         see analysis/scattering-amplitude/S1S2/plot_high.py
 
+        figure out when to use chi and chi_old
+
     
     Returns
     -------
@@ -94,6 +96,7 @@ def S1S2(x, z, ale, ble):
         (:math:`\tilde S_1`, :math:`\tilde S_2`)
     """
     err = 1.0e-16
+    #chi = chi_old
     arccoshz = np.arccosh(z)
     pte_cache = np.vstack(pte_low(1000, arccoshz))
     lest = x*np.sqrt(np.abs(z-1)/2)
