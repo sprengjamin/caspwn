@@ -81,6 +81,13 @@ def S1S2(x, z, ale, ble):
     ble : nd.array
         Mie coefficient cache
     
+    .. todo::
+        Write test!
+
+        Understand behavior close to z=1. for large x,
+        see analysis/scattering-amplitude/S1S2/plot_high.py
+
+    
     Returns
     -------
     (float, float)
