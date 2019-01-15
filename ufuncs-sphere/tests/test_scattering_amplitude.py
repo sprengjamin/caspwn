@@ -100,13 +100,15 @@ def mp_S1S2(x, z):
     return float(S1), float(S2), int(lmax)
 
 if __name__ == "__main__":
-    x = 1000.
-    z = 2.3
+    x = 100000.
+    z = 1.000001
 
-    S1, S2, lmax = mp_S1S2(x, z)
-    print(S1, S2)
+    mpS1, mpS2, lmax = mp_S1S2(x, z)
+    #print(S1, S2)
 
     ale, ble = mie_e_array(lmax, x)
-    print(S1S2(x, z, ale, ble))
-
+    S1, S2 = S1S2(x, z, ale, ble)
+    
+    print(fabs(S1/mpS1-1.))
+    print(fabs(S2/mpS2-1.))
 
