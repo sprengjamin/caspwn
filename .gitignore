@@ -1,3 +1,13 @@
+# LaTeX
+*.aux
+*.log
+*.synctex.gz
+*.tex.bak
+
+# notes output
+notes.pdf
+
+# vim
 *.swp
 
 # Byte-compiled / optimized / DLL files
