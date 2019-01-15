@@ -1,15 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-sys.path.append('../../ufuncs-sphere')
+sys.path.append('../../../ufuncs-sphere')
 
 from scattering_amplitude import S1S2
 from mie import mie_e_array
 
-N = 50
-X = np.logspace(1,3,N)
-z = 1.3
+N = 200
+X = np.logspace(1,5,N)
+z = 1.00005
 #z = 1.01
+
+# problematic values:
+#X = np.logspace(1,5,N)
+#z = 1.000001
 
 S1 = np.empty(N)
 S2 = np.empty(N)
@@ -20,11 +24,12 @@ S2a = 0.5*X*(1+(-1/(2*sigma**3))/X)
 
 for i, x in enumerate(X):
     print(x)
-    ale, ble = mie_e_array(1e4, x)
+    ale, ble = mie_e_array(2*x*np.sqrt((z-1)/2)+2000, x)
     S1[i], S2[i] = S1S2(x, z, ale, ble)
 
 f, ax = plt.subplots()
 ax.loglog(X, 0.01*X**-2, "k", label=r"$0.01(R\xi/c)^{-2}$") 
+#ax.loglog(X, 1e-16*X**1, "k", label=r"$0.01(R\xi/c)^{1}$") 
 ax.loglog(X, np.abs(S1-S1a)/(0.5*X), "r.", label=r"$S_1$")
 ax.loglog(X, np.abs(S2-S2a)/(0.5*X), "b.", label=r"$S_2$")
 
@@ -32,7 +37,7 @@ ax.set_title(r"$\cos\Theta=-$"+str(z))
 ax.set_xlabel(r"$R\xi/c$")
 ax.set_ylabel(r"$S_p/S_{p,\mathrm{WKB}}-(1+s_p/R)$")
 ax.legend()
-#plt.show()
+plt.show()
 #plt.savefig("fig4.pdf")
 
 
