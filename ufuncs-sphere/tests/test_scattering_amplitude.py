@@ -78,7 +78,7 @@ def mp_S1S2(x, z):
     print("dl+", l-lest_int)
     lmax = l
     if lest_int == 1:
-        return float(S1), float(S2) 
+        return float(S1), float(S2), int(lmax)
     
     # downwards
     l = lest_int-1
@@ -99,7 +99,27 @@ def mp_S1S2(x, z):
     print("dl-", lest_int - l)
     return float(S1), float(S2), int(lmax)
 
+rtol = 1.e-12
+def test_scattering_amplitude():
+    mp_data = np.loadtxt("tests/testdata/scattering_amplitude.dat")
+    for data in mp_data:
+        x = data[0]
+        z = data[1]
+        mpS1 = data[2]
+        mpS2 = data[3]
+        lmax = data[4]
+        ale, ble = mie_e_array(lmax, x)
+        S1, S2 = S1S2(x, z, ale, ble)
+        print(x, z)
+        print(abs(S1/mpS1-1.))
+        print(abs(S2/mpS2-1.))
+        #np.testing.assert_allclose(mpS1, S1, rtol=rtol)
+        #np.testing.assert_allclose(mpS2, S2, rtol=rtol)
+
+
 if __name__ == "__main__":
+    test_scattering_amplitude()
+"""
     x = 100000.
     z = 1.000001
 
@@ -111,4 +131,4 @@ if __name__ == "__main__":
     
     print(fabs(S1/mpS1-1.))
     print(fabs(S2/mpS2-1.))
-
+"""
