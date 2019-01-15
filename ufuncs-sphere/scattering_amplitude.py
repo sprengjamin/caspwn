@@ -137,11 +137,11 @@ def S1S2(x, z, ale, ble):
     return S1, S2
 
 @jit("float64(float64, float64)", nopython=True)
-def nueta2(nu, x):
+def chi_back(nu, x):
     return nu**2/(np.sqrt(nu**2 + x**2) + x) + nu*np.log(x/(nu + np.sqrt(nu**2 + x**2)))
 
 @jit("float64(float64, float64[:], float64[:])", nopython=True)
-def S_limit(x, ale, ble):
+def S_back(x, ale, ble):
     r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
 
     Parameters
@@ -161,12 +161,12 @@ def S_limit(x, ale, ble):
     err = 1.0e-16
 
     l = 1
-    exp = np.exp(2*nueta2(l+0.5, x))
+    exp = np.exp(2*chi_back(l+0.5, x))
     S = (l+0.5)*(ale[l-1] + ble[l-1])*exp
     
     l += 1
     while(True):
-        exp = np.exp(2*nueta2(l+0.5, x))
+        exp = np.exp(2*chi_back(l+0.5, x))
         Sterm = (l+0.5)*(ale[l-1] + ble[l-1])*exp
         if Sterm/S < err:
             S += Sterm
