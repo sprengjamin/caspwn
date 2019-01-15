@@ -7,8 +7,8 @@ from scattering_amplitude import S1S2
 from mie import mie_e_array
 
 N = 200
-X = np.logspace(1,5,N)
-z = 1.00005
+X = np.logspace(1,7,N)
+z = 1.0001
 #z = 1.01
 
 # problematic values:
@@ -24,7 +24,7 @@ S2a = 0.5*X*(1+(-1/(2*sigma**3))/X)
 
 for i, x in enumerate(X):
     print(x)
-    ale, ble = mie_e_array(2*x*np.sqrt((z-1)/2)+2000, x)
+    ale, ble = mie_e_array(2*x*np.sqrt((z-1)/2)+10000, x)
     S1[i], S2[i] = S1S2(x, z, ale, ble)
 
 f, ax = plt.subplots()
