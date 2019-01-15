@@ -1,0 +1,404 @@
+\documentclass[onecolumn%
+              ,superscriptaddress%
+              ,aps%
+              ,pra]{revtex4}
+
+\usepackage{amsmath,amssymb}
+\usepackage{braket}
+\usepackage{graphicx}
+\usepackage{bm} % bold math symbols
+
+% comment
+\newcommand{\comment}[1]{{\it \color{RoyalBlue} #1}}
+
+% log1p
+\DeclareMathOperator{\Log1p}{log1p}
+
+\begin{document}
+
+\title{Asymptotics of special functions}
+
+%\author{UFRJ - U. Augusburg collaboration}
+%\date{\today}
+
+\begin{abstract}
+We discuss the asymptotics of the angular functions and Bessel functions involved in the Fredholm calculations.
+\end{abstract}
+
+\maketitle
+\section{TO DO:}
+\begin{itemize}
+\item profiling with numba
+\item improve speed of frac(nu,x) for certain parameters using asymptotics
+\item test I0(x) and I1(x), test corner case x=0. for array
+\item argue which values the parameters take for given precision in the Casimir calculation and write test for these parameter ranges, perhaps visualize the range in which everything is tested
+\item evaluation of legendres can maybe be relaxed if we stick with using asymptotics after $\ell=1000$.
+\item test accuracy of recursion up to $\ell=1000$.
+\item $\ell=1000$, $x\simeq 0.1$ gives relative error of $10^{-15}$ for Mie coefficients, investigate
+\item small error for pitau, when $x$ is much larger than $\ell$.
+\item find numerically stabler expressions for $A$ to $D$, cancellation error?!
+\item implement recursion functions and use them to test asymptotics
+\item replace np.exp by math.exp if no arrays are used, check that this is actually faster (learned at EuroScipy2018)
+\end{itemize}
+\section{Modified Bessel functions}
+
+The modified Bessel functions satisfy the recurrence relations
+\begin{align}
+I_{\nu+1}(x) &= - \frac{2\nu}{x} I_\nu(x) + I_{\nu-1}(x)\,,\label{eq:rec_besseli} \\
+K_{\nu+1}(x) &= + \frac{2\nu}{x} K_\nu(x) + K_{\nu-1}(x)\,.
+\end{align}
+
+\subsection{low integer order}
+For low integer order, which is needed for the evaluation of the Legendre polynomials, we compute the Bessel functions using Miller's algorithm.
+
+We start by setting $\hat{I}_n(x)=A I_n(x)\equiv 1$ which means that we rescale by a constant $A$ which has to be determined. The rescaled Bessel function obeys the same recurrence relation~\eqref{eq:rec_besseli}. The rescaled Bessel function of order $n-1$ can be found by making use of the continued fraction representation of the fraction of bessel functions $f(n,x)=I_n(x)/I_{n+1}(x)=\hat{I}_n(x)/\hat{I}_{n+1}(x)$. We thus have $\hat{I}_{n-1}(x)=f(n-1,x)$. Using the recurrence relation~\eqref{eq:rec_besseli} repeatedly, we can then find $\hat{I}_0(x)$ or $\hat{I}_1(x)$. Since $I_0(x)$ and $I_1(x)$ can be determined accurately by a Chebyshev series expansion, we can determine the constant $A$ and hence an accurate value for $I_n(x)$. In theory it should be enough to determine $A$ solely by using $I_0(x)$. However, in numerical tests, it turned out that if $n$ is odd, it is more accurate to use $I_1(x)$ instead. 
+
+
+\subsection{high order}
+We use the uniform Debye asymptotics presented in the NIST library. For $\nu\rightarrow\infty$,
+\begin{align}
+I_\nu(\nu z) &\simeq \frac{e^{\nu \eta}}{(2\pi\nu)^{1/2}(1+z^2)^{1/4}} \sum_{k=0}^\infty \frac{U_k(p)}{\nu^k}\,, \\
+K_\nu(\nu z) &\simeq \left(\frac{\pi}{2\nu}\right)^{1/2}\frac{-e^{\nu \eta}}{(1+z^2)^{1/4}} \sum_{k=0}^\infty (-1)^k \frac{U_k(p)}{\nu^k}\,,
+\end{align}
+where
+\begin{align}
+\eta &= (1+z^2)^{1/2} + \log\frac{z}{1+(1+z^2)^{1/2}} = (1+z^2)^{1/2} - \mathrm{arcsinh}(1/z)\,, \\
+p & = (1+z^2)^{-1/2}
+\end{align}
+and $U_k(p)$ are polynomials of degree $3k$, defined by the recurrence relation
+\begin{equation}
+U_{k+1}(p) = \frac{1}{2}p^2(1-p^2) U_k^\prime(p) + \frac{1}{8}\int_0^p (1-5t^2) U_k(t)\mathrm{d}t
+\end{equation}
+beginning with $U_0(p)=1$. For $k=1,2,3$,
+\begin{equation}
+\begin{aligned}
+U_1(p) &= \frac{1}{24}(3p-5p^3)\,, \\
+U_2(p) &= \frac{1}{1152}(81p^2-462p^4+385p^6)\,, \\
+U_3(p) &= \frac{1}{414720}(30375p^3-369603p^5+765765p^7 - 425425 p^9)\,. \\
+\end{aligned}
+\end{equation}
+
+We define the exponentially scaled modified Bessel functions intuitively as
+\begin{align}
+\tilde I_\nu(\nu z) = e^{-\nu \eta} I_\nu(\nu z)\,,\\
+\tilde K_\nu(\nu z) = e^{\nu \eta} K_\nu(\nu z)\,.
+\end{align}
+
+For the exponentially scaled modified Bessel function of the second kind the recurrence relation reads
+\begin{equation}
+\tilde K_{\nu+1}(x) = + \frac{2\nu}{x}e^{\Psi_1} \tilde K_\nu(x) + e^{\Psi_2}\tilde K_{\nu-1}(x)
+\end{equation}
+with
+\begin{align}
+\Psi_1 &= \psi(\nu+1, x) - \psi(\nu, x)\,, \\
+\Psi_2 &= \psi(\nu+1, x) - \psi(\nu-1, x)
+\end{align}
+and
+\begin{align*}
+\psi(\nu, x) &= \sqrt{\nu^2 + x^2} + \nu \log\left(x/t_\nu\right)\,, \\
+t_\nu &= t_\nu(x) = \nu + \sqrt{\nu^2 + x^2}\,.
+\end{align*}
+Numerically more stable expressions for the exponentials are given by
+\begin{align}
+e^{\Psi_1} &= \frac{x}{t_{\nu+1}} \exp\left(\Delta_1 - \nu \Log1p\left(\frac{1+\Delta_1}{t_\nu}\right)\right)\,, \\
+e^{\Psi_2} &= \frac{x^2}{t_{\nu-1}t_{\nu+1}}\exp\left(\Delta_2 - \nu \Log1p\left(\frac{2+\Delta_1}{t_{\nu-1}}\right)\right)
+\end{align}
+with
+\begin{align*}
+\Delta_1 &= \frac{2\nu+1}{\sqrt{(\nu+1)^2+x^2} + \sqrt{\nu^2 + x^2}}\,, \\
+\Delta_2 &= \frac{4\nu}{\sqrt{(\nu+1)^2+x^2} + \sqrt{(\nu-1)^2 + x^2}}\,.
+\end{align*}
+Using the Wronskian the modified Bessel functions of the first kind can then be computed  in terms of
+\begin{equation}
+\tilde{I}_{\nu}(x) = \left[x \left(e^{-\Psi_1} \tilde{K}_{\nu+1}(x) + f_\nu(x) \tilde{K}_\nu(x)\right)\right]^{-1}\,.
+\end{equation}
+
+\section{Mie coefficients}
+
+For a perfectly reflecting sphere the Mie coefficients are
+\begin{align}
+a_\ell(ix) &= (-1)^\ell \frac{\pi}{2}\frac{xI_{\ell-1/2} - \ell I_{\ell+1/2}(x)}{x K_{\ell-1/2}(x) + \ell K_{\ell+1/2}(x)}\,, \\
+b_\ell(ix) &= (-1)^{\ell+1} \frac{\pi}{2} \frac{I_{\ell+1/2}(x)}{K_{\ell+1/2}(x)}\,.
+\end{align}
+
+Once again we define exponentially scaled Mie coefficients through the definitions of the exponentially scaled modified Bessel functions
+\begin{align}
+\tilde a_\ell(ix) &=  e^{-2\psi(\ell,x)} a_\ell(ix)\,,\\
+\tilde b_\ell(ix) &=  e^{-2\psi(\ell,x)} b_\ell(ix)
+\end{align}
+with
+\begin{equation}
+\psi(\ell,x) = \sqrt{(\ell+1/2)^2 + x^2} + (\ell+1/2) \log\frac{x}{\ell+1/2+\sqrt{(\ell+1/2)^2+x^2}}\,.
+\end{equation}
+In terms of the expontentially scaled modified Bessel functions they are
+\begin{align}
+\tilde a_\ell(ix) &=  \frac{\pi}{2}\frac{x e^\Psi\tilde I_{\ell-1/2} - \ell \tilde I_{\ell+1/2}(x)}{x e^{-\Psi}\tilde K_{\ell-1/2}(x) + \ell \tilde K_{\ell+1/2}(x)}\,,\\
+\tilde b_\ell(ix) &=  \frac{\pi}{2} \frac{\tilde I_{\ell+1/2}(x)}{\tilde K_{\ell+1/2}(x)}
+\end{align}
+where
+\begin{equation}
+\Psi(\ell, x) = \psi(\ell-1, x)- \psi(\ell, x)\,.
+\end{equation}
+In order to avoid numerical errors due to cancellation, $\Psi$ should be computed using the identities
+\begin{equation}
+\Delta = \sqrt{(\ell-1/2)^2 + x^2} - \sqrt{(\ell+1/2)^2 + x^2} = -\frac{2\ell}{\sqrt{(\ell+1/2)^2 + x^2} + \sqrt{(\ell-1/2)^2 + x^2}}
+\end{equation}
+and
+\begin{equation}
+(\ell-1/2)\log\frac{x}{t_-}-(\ell+1/2)\log\frac{x}{t_+} = 
+\ell \log\left(1+\frac{1-\Delta}{t_-}\right)+\frac{1}{2}\log\frac{t_- t_+}{x^2}
+\end{equation}
+with
+\begin{align}
+t_- = \ell-1/2+\sqrt{(\ell-1/2)^2+x^2} \\
+t_+ = \ell+1/2+\sqrt{(\ell+1/2)^2+x^2}
+\end{align}
+thus
+\begin{equation}
+e^\Psi = \frac{\sqrt{t_-t_+}}{x}\exp\left[\Delta + \ell \mathrm{log1p}(1-\Delta)/t_-\right]
+\end{equation}
+which gives values to machine precision.
+
+
+
+\section{Legendre polynomials}
+
+We make use of the methods dicussed in Hartmann's thesis.
+However, we want to use exponentially scaled versions of these
+in order to have an estimator for calulating the scattering amplitudes.
+
+We employ the asymptotics only for large orders $\ell\geq 1000$.
+
+\subsection{Small arguments}
+For small arguments,
+\begin{equation}
+(\ell+1)\sinh x < 25\,,
+\end{equation}
+the Legendre polynomials can be evaluated using the asymptotic expansion
+\begin{equation}\label{eq:Ple_low}
+P_\ell(\cosh x) \simeq \sum_{n=0}^{12} \frac{f_n(x\nu)}{\nu^n}
+\end{equation}
+where $\nu=\ell+1/2$. The functions $f_n(x)$ vanish for odd values of $n$
+and for even values of $n$ they are given by
+\begin{equation}
+\frac{f_n(x\nu)}{\nu^n} = (-1)^{n/2}\sum_{m=n/2}^{n} a_{n,m} x^m \nu^{m-n} I_m(x\nu)
+\end{equation}
+where the coefficients $a_{n,m}$ are given in Tab.~\ref{table:a_nm}. By using exponentially scaled modified Bessel functions $\tilde I_m(z) = I_m(z) e^{-z}$ the exponentially scaled Legendre polynomials
+\begin{equation}
+\tilde P_\ell(\cosh x) = P_\ell(\cosh x) e^{-(\ell+1/2)\vert x\vert}
+\end{equation}
+can be obtained from the same formula.
+
+Formula~\eqref{eq:Ple_low} gives values at machine precision for $\ell > 1000$ which has been tested. Maybe the maximum value of $n$ can be lowered if we choose to stick with $\ell>1000$.
+
+\begin{table}
+{\def\arraystretch{1.5}\tabcolsep=6pt
+\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+$a_{n,m}$ & $n$ & $\dots$ &$\dots$&$\dots$&$\dots$&$\dots$& $n/2$ \\\hline
+0 & $1$ & & & & & &\\\hline
+2 & $\frac{1}{12}$ & $\frac{1}{8}$ & & & & &\\\hline
+4 &$\frac{1}{160}$ & $\frac{7}{160}$ & $\frac{11}{384}$ & & & &\\\hline
+6 & $\frac{61}{120960}$ & $\frac{671}{80640}$ & $\frac{101}{3584}$ & $\frac{173}{15360}$ & & &\\\hline
+8 & $\frac{1261}{29030400}$ & $\frac{1261}{967680}$ & $\frac{217}{20480}$ & $\frac{90497}{3870720}$ & $\frac{22931}{3440640}$ & & \\\hline
+10 & $\frac{79}{20275200}$ & $\frac{1501}{8110080}$ & $\frac{7034857}{2554675200}$ & $\frac{1676287}{113541120}$ & $\frac{10918993}{454164480}$ & $\frac{1319183}{247726080}$ & \\\hline
+12 & $\frac{66643}{185980354560}$ & $\frac{1532789}{61993451520}$ & $\frac{3135577}{5367398400}$ & $\frac{72836747}{12651724800}$ & $\frac{2323237523}{101213798400}$ & $\frac{1396004969}{47233105920}$ & $\frac{233526463}{43599790080}$\\\hline
+\end{tabular}
+}
+\caption{The coefficients $a_{n,m}$ for even values of $n$ are given for $m=n$ in the first column to $m=n/2$ in the last non-vanishing value to the right.}
+\label{table:a_nm}
+\end{table}
+
+\subsection{Large arguments}
+For large arguments,
+\begin{equation}
+(\ell+1)\sinh x > 25\,,
+\end{equation}
+we make use of the asymptotic expansion
+\begin{equation}
+P_\ell (\cosh x) \simeq \left(\frac{2}{\pi \sinh x}\right)^{1/2} \sum_{m=0}^{M-1} C_{\ell,m} \frac{\cosh[(m+\ell+1/2)x]}{\sinh^m x}\,.
+\end{equation}
+The coefficients $C_\ell,m$ are given in terms of the recurrence relation
+\begin{equation}
+C_{\ell,m+1} = \frac{(m+1/2)^2}{2(m+1)(\ell+m+3/2)} C_{\ell,m}
+\end{equation}
+with initial value
+\begin{equation}
+C_{\ell,0} = \frac{\Gamma(\ell+1)}{\Gamma(\ell+3/2)}\,.
+\end{equation}
+
+Numerically, we prefer to have an exponentially scaled version
+\begin{equation}
+\tilde P_\ell(\cosh x) = P_\ell(\cosh x) e^{-(\ell+1/2)\vert x\vert}
+\end{equation} Furthermore the hyperbolic functions have to be rewritten in terms of exponentials, in order to avoid overflow.
+
+We find
+\begin{equation}
+\tilde P_\ell(\cosh x) \simeq \left(\frac{1}{2\pi \sinh x}\right)^{1/2} \sum_{m=0}^{M-1} \tilde{C}_{\ell, m} \frac{1+e^{-(2m+2\ell+1)x}}{(1-e^{-2x})^m}\,.
+\end{equation}
+Note that in the recursion for the coefficients $\tilde{C}_{\ell,m}$, the factor of two has been cancelled by the ones of the hyperbolic functions,
+\begin{equation}
+\tilde C_{\ell,m+1} = \frac{(m+1/2)^2}{(m+1)(\ell+m+3/2)} \tilde C_{\ell,m}
+\end{equation}
+and they have the same initial value $\tilde C_{\ell,0} = C_{\ell,0}$.
+
+In practice, it is faster and more accurate to compute $C_{\ell,0}$ via the asymptotic series
+\begin{equation}
+C_{\ell,0} \simeq \frac{1}{\sqrt{\ell}}\left(1-\frac{3}{8\,\ell}+\frac{25}{128\,\ell^2} - \frac{105}{1024\,\ell^3} + \frac{1659}{32768\,\ell^4} - \frac{6237}{262144\,\ell^5}+ \dots\right)
+\end{equation}
+which was obtained using mathematica.
+For $\ell\geq 1000$ it yields values at machine precision.
+
+\section{Angular functions}
+It is convenient to absorb the factors $\frac{2\ell+1}{\ell(\ell+1)}$ into $\pi_\ell$ and $\tau_\ell$:
+\begin{align}
+p_\ell(x) &\equiv \frac{2\ell+1}{\ell(\ell+1)} \pi_\ell(x) = \left[P_{\ell-1}(x)-P_{\ell+1}(x)\right](1-x^2)^{-1} \\
+t_\ell(x) &\equiv \frac{2\ell+1}{\ell(\ell+1)} \tau_\ell(x) = -x p_\ell(x) + (2\ell+1)P_\ell(x)
+\end{align}
+For small arguments $\ell<1000$ we use the recursion for $\pi_\ell$ and $\tau_\ell$ \cite{BH}
+\begin{equation}
+\begin{aligned}
+\pi_\ell(x) &= \frac{2\ell-1}{\ell-1}x\pi_{\ell-1}(x) - \frac{\ell}{\ell-1}\pi_{\ell-2}(x) \\
+\tau_\ell(x) &= \ell x \pi_\ell(x) - (\ell+1)\pi_{\ell-1}(x)
+\end{aligned}
+\end{equation}
+beginning with $\pi_0 = 0$ and $\pi_1 = 1$ or, accordingly,
+\begin{equation}
+\begin{aligned}
+p_\ell(x) &= \frac{2\ell+1}{\ell+1}\left[x p_{\ell-1}(x) - \frac{\ell-2}{2\ell-3}p_{\ell-2}(x)\right] \\
+t_\ell(x) &= \ell x p_\ell(x) - \frac{(2\ell+1)(\ell-1)}{2\ell-1} p_{\ell-1}(x)
+\end{aligned}
+\end{equation}
+beginning with $p_0 = 0$ and $p_1 = 3/2$.
+
+Using the exponentially scaled Legendre polynomials we define the exponentially scaled functions $\tilde p_\ell$ and $\tilde t_\ell$ by means of
+\begin{equation}
+p_\ell(x) = \tilde p_\ell(x) e^{(\ell+1/2)\mathrm{arccosh}\vert x\vert}\,,\quad t_\ell(x) = \tilde t_\ell(x) e^{(\ell+1/2)\mathrm{arccosh}\vert x\vert}\,.
+\end{equation}
+Their definition is then given by
+\begin{equation}
+\begin{aligned}
+\tilde p_\ell(x) & = \left[e^{-2\mathrm{arccosh}\vert x\vert}\tilde P_{\ell-1}(x)-\tilde P_{\ell+1}(x)\right](1-x^2)^{-1} \\
+\tilde t_\ell(x) & = -x \tilde p_\ell(x) + (2\ell+1)e^{-\mathrm{arccosh}\vert x\vert}\tilde P_\ell(x)
+\end{aligned}
+\end{equation}
+and the recursion relations are
+\begin{equation}
+\begin{aligned}
+\tilde p_\ell(x) &= \frac{2\ell+1}{\ell+1}\left[xe^{-\mathrm{arccosh}\vert x\vert} \tilde p_{\ell-1}(x) - \frac{\ell-2}{2\ell-3}e^{-2\mathrm{arccosh}\vert x\vert}\tilde p_{\ell-2}(x)\right] \\
+\tilde t_\ell(x) &= \ell x \tilde p_\ell(x) - \frac{(2\ell+1)(\ell-1)}{2\ell-1} e^{-\mathrm{arccosh}\vert x\vert} \tilde p_{\ell-1}(x)
+\end{aligned}
+\end{equation}
+with the starting values $\tilde p_0 = 0$ and $\tilde p_1 = \frac{3}{2} e^{-3/2 \mathrm{arccosh}\vert x\vert}$
+
+\subsection{Uniform expansion}
+
+\begin{equation}
+P^{-m}_\ell (\cosh x) = \frac{1}{\nu^m} \left(\frac{x}{\sinh x}\right)^{1/2} \sum_{k=0}^\infty c_k(x) \left(m+\frac{1}{2}\right)^{(k)} I_{m+k}(\nu x) \left(\frac{2x}{\nu}\right)^k
+\end{equation}
+with $\nu = \ell + \frac{1}{2}$ and the rising factorials are defined by
+\begin{equation}
+\left(m+\frac{1}{2}\right)^{(k)} = \frac{\Gamma(m+k+1/2)}{\Gamma(m+1/2)}\,.
+\end{equation}
+The coefficients $c_k^0(x)$ can be obtained from the series expansion
+\begin{equation}
+\left(2x\frac{\cosh x - \cosh\left(\sqrt{x^2-y}\right)}{y \sinh(x)}\right)^{\mu} = \sum_{k=0}^\infty c_k(x) y^k\,.
+\end{equation}
+The first coefficients are
+\begin{equation}
+\begin{aligned}
+c_0 &= 1\,, \\
+c_1 &= \mu\frac{1-  x \coth (x)}{4 x^2}\,, \\
+c_2 &= \mu\frac{3 \mu +3 (\mu -1) x^2 \coth ^2(x)+4 x^2-6 (\mu +1) x \coth (x)+9}{96 x^4}\,.
+\end{aligned}
+\end{equation}
+With the connection formula
+\begin{equation}
+P^m_\ell (z) = \frac{\Gamma(1+\ell+m)}{\Gamma(1+\ell-m)}P_\ell^{-m}(z)
+\end{equation}
+we find
+\begin{equation}
+\pi_\ell(\cosh x) = \frac{1}{\sinh x}P^1_\ell(\cosh x) \simeq \ell(\ell+1) \frac{1}{\nu} \left(\frac{x}{\sinh^3 x}\right)^{1/2} \sum_{k=0}^\infty c_k(x) \left(\frac{3}{2}\right)^{(k)} I_{k+1}(\nu x) \left(\frac{2x}{\nu}\right)^k
+\end{equation}
+with
+\begin{equation}
+\begin{aligned}
+c_0 &= 1\,, \\
+c_1 &= \frac{1-x \coth (x)}{8 x^2}\,, \\
+c_2 &= \frac{8 x^2-3 x^2 \coth ^2(x)-18 x \coth (x)+21}{384 x^4}\,, \\
+c_3 &= \frac{-3 x^3 \coth ^3(x)+40 x^2-15 x^2 \coth ^2(x)-81 x \coth (x)+99}{3072 x^6}\,.
+\end{aligned}
+\end{equation}
+
+\section{Scattering amplitudes}
+The scattering amplitudes are
+\begin{equation}
+\begin{aligned}
+S_1(\Theta) &= \sum_{\ell=1}^\infty \frac{2\ell+1}{\ell(\ell+1)}
+    \left[ a_\ell\pi_\ell\big(\cos(\Theta)\big) + b_\ell\tau_\ell\big(\cos(\Theta)\big)\right]\\
+S_2(\Theta) &= \sum_{\ell=1}^\infty \frac{2\ell+1}{\ell(\ell+1)}
+    \left[ a_\ell\tau_\ell\big(\cos(\Theta)\big) + b_\ell\pi_\ell\big(\cos(\Theta)\big)\right]\,,
+\end{aligned}
+\end{equation}
+with the new definitions
+\begin{equation}
+\begin{aligned}
+S_1(x, z) &= \sum_{\ell=1}^\infty 
+    \left[ a_\ell(ix) p_\ell(-z) + b_\ell(ix) t_\ell(-z)\right]\\
+S_2(x, z) &= \sum_{\ell=1}^\infty \left[ a_\ell(i x) t_\ell(-z) + b_\ell(i x) p_\ell(-z)\right]\,,
+\end{aligned}
+\end{equation}
+with
+\begin{equation}
+p_\ell(-z) = (-1)^{\ell+1} p_\ell(z)\,,\quad t_\ell(-z) = (-1)^{\ell} t_\ell(z)
+\end{equation}
+we observe that $S_1$ is positive and $S_2$ negative.
+Allowing the notation
+\begin{equation}
+\begin{aligned}
+S_1(x, z) &= \sum_{\ell=1}^\infty 
+    \left[ a_\ell(ix) p_\ell(z) + b_\ell(ix) t_\ell(z)\right]\\
+S_2(x, z) &= -\sum_{\ell=1}^\infty \left[ a_\ell(i x) t_\ell(z) + b_\ell(i x) p_\ell(z)\right]\,,
+\end{aligned}
+\end{equation}
+In terms of the exponentially scaled functions we find
+\begin{equation}
+\begin{aligned}
+\tilde S_1(x, z) &= S_1(x, z) \exp(-2x\sqrt{(1+z)/2}) = \phantom{-}\sum_{\ell=1}^\infty 
+    \left[ \tilde a_\ell(ix) \tilde p_\ell(z) +  \tilde b_\ell(ix) \tilde t_\ell(z)\right]e^{\chi(\ell,x,z)}\\
+\tilde S_2(x, z) &= S_2(x, z) \exp(-2x\sqrt{(1+z)/2}) =-\sum_{\ell=1}^\infty \left[\tilde a_\ell(i x)\tilde t_\ell(z) +\tilde b_\ell(i x)\tilde p_\ell(z)\right]e^{\chi(\ell,x,z)}\,,
+\end{aligned}
+\end{equation}
+with
+\begin{equation}
+\chi(\ell,x,z) = (\ell+1/2)\mathrm{arccosh}z + \sqrt{(2\ell+1)^2 + (2 x)^2} - (2\ell+1) \mathrm{arcsinh} \frac{\ell+1/2}{x} - 2 x \sqrt{(1+z)/2}\,.
+\end{equation}
+Since for large $x$ the scattering amplitudes grow exponentially with exponent $2 x \sqrt{(1+z)/2}$, in order to prevent overflow we need to substract that exponent from $\chi$. However, cancellation might appear, so we have to write it in a computer friendly way. First we write $\chi(\ell, x, z)$ as
+\begin{equation}
+\chi(\ell,x,z) = x\left\lbrace2\left[\sqrt{y^2+1} - \sqrt{(1+z)/2}\right] + y\left[\mathrm{arccosh}(z) - 2\mathrm{arcsinh} (y)\right]\right\rbrace
+\end{equation}
+with $\nu = \ell+1/2$, $y = \nu/x$ and rewrite
+\begin{equation}
+\sqrt{y^2 + 1} - \sqrt{(1+z)/2} = \Delta \frac{y+\sqrt{(z-1)/2}}{\sqrt{y^2+1} + \sqrt{(1+z)/2}}
+\end{equation}
+and
+\begin{equation}
+\mathrm{arccosh}(z) - 2\mathrm{arcsinh} (y) = \log\left(1+ \frac{t_\chi}{(y+\sqrt{y^2+1})^2}\right)
+\end{equation}
+where
+\begin{equation}
+t_\chi \equiv z+\sqrt{z^2-1}-(y+\sqrt{y^2+1})^2 = -  \frac{2(z-1)\Delta(\Delta + \sqrt{2(z-1)})}{\sqrt{z^2-1} + \sqrt{z^2-1+2(z-1)\Delta(\Delta + \sqrt{2(z-1)})}}
+\end{equation}
+where $\Delta = y-\sqrt{(z-1)/2}$. The calculation of $\Delta$ suffers potentially from a loss of accuracy due to the cancellation error when $y$ and $\sqrt{(z-1)/2}$ are very close values.
+
+
+\begin{thebibliography}{99}
+\bibitem{BH}
+C. F. Bohren and D. R. Huffman,
+\textit{Absorption and Scattering of Light by Small Particles}
+(Wiley, New York, 1983), Chap. 4.
+
+\end{thebibliography}
+
+\end{document}
+\grid
