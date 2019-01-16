@@ -24,6 +24,11 @@ with
 
 .. todo::
     * Write tests (mpmath for low l, perhaps also for higher ones; test vs asymptotics). 
+    
+    * Understand behavior close to z=1. for large x,
+      see analysis/scattering-amplitude/S1S2/plot_high.py
+
+    * figure out when to use chi and chi_old
 
 """
 import numpy as np
@@ -81,19 +86,12 @@ def S1S2(x, z, ale, ble):
     ble : nd.array
         Mie coefficient cache
     
-    .. todo::
-        Write test!
-
-        Understand behavior close to z=1. for large x,
-        see analysis/scattering-amplitude/S1S2/plot_high.py
-
-        figure out when to use chi and chi_old
-
-    
     Returns
     -------
     (float, float)
         (:math:`\tilde S_1`, :math:`\tilde S_2`)
+    
+    
     """
     err = 1.0e-16
     #chi = chi_old
