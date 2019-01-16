@@ -15,6 +15,3 @@ __pycache__/
 
 # Sphinx documentation
 docs/build/
-
-# test data
-*.dat
