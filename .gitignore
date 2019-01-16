@@ -1,3 +1,6 @@
+# ignore test data
+*.dat
+
 # LaTeX
 *.aux
 *.log
