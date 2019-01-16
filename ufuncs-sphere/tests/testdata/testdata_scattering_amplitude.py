@@ -4,8 +4,8 @@ sys.path.append("../")
 sys.path.append("../../") # to prevent crash
 from test_scattering_amplitude import mp_S1S2
 
-X = np.logspace(-2, 2, 6)
-Z = 1+np.logspace(-2, 2, 6)
+X = np.logspace(-5, 5, 10)
+Z = 1+np.logspace(-5, 5, 10)
 
 if not os.path.isfile("scattering_amplitude.dat"):
     for x in X:
