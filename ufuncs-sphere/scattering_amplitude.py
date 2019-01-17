@@ -28,7 +28,7 @@ with
     * Understand behavior close to z=1. for large x,
       see analysis/scattering-amplitude/S1S2/plot_high.py
 
-    * figure out when to use chi and chi_old
+    * figure out when to use chi and chi_old: chi_old seems better on testdata
 
 """
 import numpy as np
@@ -94,12 +94,12 @@ def S1S2(x, z, ale, ble):
     
     """
     err = 1.0e-16
-    #chi = chi_old
+    chi = chi_old
     arccoshz = np.arccosh(z)
     pte_cache = np.vstack(pte_low(1000, arccoshz))
     lest = x*np.sqrt(np.abs(z-1)/2)
     lest_int = int(lest)+1
-    print("lest", lest)
+    #print("lest", lest)
 
     pe, te = pte(lest_int, arccoshz, pte_cache)
     #pe, te = pte_asymptotics(lest_int, arccoshz)
@@ -124,7 +124,7 @@ def S1S2(x, z, ale, ble):
         S1 += S1term
         S2 += S2term
         l += 1
-    print("dl+", l-lest_int)
+    #print("dl+", l-lest_int)
     
     if lest_int == 1:
         return S1, S2 
@@ -146,7 +146,7 @@ def S1S2(x, z, ale, ble):
         l -= 1
         if l == 0:
             break
-    print("dl-",lest_int-l)
+    #print("dl-",lest_int-l)
     return S1, S2
 
 @jit("float64(float64, float64)", nopython=True)
