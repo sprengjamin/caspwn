@@ -391,6 +391,46 @@ t_\chi \equiv z+\sqrt{z^2-1}-(y+\sqrt{y^2+1})^2 = -  \frac{2(z-1)\Delta(\Delta +
 \end{equation}
 where $\Delta = y-\sqrt{(z-1)/2}$. The calculation of $\Delta$ suffers potentially from a loss of accuracy due to the cancellation error when $y$ and $\sqrt{(z-1)/2}$ are very close values.
 
+\section{Transformation between polarization basis}
+
+The coefficients describing the transformation between the two polarization basis are given by
+\begin{equation}
+\begin{aligned}
+A &=
+\frac{\xi^4\cos(\varphi)-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]
+\big[k_1k_2+\kappa_1\kappa_2\cos(\varphi)\big]}
+{\xi^4-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]^2} \\
+B & = -\frac{\xi^2 k_1 k_2\sin^2(\varphi)}
+{\xi^4-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]^2} \\
+C & = +\xi\frac{\kappa_2k_1^2+\kappa_1k_1k_2\cos(\varphi)}
+{\xi^4-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]^2}\sin(\varphi) \\
+D & = -\xi\frac{\kappa_1k_2^2+\kappa_2k_1k_2\cos(\varphi)}
+{\xi^4-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]^2}\sin(\varphi)
+\end{aligned}
+\end{equation}
+with $\varphi = \varphi_1 - \varphi_2$.
+
+For $-\pi/2 \geq \varphi \geq \pi/2$ it is better to rewrite the denominators as
+\begin{equation}
+\mathcal{N} \equiv \xi^4-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big]^2 = -\left[\xi^2(k_1^2 + k_2^2) + 2 \kappa_1 \kappa_2 k_1 k_2 \cos(\varphi) + k_1^2 k_2^2 \left(1 + \cos^2(\varphi)\right)\right]
+\end{equation}
+and the numerator of $A$ as
+\begin{multline}
+\mathcal{A}\equiv\xi^4\cos\varphi-\big[\kappa_1\kappa_2+k_1k_2\cos(\varphi)\big] \big[k_1 k_2+\kappa_1\kappa_2\cos(\varphi)\big]= \\-\left[\xi^2(k_1^2 + k_2^2)\cos(\varphi) + 2k_1^2 k_2^2 \cos(\varphi) + \kappa_1 \kappa_2 k_1 k_2\left(1 + \cos^2(\varphi) \right)\right]\,.
+\end{multline}
+When $\varphi$ is close to $\pi$ cancellation errors might occur and we need to rewrite the expressions as
+\begin{equation}
+\mathcal{N} = -\left[ 2 \delta - 4 s^2 \delta + 4 s^4 k_1^2 k_2^2 + \xi^2(k_1^2 + k_2^2)\right]
+\end{equation}
+and
+\begin{equation}
+\mathcal{A} = -\left[2\delta - 4 s^2 \delta + 4 s^4 \kappa_1 \kappa_2 k_1 k_2 -\xi^2 (k_1^2 + k_2^2)\cos\phi\right]
+\end{equation}
+with $\phi = \varphi-\pi$, $s = \sin(\phi/2)$, $c = \sin(\phi/2)$ and
+\begin{equation}
+\delta \equiv k_1^2 k_2^2 - \kappa_1\kappa_2 k_1 k_2 = - \frac{\xi^4 k_1^2 k_2^2 + \xi^2(k_1^2 + k_2^2)k_1^2 k_2^2}{k_1^2k_2^2 + \kappa_1 \kappa_2 k_1 k_2}\,.
+\end{equation}
+
 
 \begin{thebibliography}{99}
 \bibitem{BH}
