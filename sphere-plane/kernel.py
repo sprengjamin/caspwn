@@ -15,7 +15,7 @@ from ABCD import ABCD
 from scattering_amplitude import S1S2
 
 @jit("float64[:](float64, float64, float64, float64, float64, float64[:], float64[:])", nopython=True)
-def phiKernel(rho, xiR, k1, k2, phi, ale, ble):
+def phiKernel(rho, xi, k1, k2, phi, ale, ble):
     r"""
     Returns the phikernels.
 
@@ -48,7 +48,7 @@ def phiKernel(rho, xiR, k1, k2, phi, ale, ble):
     e = np.exp(exponent)
     A, B, C, D = ABCD(xi, k1, k2, phi)
     prefactor = np.sqrt(k1*k2)/(2*np.pi*xi*np.sqrt(kappa1*kappa2))
-    S1, S2 = S1S2(xi, z, ale, ble)
+    S1, S2 = S1S2(xi*rho, z, ale, ble)
     pkTMTM =  prefactor*(B*S1+A*S2)*e
     pkTETE =  -prefactor*(A*S1+B*S2)*e
     pkTMTE =  prefactor*(C*S1+D*S2)*e
