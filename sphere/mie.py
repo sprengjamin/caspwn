@@ -33,6 +33,8 @@ For perfectly reflecting spheres the mie coefficients are
 
 import numpy as np
 from numba import jit
+import sys
+sys.path.append("../ufuncs/")
 from bessel import InuKnu_e
 
 @jit("float64(float64, float64)", nopython=True)

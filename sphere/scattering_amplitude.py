@@ -34,6 +34,8 @@ with
 import numpy as np
 from numpy import sqrt as Sqrt
 from numba import jit
+import sys
+sys.path.append("../ufuncs/")
 from angular import pte, pte_low, pte_asymptotics
 from mie import mie_e_array
 

@@ -22,6 +22,8 @@ and to prevent under/overflow it is important to consider the exponentially scal
 """
 import numpy as np
 from numba import jit
+import sys
+sys.path.append("../ufuncs/")
 from bessel import Ine
 from legendre import Ple_asymptotics
 
