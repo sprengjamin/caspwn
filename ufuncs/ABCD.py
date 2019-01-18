@@ -1,5 +1,7 @@
 import numpy as np
+from numba import jit
 
+@jit("UniTuple(float64, 4)(float64, float64, float64, float64)", nopython=True)
 def ABCD(xi, k1, k2, phi):
     r"""Coefficients :math:`A`, :math:`B`, :math:`C` and :math:`D`.
 
