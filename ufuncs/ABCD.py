@@ -1,3 +1,11 @@
+r""" Coefficients describing the transformation between the two
+polarization basis.
+
+.. todo::
+    * test (mpmath, corner cases)
+
+"""
+
 import numpy as np
 from numba import jit
 
@@ -49,11 +57,16 @@ def ABCD(xi, k1, k2, phi):
         Polarization transformation coefficients
 
     """
-    kappa1 = np.sqrt(xi**2+k1**2)
-    kappa2 = np.sqrt(xi**2+k2**2)
-    denom = k1**2*k2**2*(1+np.cos(phi)**2) + xi**2*(k1**2+k2**2) + 2*k1*k2*kappa1*kappa2*np.cos(phi)
-    numA = xi**2*(k1**2+k2**2)*np.cos(phi) + 2*k1**2*k2**2*np.cos(phi) + k1*k2*kappa1*kappa2*(1+np.cos(phi)**2)
-    numB = xi**2*k1*k2*np.sin(phi)**2
-    numC = -xi*np.sin(phi)*(kappa2*k1**2+kappa1*k1*k2*np.cos(phi))
-    numD = xi*np.sin(phi)*(kappa1*k2**2+kappa2*k1*k2*np.cos(phi))
-    return numA/denom, numB/denom, numC/denom, numD/denom
+    if phi == 0.:
+        return 1., 0., 0., 0.
+    elif phi == np.pi:
+        return -1., 0., 0., 0.
+    else:
+        kappa1 = np.sqrt(xi**2+k1**2)
+        kappa2 = np.sqrt(xi**2+k2**2)
+        denom = k1**2*k2**2*(1+np.cos(phi)**2) + xi**2*(k1**2+k2**2) + 2*k1*k2*kappa1*kappa2*np.cos(phi)
+        numA = xi**2*(k1**2+k2**2)*np.cos(phi) + 2*k1**2*k2**2*np.cos(phi) + k1*k2*kappa1*kappa2*(1+np.cos(phi)**2)
+        numB = xi**2*k1*k2*np.sin(phi)**2
+        numC = -xi*np.sin(phi)*(kappa2*k1**2+kappa1*k1*k2*np.cos(phi))
+        numD = xi*np.sin(phi)*(kappa1*k2**2+kappa2*k1*k2*np.cos(phi))
+        return numA/denom, numB/denom, numC/denom, numD/denom
