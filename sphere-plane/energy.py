@@ -15,7 +15,7 @@ import sys
 sys.path.append("../sphere/")
 sys.path.append("../ufuncs/")
 from mie import mie_e_array
-from integrate import quadrature
+from integration import quadrature, auto_integration
 from index import itt
 
 
@@ -368,7 +368,7 @@ def isFinite(rho, xi, k1, k2):
         return True
             
 
-def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
+def LogDet(nproc, rho, xi, N, M, pts, wts):
     r"""
     Computes the sum of the logdets the m-matrices.
 
@@ -386,8 +386,6 @@ def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
 
     Returns
     -------
@@ -399,6 +397,10 @@ def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
     mArray_sparse_mp
 
     """
+    # precompute mie coefficients
+    lmax = int(1e4) # for testing purpose
+    ale, ble = mie_e_array(lmax, xi*rho)
+    
     row, col, data = mArray_sparse_mp(nproc, rho, xi, N, M, pts, wts, ale, ble)
     
     # m=0
@@ -421,7 +423,7 @@ def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
         logdet += 2*factor.logdet()
     return logdet
 
-def energy_zero(rho, N, M, X, nproc):
+def energy_zero(rho, N, M, nproc):
     r"""
     Computes the Casimir at zero temperature.
 
@@ -433,8 +435,6 @@ def energy_zero(rho, N, M, X, nproc):
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of xi-integration
     nproc: int
         number of processes spawned by multiprocessing module
 
@@ -450,25 +450,16 @@ def energy_zero(rho, N, M, X, nproc):
 
     """
     k_pts, k_wts = quadrature(N)
-    xi_pts, xi_wts = quadrature(X)
-    
-    energy = 0.
-    for i in range(X):
-        lmax = int(1e4) # for testing purpose
-        ale, ble = mie_e_array(lmax, xi_pts[i]*rho)
-        result = LogDet(nproc, rho, xi_pts[i], N, M, k_pts, k_wts, ale, ble)
-        print("xi=", xi_pts[i], ", val=", result)
-        energy += xi_wts[i]*result
+    logdet = lambda xi : LogDet(nproc, rho, xi, N, M, k_pts, k_wts)
+    energy = auto_integration(logdet)
     return energy
 
 
 if __name__ == "__main__":
-
-    rho = 10.
+    rho = 40.
     N = int(5*np.sqrt(rho))*2+1
     print("N", N)
     M = N
-    X = 30
     nproc = 4
     from kernel import phiKernel
     phiSequence = make_phiSequence(phiKernel)
@@ -476,7 +467,7 @@ if __name__ == "__main__":
     #ale, ble = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., ale, ble))
     
-    en = energy_zero(rho, N, M, X, nproc) 
+    en = energy_zero(rho, N, M, nproc) 
     print("energy")
     print(en)
     print("PFA")
