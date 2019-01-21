@@ -15,7 +15,9 @@
 # import os
 import sys
 # sys.path.insert(0, os.path.abspath('.'))
-sys.path.append('/home/benjamin/wd/nystrom/ufuncs-sphere')
+sys.path.append('/home/benjamin/wd/nystrom/sphere')
+sys.path.append('/home/benjamin/wd/nystrom/ufuncs')
+sys.path.append('/home/benjamin/wd/nystrom/sphere-plane')
 
 # -- Project information -----------------------------------------------------
 

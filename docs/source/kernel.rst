@@ -1,0 +1,6 @@
+Kernel
+======
+
+.. automodule:: kernel
+    :members:
+

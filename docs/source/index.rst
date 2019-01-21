@@ -10,12 +10,10 @@ Welcome to Fredholm's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   bessel.rst
-   angular.rst
-   legendre.rst
-   mie.rst
-   scattering_amplitude.rst
-   ABCD.rst
+   sphere.rst
+   plane-sphere.rst
+   ufuncs.rst
+   
 
 .. todo::
     Use sphinx spell checker
