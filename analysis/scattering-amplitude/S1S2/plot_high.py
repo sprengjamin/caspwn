@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-sys.path.append('../../../ufuncs-sphere')
+sys.path.append('../../../sphere')
+sys.path.append('../../../ufuncs')
 
 from scattering_amplitude import S1S2
 from mie import mie_e_array
 
-N = 200
-X = np.logspace(1,7,N)
+N = 50
+X = np.logspace(1,4,N)
 z = 1.0001
 #z = 1.01
 
@@ -39,6 +40,7 @@ ax.set_ylabel(r"$S_p/S_{p,\mathrm{WKB}}-(1+s_p/R)$")
 ax.legend()
 plt.show()
 #plt.savefig("fig4.pdf")
+print(((z-1)/2)**(-1/4))
 
 
 
