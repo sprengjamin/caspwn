@@ -1,3 +1,6 @@
+# hypothesis
+.hypothesis
+
 # ignore test data
 *.dat
 
