@@ -13,24 +13,11 @@ from scipy.sparse import coo_matrix
 
 import sys
 sys.path.append("../sphere/")
+sys.path.append("../ufuncs/")
 from mie import mie_e_array
+from integrate import quadrature
 from index import itt
 
-@jit("UniTuple(float64[:],2)(int64)", nopython=True)
-def quadrature(N):
-    """points and weights divided by boostparameter
-        boostparameter has to be multiplied later
-        :type N: integer
-    
-    """
-    i = np.arange(1, N+1, 1)
-    t = np.pi/(N+1)*i
-    points = 1./(np.tan(t/2))**2
-    weights = np.zeros(N)
-    for j in i:
-        weights += np.sin(j*t)*(1-np.cos(j*np.pi))/j
-    weights *= 2*np.sin(t)*(2/(N+1))/(1-np.cos(t))**2
-    return points, weights
 
 def make_phiSequence(kernel):
     """
@@ -97,7 +84,7 @@ def make_phiSequence(kernel):
     return phiSequence
 
 def mSequence(rho, xi, M, k1, k2, w1, w2, ale, ble):
-    """
+    r"""
     Computes mSqeuence by means of a FFT of the computed phiSequence.
 
     Parameters
@@ -126,7 +113,7 @@ def mSequence(rho, xi, M, k1, k2, w1, w2, ale, ble):
 
 
 def compute_mElement_diag(i, rho, xi, N, M, k, w, ale, ble):
-    """
+    r"""
     Computes the m-sequence of diagonal elements.
 
     Parameters
@@ -167,7 +154,7 @@ def compute_mElement_diag(i, rho, xi, N, M, k, w, ale, ble):
    
     
 def compute_mElement_offdiag(i, j, rho, xi, N, M, k, w, ale, ble):
-    """
+    r"""
     Computes the m-sequence of off-diagonal elements.
 
     Parameters
@@ -187,6 +174,7 @@ def compute_mElement_offdiag(i, j, rho, xi, N, M, k, w, ale, ble):
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
     ale, ble: np.ndarray
+
         array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
 
     Returns
@@ -210,7 +198,7 @@ def compute_mElement_offdiag(i, j, rho, xi, N, M, k, w, ale, ble):
 
 
 def mArray_sparse_part(dindices, oindices, rho, xi, N, M, k, w, ale, ble):
-    """
+    r"""
     Computes the m-array.
 
     Parameters
@@ -246,6 +234,7 @@ def mArray_sparse_part(dindices, oindices, rho, xi, N, M, k, w, ale, ble):
     isFinite, compute_mElement_diag, itt, compute_mElement_offdiag
 
     """
+    ###
     # 16 is just arbitrary here
     row = np.empty(16*N)
     col = np.empty(16*N)
@@ -274,7 +263,7 @@ def mArray_sparse_part(dindices, oindices, rho, xi, N, M, k, w, ale, ble):
 
 
 def mArray_sparse_mp(nproc, rho, xi, N, M, pts, wts, ale, ble):
-    """
+    r"""
     Computes the m-array in parallel using the multiprocessing module.
 
     Parameters
@@ -347,7 +336,7 @@ def mArray_sparse_mp(nproc, rho, xi, N, M, pts, wts, ale, ble):
 
 
 def isFinite(rho, xi, k1, k2):
-    """
+    r"""
     Estimates by means of the asymptotics of the scattering amplitudes if the given
     matrix element can be numerically set to zero.
 
@@ -380,7 +369,7 @@ def isFinite(rho, xi, k1, k2):
             
 
 def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
-    """
+    r"""
     Computes the sum of the logdets the m-matrices.
 
     Parameters
@@ -433,7 +422,7 @@ def LogDet(nproc, rho, xi, N, M, pts, wts, ale, ble):
     return logdet
 
 def energy_zero(rho, N, M, X, nproc):
-    """
+    r"""
     Computes the Casimir at zero temperature.
 
     Parameters
@@ -452,7 +441,7 @@ def energy_zero(rho, N, M, X, nproc):
     Returns
     -------
     energy: float
-        Casimir energy
+        Casimir energy in units of :math:`\hbar c/L`.
 
     
     Dependencies
@@ -462,12 +451,10 @@ def energy_zero(rho, N, M, X, nproc):
     """
     k_pts, k_wts = quadrature(N)
     xi_pts, xi_wts = quadrature(X)
-    xi_pts = xi_pts
-    xi_wts = xi_wts
     
     energy = 0.
     for i in range(X):
-        lmax = 1e5 # for testing purpose
+        lmax = int(1e4) # for testing purpose
         ale, ble = mie_e_array(lmax, xi_pts[i]*rho)
         result = LogDet(nproc, rho, xi_pts[i], N, M, k_pts, k_wts, ale, ble)
         print("xi=", xi_pts[i], ", val=", result)
@@ -476,14 +463,21 @@ def energy_zero(rho, N, M, X, nproc):
 
 
 if __name__ == "__main__":
+
     rho = 10.
-    N = int(10*np.sqrt(rho))
+    N = int(5*np.sqrt(rho))*2+1
     print("N", N)
     M = N
-    X = 40
+    X = 30
     nproc = 4
     from kernel import phiKernel
     phiSequence = make_phiSequence(phiKernel)
+    
+    #ale, ble = mie_e_array(1e4, 1.*rho)
+    #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., ale, ble))
+    
     en = energy_zero(rho, N, M, X, nproc) 
     print("energy")
     print(en)
+    print("PFA")
+    print(-np.pi**3*rho/720)
