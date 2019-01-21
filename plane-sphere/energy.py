@@ -452,11 +452,11 @@ def energy_zero(rho, N, M, nproc):
     k_pts, k_wts = quadrature(N)
     logdet = lambda xi : LogDet(nproc, rho, xi, N, M, k_pts, k_wts)
     energy = auto_integration(logdet)
-    return energy
+    return energy/(2*np.pi)
 
 
 if __name__ == "__main__":
-    rho = 40.
+    rho = 10.
     N = int(5*np.sqrt(rho))*2+1
     print("N", N)
     M = N

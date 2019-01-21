@@ -80,19 +80,19 @@ def phiKernel(rho, xi, k1, k2, phi, ale, ble):
     A, B, C, D = ABCD(xi, k1, k2, phi)
     prefactor = np.sqrt(k1*k2)/(2*np.pi*xi*np.sqrt(kappa1*kappa2))
     S1, S2 = S1S2(xi*rho, z, ale, ble)
-    pkTMTM =  prefactor*(B*S1+A*S2)*e
-    pkTETE =  -prefactor*(A*S1+B*S2)*e
-    pkTMTE =  prefactor*(C*S1+D*S2)*e
-    pkTETM =  prefactor*(D*S1+C*S2)*e
+    pkTMTM = prefactor*(B*S1+A*S2)*e
+    pkTETE = -prefactor*(A*S1+B*S2)*e
+    pkTMTE = prefactor*(C*S1+D*S2)*e
+    pkTETM = prefactor*(D*S1+C*S2)*e
     return np.array([pkTMTM, pkTETE, pkTMTE, pkTETM])
 
 if __name__ == "__main__":
-    rho = 0.001
-    xi = 1.0e-08
-    k1 = 1.0e-08
-    k2 = 1.0e-08
-    phi = 0.
-    print(phase(rho, xi, k1, k2, phi))
-    #from mie import mie_e_array
-    #ale, ble = mie_e_array(1e5, xi*rho)
-    #print(phiKernel(rho, xi, k1, k2, phi, ale, ble))
+    rho = 1.
+    xi = 1.3
+    k1 = 1.2
+    k2 = 0.8
+    phi = 0.76
+    #print(phase(rho, xi, k1, k2, phi))
+    from mie import mie_e_array
+    ale, ble = mie_e_array(1e4, xi*rho)
+    print(phiKernel(rho, xi, k1, k2, phi, ale, ble))
