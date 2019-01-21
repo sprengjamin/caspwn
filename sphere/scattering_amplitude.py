@@ -12,9 +12,9 @@ and thus in terms of the exponentially scaled functions
 
 .. math::
     \begin{aligned}
-    \tilde S_1(x, z) &= \phantom{-}\sum_{\ell=1}^\infty 
+    \tilde S_1(x, z) &= -\sum_{\ell=1}^\infty 
         \left[ \tilde a_\ell(ix) \tilde p_\ell(z) +  \tilde b_\ell(ix) \tilde t_\ell(z)\right]e^{\chi(\ell,x,z)}\\
-    \tilde S_2(x, z) &= -\sum_{\ell=1}^\infty \left[\tilde a_\ell(i x)\tilde t_\ell(z) +\tilde b_\ell(i x)\tilde p_\ell(z)\right]e^{\chi(\ell,x,z)}\,,
+    \tilde S_2(x, z) &= \phantom{-}\sum_{\ell=1}^\infty \left[\tilde a_\ell(i x)\tilde t_\ell(z) +\tilde b_\ell(i x)\tilde p_\ell(z)\right]e^{\chi(\ell,x,z)}\,,
     \end{aligned}
 
 with
@@ -174,7 +174,7 @@ def S1S2(x, z, ale, ble):
     #print("dl+", l-lest_int)
     
     if lest_int == 1:
-        return S1, S2 
+        return -S1, S2 
     # downwards
     l = lest_int-1
     while(True):
@@ -194,7 +194,7 @@ def S1S2(x, z, ale, ble):
         if l == 0:
             break
     #print("dl-",lest_int-l)
-    return S1, S2
+    return -S1, S2
 
 
 if __name__ == "__main__":
