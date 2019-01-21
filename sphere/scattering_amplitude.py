@@ -39,6 +39,45 @@ sys.path.append("../ufuncs/")
 from angular import pte, pte_low, pte_asymptotics
 from mie import mie_e_array
 
+@jit("float64(float64, float64)", nopython=True)
+def chi_back(nu, x):
+    return nu**2/(np.sqrt(nu**2 + x**2) + x) + nu*np.log(x/(nu + np.sqrt(nu**2 + x**2)))
+
+@jit("float64(float64, float64[:], float64[:])", nopython=True)
+def S_back(x, ale, ble):
+    r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
+
+    Parameters
+    ----------
+    x : float
+        positive, imaginary frequency
+    ale : nd.array
+        Mie coefficient cache
+    ble : nd.array
+        Mie coefficient cache
+    
+    Returns
+    -------
+    float
+        (:math:`\tilde S`)
+    """
+    err = 1.0e-16
+
+    l = 1
+    exp = np.exp(2*chi_back(l+0.5, x))
+    S = (l+0.5)*(ale[l-1] + ble[l-1])*exp
+    
+    l += 1
+    while(True):
+        exp = np.exp(2*chi_back(l+0.5, x))
+        Sterm = (l+0.5)*(ale[l-1] + ble[l-1])*exp
+        if Sterm/S < err:
+            S += Sterm
+            break
+        S += Sterm
+        l += 1
+    return S
+
 @jit("float64(int64, float64, float64)", nopython=True)
 def chi(l, x, z):    
     r"""Implementation of :math:`\chi(\ell, x, z)` where cancellation errors are minimized
@@ -97,7 +136,13 @@ def S1S2(x, z, ale, ble):
     """
     err = 1.0e-16
     chi = chi_old
+
+    if z <= 1.:
+        S = S_back(x, ale, ble)
+        return S, S
     arccoshz = np.arccosh(z)
+    #print("%16f" % z)
+    #print(arccoshz)
     pte_cache = np.vstack(pte_low(1000, arccoshz))
     lest = x*np.sqrt(np.abs(z-1)/2)
     lest_int = int(lest)+1
@@ -151,44 +196,6 @@ def S1S2(x, z, ale, ble):
     #print("dl-",lest_int-l)
     return S1, S2
 
-@jit("float64(float64, float64)", nopython=True)
-def chi_back(nu, x):
-    return nu**2/(np.sqrt(nu**2 + x**2) + x) + nu*np.log(x/(nu + np.sqrt(nu**2 + x**2)))
-
-@jit("float64(float64, float64[:], float64[:])", nopython=True)
-def S_back(x, ale, ble):
-    r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
-
-    Parameters
-    ----------
-    x : float
-        positive, imaginary frequency
-    ale : nd.array
-        Mie coefficient cache
-    ble : nd.array
-        Mie coefficient cache
-    
-    Returns
-    -------
-    float
-        (:math:`\tilde S`)
-    """
-    err = 1.0e-16
-
-    l = 1
-    exp = np.exp(2*chi_back(l+0.5, x))
-    S = (l+0.5)*(ale[l-1] + ble[l-1])*exp
-    
-    l += 1
-    while(True):
-        exp = np.exp(2*chi_back(l+0.5, x))
-        Sterm = (l+0.5)*(ale[l-1] + ble[l-1])*exp
-        if Sterm/S < err:
-            S += Sterm
-            break
-        S += Sterm
-        l += 1
-    return S
 
 if __name__ == "__main__":
     x = 100
