@@ -139,7 +139,7 @@ def S1S2(x, z, ale, ble):
 
     if z <= 1.:
         S = S_back(x, ale, ble)
-        return S, S
+        return -S, S
     arccoshz = np.arccosh(z)
     #print("%16f" % z)
     #print(arccoshz)
