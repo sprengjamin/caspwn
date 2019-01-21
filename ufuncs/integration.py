@@ -49,7 +49,7 @@ def zipzap(a, b):
     return c
 
 
-def auto_integrate(func, Ninit=10, rtol=1.0e-8):
+def auto_integration(func, Ninit=10, rtol=1.0e-8):
     r"""Automatic integration based on Fourier-Chebyshev scheme.
 
     Determines the value of the integal
