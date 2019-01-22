@@ -37,6 +37,7 @@ from numba import int64, float64
 import sys
 sys.path.append("../ufuncs/")
 from bessel import InuKnu_e
+from bessel import fraction
 
 @jit("float64(float64, float64)", nopython=True)
 def _expdiff(l, x):
@@ -96,6 +97,29 @@ def mie_e(l, x, inum, knum, inup, knup):
     ble = np.pi/2*inup/knup
     epsi = _expdiff(l, x)
     ale = np.pi/2*(x*epsi*inum - l*inup)/(x/epsi*knum + l*knup)
+    return ale, ble
+
+
+def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
+    epsi = _expdiff(l, x)
+    g_x = x*fraction(l-0.5, x)
+    g_nx = n*x*fraction(l-0.5, n*x)
+    sa = i_p_nx*i_p_x*(g_x - l)
+    sb = i_p_nx*i_p_x*(g_nx - l)
+    sc = i_p_nx*(x*epsi*k_m_x + l*k_p_x)
+    sb = i_p_nx*k_p_x*(g_nx - l)
+    ale = np.pi/2*(n**2*sa - sb)/(n**2*sc + sd)
+    ble = np.pi/2*(sb - sa)/(sc + sd)
+    return ale, ble
+
+
+def mie_e_array_mat(lmax, x, n):
+    i_x, k_x = InuKnu_e(lmax, x)
+    i_nx, k_nx = InuKnu_e(lmax, x*n)
+    ale = np.empty(lmax)
+    ble = np.empty(lmax)
+    for l in range(1, lmax+1):
+        ale[l-1], ble[l-1] = mie_e_mat(l, x, i_x[l], i_nx[l], k_x[l-1], k_x[l])
     return ale, ble
 
 
