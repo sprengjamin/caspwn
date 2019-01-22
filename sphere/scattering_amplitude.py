@@ -135,32 +135,27 @@ def S1S2(x, z, ale, ble):
     
     """
     err = 1.0e-16
-    chi = chi_old
+    chi = chi_old # for the moment
 
     if z <= 1.:
         S = S_back(x, ale, ble)
         return -S, S
+
     arccoshz = np.arccosh(z)
-    #print("%16f" % z)
-    #print(arccoshz)
     pte_cache = np.vstack(pte_low(1000, arccoshz))
     lest = x*np.sqrt(np.abs(z-1)/2)
     lest_int = int(lest)+1
     #print("lest", lest)
 
     pe, te = pte(lest_int, arccoshz, pte_cache)
-    #pe, te = pte_asymptotics(lest_int, arccoshz)
-    #exp = np.exp(chi(lest_int, x, z, lest))
     exp = np.exp(chi(lest_int, x, z))
     S1 = (ale[lest_int-1]*pe + ble[lest_int-1]*te)*exp
     S2 = (ale[lest_int-1]*te + ble[lest_int-1]*pe)*exp
     
-    # upwards
+    # upwards summation
     l = lest_int+1
     while(True):
         pe, te = pte(l, arccoshz, pte_cache)
-        #pe, te = pte_asymptotics(l, arccoshz)
-        #exp = np.exp(chi(l, x, z, lest))
         exp = np.exp(chi(l, x, z))
         S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
         S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
@@ -175,12 +170,11 @@ def S1S2(x, z, ale, ble):
     
     if lest_int == 1:
         return -S1, S2 
-    # downwards
+    
+    # downwards summation
     l = lest_int-1
     while(True):
         pe, te = pte(l, arccoshz, pte_cache)
-        #pe, te = pte_asymptotics(l, arccoshz)
-        #exp = np.exp(chi(l, x, z, lest))
         exp = np.exp(chi(l, x, z))
         S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
         S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
