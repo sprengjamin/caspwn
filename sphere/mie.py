@@ -32,7 +32,8 @@ For perfectly reflecting spheres the mie coefficients are
 """
 
 import numpy as np
-from numba import jit
+from numba import jit, jitclass
+from numba import int64, float64
 import sys
 sys.path.append("../ufuncs/")
 from bessel import InuKnu_e
@@ -123,10 +124,44 @@ def mie_e_array(lmax, x):
         ale[l-1], ble[l-1] = mie_e(l, x, Inue[l-1], Knue[l-1], Inue[l], Knue[l])
     return ale, ble
 
+
+spec = [
+    ("lmax", int64),
+    ("x", float64),
+    ("ale", float64[:]),
+    ("ble", float64[:]),
+]
+
+@jitclass(spec)
+class mie_cache(object):
+    def __init__(self, lmax, x):
+        assert(lmax > 0)
+        self.lmax = lmax
+        self.x = x
+        self.ale, self.ble = mie_e_array(lmax, x)
+
+    def read(self, l):
+        assert(l > 0)
+        if l <= self.lmax:
+            return self.ale[l-1], self.ble[l-1]
+        else:
+            # ensure that new array will be large enough
+            # and mie_e_array will not be called to often
+            # during upward summation in S1S2
+            self.lmax = self.lmax + l
+            self.ale, self.ble = mie_e_array(self.lmax, self.x)
+            return self.ale[l-1], self.ble[l-1]
+
+
 if __name__ == "__main__":
     lmax = 1e4
     x = 2.3
-    ale, ble = mie_e_array(lmax, x)
+    cache = mie_cache(lmax, x)
+    print(cache.read(int(1e4)+1))
+    print(len(cache.ale))
+    print(len(cache.ble))
+    ale = cache.ale
+    ble = cache.ble
     import matplotlib.pyplot as plt
     plt.loglog(ale)
     plt.loglog(ble)

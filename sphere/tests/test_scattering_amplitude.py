@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append(".")
 from scattering_amplitude import S1S2
-from mie import mie_e_array
+from mie import mie_cache
 from mpmath import *
 mpf.dps = 40
 maxterms = 1e6
@@ -108,12 +108,12 @@ def test_scattering_amplitude():
         mpS1 = data[2]
         mpS2 = data[3]
         lmax = data[4]
-        ale, ble = mie_e_array(lmax, x)
-        S1, S2 = S1S2(x, z, ale, ble)
-        #print(x, z)
-        #print(abs(S1/mpS1-1.))
-        #print(abs(S2/mpS2-1.))
-        np.testing.assert_allclose(mpS1, S1, rtol=rtol)
+        mie = mie_cache(lmax, x)
+        S1, S2 = S1S2(x, z, mie)
+        print(x, z)
+        print(abs(-S1/mpS1-1.))
+        print(abs(S2/mpS2-1.))
+        np.testing.assert_allclose(mpS1, -S1, rtol=rtol)
         np.testing.assert_allclose(mpS2, S2, rtol=rtol)
 
 

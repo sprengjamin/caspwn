@@ -32,19 +32,22 @@ with
 
 """
 import numpy as np
-from numpy import sqrt as Sqrt
 from numba import jit
+from numba import float64
+from numba.types import UniTuple
 import sys
 sys.path.append("../ufuncs/")
 from angular import pte, pte_low, pte_asymptotics
-from mie import mie_e_array
+from mie import mie_cache
+
 
 @jit("float64(float64, float64)", nopython=True)
 def chi_back(nu, x):
     return nu**2/(np.sqrt(nu**2 + x**2) + x) + nu*np.log(x/(nu + np.sqrt(nu**2 + x**2)))
 
-@jit("float64(float64, float64[:], float64[:])", nopython=True)
-def S_back(x, ale, ble):
+
+@jit(float64(float64, mie_cache.class_type.instance_type), nopython=True)
+def S_back(x, mie):
     r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
 
     Parameters
@@ -65,18 +68,21 @@ def S_back(x, ale, ble):
 
     l = 1
     exp = np.exp(2*chi_back(l+0.5, x))
-    S = (l+0.5)*(ale[l-1] + ble[l-1])*exp
+    ale, ble = mie.read(l)
+    S = (l+0.5)*(ale + ble)*exp
     
     l += 1
     while(True):
         exp = np.exp(2*chi_back(l+0.5, x))
-        Sterm = (l+0.5)*(ale[l-1] + ble[l-1])*exp
+        ale, ble = mie.read(l)
+        Sterm = (l+0.5)*(ale + ble)*exp
         if Sterm/S < err:
             S += Sterm
             break
         S += Sterm
         l += 1
     return S
+
 
 @jit("float64(int64, float64, float64)", nopython=True)
 def chi(l, x, z):    
@@ -107,13 +113,15 @@ def chi(l, x, z):
     t2 = np.log1p(t21/(y+np.sqrt(y**2+1))**2)
     return x*(y*t2 + 2*t1)
 
+
 @jit("float64(int64, float64, float64)", nopython=True)
 def chi_old(l, x, z):
     nu = l + 0.5
     return nu*np.arccosh(z) + 2*np.sqrt(nu**2 + x**2) - 2*nu*np.arcsinh(nu/x) - 2*x*np.sqrt((1+z)/2)
 
-@jit("UniTuple(float64, 2)(float64, float64, float64[:], float64[:])", nopython=True)
-def S1S2(x, z, ale, ble):
+
+@jit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type), nopython=True)
+def S1S2(x, z, mie):
     r"""Mie scattering amplitudes for plane waves.
 
     Parameters
@@ -138,7 +146,7 @@ def S1S2(x, z, ale, ble):
     chi = chi_old # for the moment
 
     if z <= 1.:
-        S = S_back(x, ale, ble)
+        S = S_back(x, mie)
         return -S, S
 
     arccoshz = np.arccosh(z)
@@ -148,17 +156,19 @@ def S1S2(x, z, ale, ble):
     #print("lest", lest)
 
     pe, te = pte(lest_int, arccoshz, pte_cache)
+    ale, ble = mie.read(lest_int)
     exp = np.exp(chi(lest_int, x, z))
-    S1 = (ale[lest_int-1]*pe + ble[lest_int-1]*te)*exp
-    S2 = (ale[lest_int-1]*te + ble[lest_int-1]*pe)*exp
+    S1 = (ale*pe + ble*te)*exp
+    S2 = (ale*te + ble*pe)*exp
     
     # upwards summation
     l = lest_int+1
     while(True):
         pe, te = pte(l, arccoshz, pte_cache)
+        ale, ble = mie.read(l)
         exp = np.exp(chi(l, x, z))
-        S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
-        S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
+        S1term = (ale*pe + ble*te)*exp
+        S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
             S1 += S1term
             S2 += S2term
@@ -176,8 +186,8 @@ def S1S2(x, z, ale, ble):
     while(True):
         pe, te = pte(l, arccoshz, pte_cache)
         exp = np.exp(chi(l, x, z))
-        S1term = (ale[l-1]*pe + ble[l-1]*te)*exp
-        S2term = (ale[l-1]*te + ble[l-1]*pe)*exp
+        S1term = (ale*pe + ble*te)*exp
+        S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
             S1 += S1term
             S2 += S2term
@@ -194,11 +204,17 @@ def S1S2(x, z, ale, ble):
 if __name__ == "__main__":
     x = 100
     z = 2.3
-    ale, ble = mie_e_array(1e5, x)
+    #ale, ble = mie_e_array(1e5, x)
+    mie = mie_cache(1e1, x)
+    print(mie.lmax)
+    S1, S2 = S1S2(x, z, mie)
+    print(mie.lmax)
+    S1, S2 = S1S2(1000, z, mie)
+    print(mie.lmax)
     
-    S1, S2 = S1S2(x, z, ale, ble)
+    """
     sigma = np.sqrt((1+z)/2)
-    S1a = 0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
+    S1a = -0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
     S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)
     print("compare to asymptotics")
     print(S1)
@@ -210,3 +226,5 @@ if __name__ == "__main__":
     width = np.sqrt(x*np.sqrt((1+z)/2))
     print("width", width)
     print("6*width", 6*width)
+    #jit()(S1S2).inspect_types()
+    """
