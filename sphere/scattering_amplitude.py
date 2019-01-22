@@ -185,6 +185,7 @@ def S1S2(x, z, mie):
     l = lest_int-1
     while(True):
         pe, te = pte(l, arccoshz, pte_cache)
+        ale, ble = mie.read(l)
         exp = np.exp(chi(l, x, z))
         S1term = (ale*pe + ble*te)*exp
         S2term = (ale*te + ble*pe)*exp
