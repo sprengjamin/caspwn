@@ -8,11 +8,15 @@ r""" Kernel functions for the plane-sphere geometry.
 """
 import numpy as np
 from numba import jit
+from numba import float64, int64
+from numba.types import UniTuple
 import sys
 sys.path.append("../sphere/")
 sys.path.append("../ufuncs/")
 from ABCD import ABCD
 from scattering_amplitude import S1S2
+from mie import mie_cache
+
 
 @jit("float64(float64, float64, float64, float64, float64)", nopython=True)
 def phase(rho, xi, k1, k2, phi):
@@ -40,8 +44,8 @@ def phase(rho, xi, k1, k2, phi):
     return -((k1 - k2)**2 + 4*k1*k2*np.sin(phi/2)**2)/(np.sqrt(2*(kappa1*kappa2 + k1*k2*np.cos(phi) + xi**2)) + kappa1 + kappa2)*rho - kappa1 - kappa2
 
     
-@jit("float64[:](float64, float64, float64, float64, float64, float64[:], float64[:])", nopython=True)
-def phiKernel(rho, xi, k1, k2, phi, ale, ble):
+@jit(float64[:](float64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
+def phiKernel(rho, xi, k1, k2, phi, mie):
     r"""
     Returns the phikernels.
 
@@ -55,8 +59,8 @@ def phiKernel(rho, xi, k1, k2, phi, ale, ble):
         positive, rescaled wave numbers
     phi: float
         between 0 and 2pi
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
         
     Returns
     -------
@@ -79,12 +83,13 @@ def phiKernel(rho, xi, k1, k2, phi, ale, ble):
     e = np.exp(exponent)
     A, B, C, D = ABCD(xi, k1, k2, phi)
     prefactor = np.sqrt(k1*k2)/(2*np.pi*xi*np.sqrt(kappa1*kappa2))
-    S1, S2 = S1S2(xi*rho, z, ale, ble)
+    S1, S2 = S1S2(xi*rho, z, mie)
     pkTMTM = prefactor*(B*S1+A*S2)*e
     pkTETE = -prefactor*(A*S1+B*S2)*e
     pkTMTE = prefactor*(C*S1+D*S2)*e
     pkTETM = prefactor*(D*S1+C*S2)*e
     return np.array([pkTMTM, pkTETE, pkTMTE, pkTETM])
+
 
 if __name__ == "__main__":
     rho = 1.
@@ -94,5 +99,5 @@ if __name__ == "__main__":
     phi = 0.76
     #print(phase(rho, xi, k1, k2, phi))
     from mie import mie_e_array
-    ale, ble = mie_e_array(1e4, xi*rho)
-    print(phiKernel(rho, xi, k1, k2, phi, ale, ble))
+    mie = mie_e_array(1e4, xi*rho)
+    print(phiKernel(rho, xi, k1, k2, phi, mie))
