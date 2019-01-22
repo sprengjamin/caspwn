@@ -15,10 +15,12 @@ from mie import mie_cache
 sys.path.append("../ufuncs/")
 from integration import quadrature
 
+
 def logdet_sparse(mat):
     dim = mat.shape[0]
     lu = splu(eye(dim, format="csc")-mat)
     return np.sum(np.log(lu.U.diagonal()))
+
 
 def make_phiSequence(kernel):
     """
