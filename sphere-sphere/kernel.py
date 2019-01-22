@@ -1,14 +1,17 @@
 import numpy as np
 from numba import jit
+from numba import float64, int64
+from numba.types import UniTuple
 import sys
 sys.path.append("../sphere")
+from mie import mie_cache
 from scattering_amplitude import S1S2
 sys.path.append("../ufuncs")
 from ABCD import ABCD
 
 
-@jit("float64[:](float64, float64, float64, float64, float64, float64, float64, float64[:], float64[:])", nopython=True)
-def phiKernel(rho, r, sign, xi, k1, k2, phi, ale, ble):
+@jit(float64[:](float64, float64, float64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
+def phiKernel(rho, r, sign, xi, k1, k2, phi, mie):
     r"""
     Returns the phikernels.
 
@@ -26,8 +29,8 @@ def phiKernel(rho, r, sign, xi, k1, k2, phi, ale, ble):
         positive, rescaled wave numbers
     phi: float
         between 0 and 2pi
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficient
         
     Returns
     -------
@@ -45,7 +48,7 @@ def phiKernel(rho, r, sign, xi, k1, k2, phi, ale, ble):
     expFactor = np.exp(exponent)
     A, B, C, D = ABCD(xi, k1, k2, phi)
     prefactor = np.sqrt(k1*k2)/(2*np.pi*xi*np.sqrt(kappa1*kappa2))
-    S1, S2 = S1S2(xi*rho, z, ale, ble)
+    S1, S2 = S1S2(xi*rho, z, mie)
     pkTMTM =  prefactor*(B*S1+A*S2)*expFactor
     pkTETE =  prefactor*(A*S1+B*S2)*expFactor
     pkTMTE =  -prefactor*(C*S1+D*S2)*expFactor*sign

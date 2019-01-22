@@ -1,5 +1,7 @@
 import numpy as np
 from numba import jit
+from numba import float64, int64
+from numba.types import UniTuple
 import multiprocessing as mp
 from scipy.sparse.linalg import splu
 from scipy.sparse import eye
@@ -9,7 +11,7 @@ from index import itt
 from kernel import phiKernel
 import sys
 sys.path.append("../sphere/")
-from mie import mie_e_array
+from mie import mie_cache
 sys.path.append("../ufuncs/")
 from integration import quadrature
 
@@ -32,8 +34,8 @@ def make_phiSequence(kernel):
     phiSequence
 
     """
-    @jit("float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, float64[:], float64[:])", nopython=True)
-    def phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, ale, ble):
+    @jit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
+    def phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
         """
         Returns the a phi sqeuence for the kernel function for each polarization block.
 
@@ -53,8 +55,8 @@ def make_phiSequence(kernel):
             positive, rescaled wave numbers
         w1, w2: float
             positive, quadrature weights corresponding to k1 and k2, respectively.
-        ale, ble: np.ndarray
-            array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+        mie: class instance
+            cache for the exponentially scaled mie coefficients
 
         Returns
         -------
@@ -66,11 +68,11 @@ def make_phiSequence(kernel):
         phiarr = np.empty((4, M))
 
         # phi = 0.
-        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, xi, k1, k2, 0., ale, ble)
+        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, xi, k1, k2, 0., mie)
         
         if M%2==0:
             # phi = np.pi
-            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, xi, k1, k2, np.pi, ale, ble)
+            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, xi, k1, k2, np.pi, mie)
             imax = M//2-1
             phi = 2*np.pi*np.arange(M//2)/M
         else:
@@ -78,7 +80,7 @@ def make_phiSequence(kernel):
             phi = 2*np.pi*np.arange(M//2+1)/M
         
         for i in range(1, imax+1):
-            phiarr[:, i] = w1*w2*kernel(rho, r, sign, xi, k1, k2, phi[i], ale, ble)
+            phiarr[:, i] = w1*w2*kernel(rho, r, sign, xi, k1, k2, phi[i], mie)
             phiarr[0, M-i] = phiarr[0, i]
             phiarr[1, M-i] = phiarr[1, i]
             phiarr[2, M-i] = -phiarr[2, i]
@@ -87,7 +89,7 @@ def make_phiSequence(kernel):
     return phiSequence
 
 
-def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, ale, ble):
+def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
     """
     Computes mSqeuence by means of a FFT of the computed phiSequence.
 
@@ -105,20 +107,20 @@ def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, ale, ble):
         positive, rescaled wave numbers
     w1, w2: float
         positive, quadrature weights corresponding to k1 and k2, respectively.
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Dependencies
     ------------
     phiSequence
 
     """
-    phiarr = phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, ale, ble)
+    phiarr = phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
 
 
-def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, ale, ble):
+def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie):
     """
     Computes the m-sequence of diagonal elements.
 
@@ -140,8 +142,8 @@ def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, ale, ble):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Returns
     -------
@@ -159,11 +161,11 @@ def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, ale, ble):
     """
     row = [i, N+i, N+i]
     col = [i, N+i, i]
-    data = (mSequence(rho, r, sign, xi, M, k[i], k[i], w[i], w[i], ale, ble))[:-1,:]
+    data = (mSequence(rho, r, sign, xi, M, k[i], k[i], w[i], w[i], mie))[:-1,:]
     return row, col, data
    
     
-def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, ale, ble):
+def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie):
     """
     Computes the m-sequence of off-diagonal elements.
 
@@ -187,8 +189,8 @@ def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, ale, ble):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Returns
     -------
@@ -208,12 +210,11 @@ def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, ale, ble):
     #col = [j, N+j, i, j] 
     row = [i, N+i, N+j, j] 
     col = [j, N+j, i, N+i] 
-    data = mSequence(rho, r, sign, xi, M, k[i], k[j], w[i], w[j], ale, ble)
+    data = mSequence(rho, r, sign, xi, M, k[i], k[j], w[i], w[j], mie)
     return row, col, data
 
 
-def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, ale, 
-ble):
+def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
     """
     Computes the m-array.
 
@@ -237,8 +238,8 @@ ble):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Returns
     -------
@@ -262,7 +263,7 @@ ble):
     ind = 0
     for i in dindices:
         if isFinite(rho, r, xi, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, ale, ble)
+            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie)
             row[ind+3] = col[ind+2]
             col[ind+3] = row[ind+2]
             data[ind+3, :] = -data[ind+2, :]
@@ -275,7 +276,7 @@ ble):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
                 col = np.hstack((col, np.empty(len(row), dtype=np.int32)))
                 data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, ale, ble)
+            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie)
             row[ind+4:ind+8] = col[ind:ind+4]
             col[ind+4:ind+8] = row[ind:ind+4]
             data[ind+4:ind+6, :] = data[ind:ind+2, :]
@@ -288,7 +289,7 @@ ble):
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, ale, ble):
+def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
     """
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -310,8 +311,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, ale, ble):
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
-    ale, ble: np.ndarray
-        array containing the exponentially scaled mie coefficients :math:`\tilde{a}_\ell` and :math:`\tilde{b}_\ell`.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Returns
     -------
@@ -328,8 +329,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, ale, ble):
 
     """
     
-    def worker(dindices, oindices, rho, r, sign, xi, N, M, k, w, ale, ble, out):
-        out.put(mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, ale, ble))
+    def worker(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie, out):
+        out.put(mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie))
 
     b = 0.5 ### for now
     k = b*pts
@@ -343,7 +344,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, ale, ble):
     for i in range(nproc):
         p = mp.Process(
                 target = worker,
-                args = (dindices[i], oindices[i], rho, r, sign, xi, N, M, k, w, ale, ble, out))
+                args = (dindices[i], oindices[i], rho, r, sign, xi, N, M, k, w, mie, out))
         procs.append(p)
         p.start()
     
@@ -430,13 +431,13 @@ def LogDet_sparse_mp(nproc, rho1, rho2, xi, N, M, pts, wts):
     """
     #r1 = 1/(1+rho1/rho2)
     r1 = 0.5
-    ale, ble = mie_e_array(max(int(20*xi*rho1),1000), xi*rho1)
-    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., xi, N, M, pts, wts, ale, ble)
+    mie = mie_cache(int(xi*rho1)+1, xi*rho1)
+    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., xi, N, M, pts, wts, mie)
     
     #r2 = 1/(1+rho2/rho1)
     r2 = 0.5
-    ale, ble = mie_e_array(max(int(20*xi*rho2),1000), xi*rho2)
-    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., xi, N, M, pts, wts, ale, ble)
+    mie = mie_cache(int(xi*rho2)+1, xi*rho2)
+    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., xi, N, M, pts, wts, mie)
     
     # m=0
     sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*N,2*N)).tocsc()
