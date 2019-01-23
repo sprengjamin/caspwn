@@ -3,8 +3,59 @@ import sys
 sys.path.append(".")
 from mie import mie_e, mie_cache
 from bessel import InuKnu_e_asymptotics
+from mpmath import *
+mp.dps = 30
+maxterms = 1e6
 
 rtol = 2.0e-15
+
+def nueta(nu, x):
+    """
+    nu*eta exponent of bessels
+    """
+    return sqrt(nu*nu+x*x) + nu*log(x/(nu+sqrt(nu*nu+x*x)))
+
+def mp_mie_e(l, x):
+    """
+    Exponentially scaled Mie coefficients for perfect reflectors.
+
+    """
+    bim = besseli(l-1/2, x, maxterms=maxterms)
+    bip = besseli(l+1/2, x, maxterms=maxterms)
+    bkm = besselk(l-1/2, x, maxterms=maxterms)
+    bkp = besselk(l+1/2, x, maxterms=maxterms)
+    efu = exp(-2*nueta(l+1/2, x))
+    ale = pi/2*(x*bim - l*bip)/(x*bkm + l*bkp)*efu
+    ble = pi/2*bip/bkp*efu
+    return ale, ble
+
+def mp_mie_e_mat(l, x, n):
+    """
+    Exponentially scaled Mie coefficients for real materials.
+
+    """
+    l = mpf(l)
+    x = mpf(x)
+    n = mpf(n)
+
+    i_m_x = besseli(l-1/2, x, maxterms=maxterms)
+    i_p_x = besseli(l+1/2, x, maxterms=maxterms)
+    i_m_nx = besseli(l-1/2, n*x, maxterms=maxterms)
+    i_p_nx = besseli(l+1/2, n*x, maxterms=maxterms)
+    k_m_x = besselk(l-1/2, x, maxterms=maxterms)
+    k_p_x = besselk(l+1/2, x, maxterms=maxterms)
+
+    sa = i_p_nx*(x*i_m_x - l*i_p_x)
+    sb = i_p_x*(n*x*i_m_nx - l*i_p_nx)
+    sc = i_p_nx*(x*k_m_x + l*k_p_x)
+    sd = k_p_x*(n*x*i_m_nx - l*i_p_nx)
+    
+    efu = exp(-2*nueta(l+1/2, x))
+    
+    ale = pi/2*(n**2*sa - sb)/(n**2*sc + sd)*efu
+    ble = pi/2*(sb - sa)/(sc + sd)*efu
+    return float(ale), float(ble)
+
 
 def test_mie_e():
     mp_data = np.loadtxt("tests/testdata/mie_e.dat")
@@ -34,4 +85,11 @@ def test_mie_cache():
         np.testing.assert_allclose(num_ble, data[3], rtol=rtol)
 
 if __name__ == "__main__":
-    test_mie_cache()
+    from mie import mie_e_array_mat
+    l = 100000
+    x = 133.
+    n = 1.6
+    ale, ble = mie_e_array_mat(l, x, n)
+    mp_ale, mp_ble = mp_mie_e_mat(l, x, n)
+    print(abs(ale[l-1]/mp_ale-1.))
+    print(abs(ble[l-1]/mp_ble-1.))
