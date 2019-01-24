@@ -100,33 +100,71 @@ def mie_e(l, x, inum, knum, inup, knup):
     return ale, ble
 
 
+@jit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)", nopython=True)
 def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
+    r"""
+    Exponentially scaled Mie coefficients for real materials.
+
+    Implementation has problems for values of n close to 1.
+
+    Parameters
+    ----------
+    l : int
+        Order
+    x : float
+        Argument
+    n : float
+        refractive index
+    i_p_x: float
+        :math:`\tilde I_{\ell+1/2}(x)`
+    i_p_nx: float
+        :math:`\tilde I_{\ell+1/2}(nx)`
+    k_m_x: float
+        :math:`\tilde K_{\ell-1/2}(x)`
+    k_p_x : float
+        :math:`\tilde K_{\ell+1/2}(x)`
+    
+    Returns
+    -------
+    (float, float)
+        (:math:`\tilde a_\ell(ix)`, :math:`\tilde b_\ell(ix))`
+    
+    """
     epsi = _expdiff(l, x)
+    
     g_x = x*fraction(l-0.5, x)
     g_nx = n*x*fraction(l-0.5, n*x)
+    
     sa = i_p_nx*i_p_x*(g_x - l)
     sb = i_p_nx*i_p_x*(g_nx - l)
     sc = i_p_nx*(x/epsi*k_m_x + l*k_p_x)
     sd = i_p_nx*k_p_x*(g_nx - l)
-    print("===========")
-    print(g_x)
-    print(g_nx)
-    print("-----------")
-    print(sa)
-    print(sb)
-    print(sc)
-    print(sd)
-    print("-----------")
-    sb_m_sa = i_p_nx*i_p_x*(g_nx - g_x)
-    print(sb-sa)
-    print(sb_m_sa)
+    
     ale = np.pi/2*(n**2*sa - sb)/(n**2*sc + sd)
-    #ble = np.pi/2*(sb_m_sa)/(sc + sd)
     ble = np.pi/2*(sb-sa)/(sc + sd)
     return ale, ble
 
 
+@jit("UniTuple(float64[:], 2)(int64, float64, float64)", nopython=True)
 def mie_e_array_mat(lmax, x, n):
+    r"""
+    Array of exponentially scaled Mie coefficients.
+
+    Parameters
+    ----------
+    lmax : int
+        Maximal angular momentum :math:`\ell_\mathrm{max}`.
+    x : float
+        Argument
+    n : float
+        refractive index
+    
+    Returns
+    -------
+    (nd.array, nd.array)
+        (:math:`\left[\tilde a_1(ix), \dots, \tilde a_{\ell_\mathrm{max}}(ix) \right]`, :math:`\left[\tilde b_1(ix), \dots, \tilde b_{\ell_\mathrm{max}}(ix) \right]`
+    
+    """
     i_x, k_x = InuKnu_e(lmax, x)
     i_nx, k_nx = InuKnu_e(lmax, x*n)
     ale = np.empty(lmax)
@@ -137,7 +175,7 @@ def mie_e_array_mat(lmax, x, n):
 
 
 @jit("UniTuple(float64[:], 2)(int64, float64)", nopython=True)
-def mie_e_array(lmax, x):
+def mie_e_array_PR(lmax, x):
     r"""
     Array of exponentially scaled Mie coefficients.
 
@@ -165,17 +203,25 @@ def mie_e_array(lmax, x):
 spec = [
     ("lmax", int64),
     ("x", float64),
+    ("n", float64),
     ("ale", float64[:]),
     ("ble", float64[:]),
 ]
 
 @jitclass(spec)
 class mie_cache(object):
-    def __init__(self, lmax, x):
+    def __init__(self, lmax, x, n):
         assert(lmax > 0)
         self.lmax = lmax
         self.x = x
-        self.ale, self.ble = mie_e_array(lmax, x)
+        self.n = n
+        self._make_mie_array()
+    
+    def _make_mie_array(self):
+        if self.n == np.inf:
+            self.ale, self.ble = mie_e_array_PR(self.lmax, self.x)
+        else:
+            self.ale, self.ble = mie_e_array_mat(self.lmax, self.x, self.n)
 
     def read(self, l):
         assert(l > 0)
@@ -186,14 +232,15 @@ class mie_cache(object):
             # and mie_e_array will not be called to often
             # during upward summation in S1S2
             self.lmax = self.lmax + l
-            self.ale, self.ble = mie_e_array(self.lmax, self.x)
+            self._make_mie_array()
             return self.ale[l-1], self.ble[l-1]
 
 
 if __name__ == "__main__":
     lmax = 1e4
     x = 2.3
-    cache = mie_cache(lmax, x)
+    n = np.inf
+    cache = mie_cache(lmax, x, n)
     print(cache.read(int(1e4)+1))
     print(len(cache.ale))
     print(len(cache.ble))
