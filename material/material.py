@@ -61,11 +61,35 @@ class lorentz_oscillator(material):
                 xiP, xiR, gamma = params
                 eps += xiP**2/(xiR**2 + xi**2 + gamma*xi)
             return eps
+    
+    def n(self, xi):
+        r"""Refractive index.
+
+        Note that the implementation assumes non-magnetic materials.
+
+        Parameters
+        ----------
+        xi : flaot
+            frequency in rad/s
+
+        Returns
+        -------
+        n : flaot
+            refractive index, dimensionless number
+
+        """
+        return np.sqrt(self.epsilon(xi))
         
 
-class perfect_reflector:
+class perfect_reflector(material):
+    def __init__(self):
+        self.name = "perfect_reflector"
+    
     def epsilon(self, xi):
         return np.inf        
+    
+    def n(self, xi):
+        return np.inf
 
 def convert_zwol_to_lorentz(data):
     xiR = np.array(data[1])*e/hbar
@@ -102,6 +126,8 @@ Water = lorentz_oscillator("Water", Water_data, static_value = Water_static)
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     X = np.logspace(10,18,100)
+    n = [Silica1.n(x) for x in X]
     eps = [Silica1.epsilon(x) for x in X]
+    plt.semilogx(X, n)
     plt.semilogx(X, eps)
     plt.show()
