@@ -373,7 +373,7 @@ def isFinite(rho, K, k1, k2):
         return True
             
 
-def LogDet(R, L, Kvac, materials, N, M, pts, wts, nproc):
+def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     r"""
     Computes the sum of the logdets the m-matrices.
 
@@ -383,10 +383,10 @@ def LogDet(R, L, Kvac, materials, N, M, pts, wts, nproc):
         positive, radius of the sphere
     L: float
         positive, surface-to-surface distance
-    Kvac: float
-        positive, vacuum wave number multiplied by :math:`L`.
     materials : tuple of strings
         names of material in the order (plane, medium, sphere) 
+    Kvac: float
+        positive, vacuum wave number multiplied by :math:`L`.
     N: int
         positive, quadrature order of k-integration
     M: int
