@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+from scipy.constants import c
 sys.path.append(".")
 import material
 
@@ -13,7 +14,7 @@ def test_compare_casspy():
         casspy_eps = casspy_data[1]
         print(mat)
 
-        my_eps = [eval("material."+mat+".epsilon(x)") for x in casspy_X]
+        my_eps = [eval("material."+mat+".epsilon(x/c)") for x in casspy_X]
         np.testing.assert_allclose(my_eps, casspy_eps, rtol=rtol)
         
         # make an extra test for this later

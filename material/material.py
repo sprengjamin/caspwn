@@ -1,7 +1,7 @@
 """Materials
 """
 import numpy as np
-from scipy.constants import e, hbar
+from scipy.constants import c, e, hbar
 
 class material:
     def __init__(self, name):
@@ -39,13 +39,13 @@ class lorentz_oscillator(material):
             raise ValueError("Data format unknown!")
         self.static_value = static_value
 
-    def epsilon(self, xi):
+    def epsilon(self, K):
         r"""Dielectric function.
 
         Parameters
         ----------
-        xi : flaot
-            frequency in rad/s
+        K : flaot
+            vacuum wavenumber in :math:`1/m`
 
         Returns
         -------
@@ -53,13 +53,13 @@ class lorentz_oscillator(material):
             permittivity, dimensionless number
 
         """
-        if xi == 0. and self.static_value != None:
+        if K == 0. and self.static_value != None:
             return self.static_value
         else:
             eps = 1.
             for params in self.data:
-                xiP, xiR, gamma = params
-                eps += xiP**2/(xiR**2 + xi**2 + gamma*xi)
+                K_P, K_R, gamma = params
+                eps += K_P**2/(K_R**2 + K**2 + gamma*K)
             return eps
     
     def n(self, xi):
@@ -83,7 +83,7 @@ class lorentz_oscillator(material):
 
 class perfect_reflector(material):
     def __init__(self):
-        self.name = "perfect_reflector"
+        self.name = "PR"
     
     def epsilon(self, xi):
         return np.inf        
@@ -91,12 +91,25 @@ class perfect_reflector(material):
     def n(self, xi):
         return np.inf
 
+
+class vacuum(material):
+    def __init__(self):
+        self.name = "Vacuum"
+    
+    def epsilon(self, xi):
+        return 1.       
+    
+    def n(self, xi):
+        return 1.
+
+
 def convert_zwol_to_lorentz(data):
     xiR = np.array(data[1])*e/hbar
     xiP = np.sqrt(np.array(data[0]))*xiR
     gamma = np.zeros(len(data[0]))
-    return np.vstack((xiP, xiR, gamma)).T
-    
+    return np.vstack((xiP, xiR, gamma)).T/c
+
+PR = perfect_reflector() 
            
 PTFE_data = [[9.30e-3, 1.83e-2, 1.39e-1, 1.12e-1, 1.95e-1, 4.38e-1, 1.06e-1, 3.86e-2],
              [3.00e-4, 7.60e-3, 5.57e-2, 1.26e-1, 6.71e+0, 1.86e+1, 4.21e+1, 7.76e+1]]
@@ -123,9 +136,10 @@ Water_data = [[1.43e+0, 9.74e+0, 2.16e+0, 5.32e-1, 3.89e-1, 2.65e-1, 1.36e-1],
 Water_static = 78.7
 Water = lorentz_oscillator("Water", Water_data, static_value = Water_static)
 
+Vacuum = vacuum()
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    X = np.logspace(10,18,100)
+    X = np.logspace(2,10,100)
     n = [Silica1.n(x) for x in X]
     eps = [Silica1.epsilon(x) for x in X]
     plt.semilogx(X, n)
