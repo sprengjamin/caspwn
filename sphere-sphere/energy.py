@@ -14,6 +14,8 @@ sys.path.append("../sphere/")
 from mie import mie_cache
 sys.path.append("../ufuncs/")
 from integration import quadrature
+sys.path.append("../material/")
+import material
 
 
 def logdet_sparse(mat):
@@ -37,7 +39,7 @@ def make_phiSequence(kernel):
 
     """
     @jit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
-    def phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
+    def phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
         """
         Returns the a phi sqeuence for the kernel function for each polarization block.
 
@@ -49,7 +51,7 @@ def make_phiSequence(kernel):
             positive, relative effective radius R_eff/R
         sign: +1/-1
             sign, differs for the two spheres
-        xi: float
+        K: float
             positive, rescaled frequency
         M: int
             positive, length of sequence
@@ -70,11 +72,11 @@ def make_phiSequence(kernel):
         phiarr = np.empty((4, M))
 
         # phi = 0.
-        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, xi, k1, k2, 0., mie)
+        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, K, k1, k2, 0., mie)
         
         if M%2==0:
             # phi = np.pi
-            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, xi, k1, k2, np.pi, mie)
+            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, K, k1, k2, np.pi, mie)
             imax = M//2-1
             phi = 2*np.pi*np.arange(M//2)/M
         else:
@@ -82,7 +84,7 @@ def make_phiSequence(kernel):
             phi = 2*np.pi*np.arange(M//2+1)/M
         
         for i in range(1, imax+1):
-            phiarr[:, i] = w1*w2*kernel(rho, r, sign, xi, k1, k2, phi[i], mie)
+            phiarr[:, i] = w1*w2*kernel(rho, r, sign, K, k1, k2, phi[i], mie)
             phiarr[0, M-i] = phiarr[0, i]
             phiarr[1, M-i] = phiarr[1, i]
             phiarr[2, M-i] = -phiarr[2, i]
@@ -91,7 +93,7 @@ def make_phiSequence(kernel):
     return phiSequence
 
 
-def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
+def mSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     """
     Computes mSqeuence by means of a FFT of the computed phiSequence.
 
@@ -101,7 +103,7 @@ def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
         positive, aspect ratio R/L
     r: float
         positive, relative effective radius R_eff/R
-    xi: float
+    K: float
         positive, rescaled frequency
     M: int
         positive, length of sequence
@@ -117,12 +119,12 @@ def mSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie):
     phiSequence
 
     """
-    phiarr = phiSequence(rho, r, sign, xi, M, k1, k2, w1, w2, mie)
+    phiarr = phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
 
 
-def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie):
+def compute_mElement_diag(i, rho, r, sign, K, N, M, k, w, mie):
     """
     Computes the m-sequence of diagonal elements.
 
@@ -136,7 +138,7 @@ def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie):
         positive, relative effective radius R_eff/R
     sign: +1/-1
         sign, differs for the two spheres
-    xi: float
+    K: float
         positive, rescaled frequency
     N: int
         positive, quadrature order of k-integration
@@ -163,11 +165,11 @@ def compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie):
     """
     row = [i, N+i, N+i]
     col = [i, N+i, i]
-    data = (mSequence(rho, r, sign, xi, M, k[i], k[i], w[i], w[i], mie))[:-1,:]
+    data = (mSequence(rho, r, sign, K, M, k[i], k[i], w[i], w[i], mie))[:-1,:]
     return row, col, data
    
     
-def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie):
+def compute_mElement_offdiag(i, j, rho, r, sign, K, N, M, k, w, mie):
     """
     Computes the m-sequence of off-diagonal elements.
 
@@ -183,7 +185,7 @@ def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie):
         positive, relative effective radius R_eff/R
     sign: +1/-1
         sign, differs for the two spheres
-    xi: float
+    K: float
         positive, rescaled frequency
     N: int
         positive, quadrature order of k-integration
@@ -212,11 +214,11 @@ def compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie):
     #col = [j, N+j, i, j] 
     row = [i, N+i, N+j, j] 
     col = [j, N+j, i, N+i] 
-    data = mSequence(rho, r, sign, xi, M, k[i], k[j], w[i], w[j], mie)
+    data = mSequence(rho, r, sign, K, M, k[i], k[j], w[i], w[j], mie)
     return row, col, data
 
 
-def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
+def mArray_sparse_part(dindices, oindices, rho, r, sign, K, N, M, k, w, mie):
     """
     Computes the m-array.
 
@@ -232,7 +234,7 @@ def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
         positive, relative effective radius R_eff/R
     sign: +1/-1
         sign, differs for the two spheres
-    xi: float
+    K: float
         positive, rescaled frequency
     N: int
         positive, quadrature order of k-integration
@@ -264,8 +266,8 @@ def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
     
     ind = 0
     for i in dindices:
-        if isFinite(rho, r, xi, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, r, sign, xi, N, M, k, w, mie)
+        if isFinite(rho, r, K, k[i], k[i]):
+            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, r, sign, K, N, M, k, w, mie)
             row[ind+3] = col[ind+2]
             col[ind+3] = row[ind+2]
             data[ind+3, :] = -data[ind+2, :]
@@ -273,12 +275,12 @@ def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
 
     for oindex in oindices:
         i, j = itt(oindex)
-        if isFinite(rho, r, xi, k[i], k[j]):
+        if isFinite(rho, r, K, k[i], k[j]):
             if ind+8 >= len(row):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
                 col = np.hstack((col, np.empty(len(row), dtype=np.int32)))
                 data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, r, sign, xi, N, M, k, w, mie)
+            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, r, sign, K, N, M, k, w, mie)
             row[ind+4:ind+8] = col[ind:ind+4]
             col[ind+4:ind+8] = row[ind:ind+4]
             data[ind+4:ind+6, :] = data[ind:ind+2, :]
@@ -291,7 +293,7 @@ def mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie):
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
+def mArray_sparse_mp(nproc, rho, r, sign, K, N, M, pts, wts, mie):
     """
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -305,7 +307,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
         positive, relative effective radius R_eff/R
     sign: +1/-1
         sign, differs for the two spheres
-    xi: float
+    K: float
         positive, rescaled frequency
     N: int
         positive, quadrature order of k-integration
@@ -331,8 +333,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
 
     """
     
-    def worker(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie, out):
-        out.put(mArray_sparse_part(dindices, oindices, rho, r, sign, xi, N, M, k, w, mie))
+    def worker(dindices, oindices, rho, r, sign, K, N, M, k, w, mie, out):
+        out.put(mArray_sparse_part(dindices, oindices, rho, r, sign, K, N, M, k, w, mie))
 
     b = 0.5 ### for now
     k = b*pts
@@ -346,7 +348,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
     for i in range(nproc):
         p = mp.Process(
                 target = worker,
-                args = (dindices[i], oindices[i], rho, r, sign, xi, N, M, k, w, mie, out))
+                args = (dindices[i], oindices[i], rho, r, sign, K, N, M, k, w, mie, out))
         procs.append(p)
         p.start()
     
@@ -368,7 +370,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, xi, N, M, pts, wts, mie):
     return row, col, data
 
 
-def isFinite(rho, r, xi, k1, k2):
+def isFinite(rho, r, K, k1, k2):
     """
     Estimates by means of the asymptotics of the scattering amplitudes if the given
     matrix element can be numerically set to zero.
@@ -379,7 +381,7 @@ def isFinite(rho, r, xi, k1, k2):
         positive, aspect ratio R/L
     r: float
         positive, relative effective radius R_eff/R
-    xi: float
+    K: float
         positive, rescaled frequency
     k1, k2: float
         positive, rescaled wave numbers
@@ -390,29 +392,31 @@ def isFinite(rho, r, xi, k1, k2):
         True if the matrix element must not be neglected
 
     """
-    if xi == 0.:
+    if K == 0.:
         exponent = 2*rho*np.sqrt(k1*k2) - (k1+k2)*(rho+r)
     else:
-        kappa1 = np.sqrt(k1*k1+xi*xi)
-        kappa2 = np.sqrt(k2*k2+xi*xi)
-        exponent = rho*np.sqrt(2*(xi*xi + kappa1*kappa2 + k1*k2)) - (kappa1+kappa2)*(rho+r)
+        kappa1 = np.sqrt(k1*k1+K*K)
+        kappa2 = np.sqrt(k2*k2+K*K)
+        exponent = rho*np.sqrt(2*(K*K + kappa1*kappa2 + k1*k2)) - (kappa1+kappa2)*(rho+r)
     if exponent < -37:
         return False
     else:
         return True
             
 
-def LogDet_sparse_mp(nproc, rho1, rho2, xi, N, M, pts, wts):
+def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc): 
     """
     Computes the sum of the logdets the m-matrices.
 
     Parameters
     ----------
-    nproc: int
-        number of processes
-    rho1, rho2: float
-        positive, aspect ratios R1/L, R2/L
-    xi: float
+    R1, R2: float
+        positive, radii of the spheres
+    L: float
+        positive, surface-to-surface distance
+    materials : tuple of strings
+        names of material in the order (sphere1, medium, sphere2) 
+    K: float
         positive, rescaled frequency
     N: int
         positive, quadrature order of k-integration
@@ -420,6 +424,8 @@ def LogDet_sparse_mp(nproc, rho1, rho2, xi, N, M, pts, wts):
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
+    nproc: int
+        number of processes
 
     Returns
     -------
@@ -431,15 +437,31 @@ def LogDet_sparse_mp(nproc, rho1, rho2, xi, N, M, pts, wts):
     mArray_sparse_mp
 
     """
+    n_sphere1 = eval("material."+materials[0]+".n(Kvac/L)")
+    n_medium = eval("material."+materials[1]+".n(Kvac/L)")
+    n_sphere2 = eval("material."+materials[2]+".n(Kvac/L)")
+    
     #r1 = 1/(1+rho1/rho2)
     r1 = 0.5
-    mie = mie_cache(int(xi*rho1)+1, xi*rho1)
-    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., xi, N, M, pts, wts, mie)
+    n1 = n_sphere1/n_medium
+    # aspect ratio
+    rho1 = R1/L
+    # size parameter
+    x1 = n_medium*Kvac*rho1
+    # precompute mie coefficients
+    mie = mie_cache(int(2*x1)+1, x1, n1) # initial lmax arbitrary
+    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, N, M, pts, wts, mie)
     
     #r2 = 1/(1+rho2/rho1)
     r2 = 0.5
-    mie = mie_cache(int(xi*rho2)+1, xi*rho2)
-    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., xi, N, M, pts, wts, mie)
+    n2 = n_sphere2/n_medium
+    # aspect ratio
+    rho2 = R2/L
+    # size parameter
+    x2 = n_medium*Kvac*rho2
+    # precompute mie coefficients
+    mie = mie_cache(int(2*x2)+1, x2, n2) # initial lmax arbitrary
+    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, N, M, pts, wts, mie)
     
     # m=0
     sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*N,2*N)).tocsc()
@@ -465,7 +487,7 @@ def LogDet_sparse_mp(nproc, rho1, rho2, xi, N, M, pts, wts):
     return logdet
 
     
-def energy_zero(rho1, rho2, N, M, X, nproc):
+def energy_zero(R1, R2, L, materials, N, M, X, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -478,7 +500,7 @@ def energy_zero(rho1, rho2, N, M, X, nproc):
     M: int
         positive, quadrature order of phi-integration
     X: int
-        positive, quadrature order of xi-integration
+        positive, quadrature order of K-integration
     nproc: int
         number of processes spawned by multiprocessing module
 
@@ -494,13 +516,13 @@ def energy_zero(rho1, rho2, N, M, X, nproc):
 
     """
     k_pts, k_wts = quadrature(N)
-    xi_pts, xi_wts = quadrature(X)
+    K_pts, K_wts = quadrature(X)
     
     energy = 0.
     for i in range(X):
-        result = LogDet_sparse_mp(nproc, rho1, rho2, xi_pts[i], N, M, k_pts, k_wts)
-        print("xi=", xi_pts[i], ", val=", result)
-        energy += xi_wts[i]*result
+        result = LogDet(R1, R2, L, materials, K_pts[i], N, M, k_pts, k_wts, nproc)
+        print("K=", K_pts[i], ", val=", result)
+        energy += K_wts[i]*result
     return energy/(2*np.pi)
 
 
@@ -517,11 +539,11 @@ if __name__ == "__main__":
     N = int(eta*np.sqrt(max(rho1, rho2)))
     M = N
     X = 20
-    
+    materials = ("PS1", "Water", "PTFE")
     phiSequence = make_phiSequence(phiKernel)
     #k_pts, k_wts = quadrature(N)
     #print(LogDet_sparse_mp(nproc, rho1, rho2, 0.00001, N, M, k_pts, k_wts))
-    print(energy_zero(rho1, rho2, N, M, X, nproc))
+    print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
     #from analytical import PFA_spheresphere, PFAcorr_spheresphere
     #print(PFA_spheresphere(rho1, rho2))
     #print(PFAcorr_spheresphere(rho1, rho2))

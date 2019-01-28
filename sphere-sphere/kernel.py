@@ -11,7 +11,7 @@ from ABCD import ABCD
 
 
 @jit(float64[:](float64, float64, float64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
-def phiKernel(rho, r, sign, xi, k1, k2, phi, mie):
+def phiKernel(rho, r, sign, K, k1, k2, phi, mie):
     r"""
     Returns the phikernels.
 
@@ -23,8 +23,8 @@ def phiKernel(rho, r, sign, xi, k1, k2, phi, mie):
         positive, relative effective radius R_eff/R
     sign: +1/-1
         sign, differs for the two spheres
-    xi: float
-        positive, rescaled frequency
+    K: float
+        positive, wave number in the medium multiplied by L, :math:`n\xi L/c`
     k1, k2: float
         positive, rescaled wave numbers
     phi: float
@@ -39,31 +39,31 @@ def phiKernel(rho, r, sign, xi, k1, k2, phi, mie):
         TMTM, TETE, TMTE, TETM
 
     """
-    kappa1 = np.sqrt(k1*k1+xi*xi)
-    kappa2 = np.sqrt(k2*k2+xi*xi)
-    z = (kappa1*kappa2+k1*k2*np.cos(phi))/xi**2
-    exponent = 2*rho*xi*np.sqrt((1+z)/2) - (kappa1+kappa2)*(rho+r)
+    kappa1 = np.sqrt(k1*k1+K*K)
+    kappa2 = np.sqrt(k2*k2+K*K)
+    z = (kappa1*kappa2+k1*k2*np.cos(phi))/K**2
+    exponent = 2*rho*K*np.sqrt((1+z)/2) - (kappa1+kappa2)*(rho+r)
     if exponent < -37:
         return np.array([0., 0., 0., 0.])
-    expFactor = np.exp(exponent)
-    A, B, C, D = ABCD(xi, k1, k2, phi)
-    prefactor = np.sqrt(k1*k2)/(2*np.pi*xi*np.sqrt(kappa1*kappa2))
-    S1, S2 = S1S2(xi*rho, z, mie)
-    pkTMTM =  prefactor*(B*S1+A*S2)*expFactor
-    pkTETE =  prefactor*(A*S1+B*S2)*expFactor
-    pkTMTE =  -prefactor*(C*S1+D*S2)*expFactor*sign
-    pkTETM =  prefactor*(D*S1+C*S2)*expFactor*sign
+    e = np.exp(exponent)
+    A, B, C, D = ABCD(K, k1, k2, phi)
+    norm = np.sqrt(k1*k2)/(2*np.pi*K*np.sqrt(kappa1*kappa2))
+    S1, S2 = S1S2(K*rho, z, mie)
+    pkTMTM =  norm*(B*S1+A*S2)*e
+    pkTETE =  norm*(A*S1+B*S2)*e
+    pkTMTE =  -norm*(C*S1+D*S2)*e*sign
+    pkTETM =  norm*(D*S1+C*S2)*e*sign
     return np.array([pkTMTM, pkTETE, pkTMTE, pkTETM])
 
 
 if __name__ == "__main__":
     rho = 1.
-    xi = 1.
+    K = 1.
     k1 = 1.
     k2 = 1.
     phi = 1.
-    #print(phase(rho, xi, k1, k2, phi))
+    #print(phase(rho, K, k1, k2, phi))
     from mie import mie_e_array
-    ale, ble = mie_e_array(1e5, xi*rho)
-    print(phiKernel(rho, 0.5, +1, xi, k1, k2, phi, ale, ble))
-    print(phiKernel(rho, 0.5, -1, xi, k1, k2, phi, ale, ble))
+    ale, ble = mie_e_array(1e5, K*rho)
+    print(phiKernel(rho, 0.5, +1, K, k1, k2, phi, ale, ble))
+    print(phiKernel(rho, 0.5, -1, K, k1, k2, phi, ale, ble))
