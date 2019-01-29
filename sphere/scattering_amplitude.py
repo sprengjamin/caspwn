@@ -32,13 +32,55 @@ with
 
 """
 import numpy as np
-from numba import jit
+from numba import jit, njit
 from numba import float64
 from numba.types import UniTuple
+from math import lgamma
 import sys
 sys.path.append("../ufuncs/")
 from angular import pte, pte_low, pte_asymptotics
 from mie import mie_cache
+
+"""
+def make_mat_coeff(e):
+    @njit
+    def mat_coeff(l):
+        return l/(l+1)*(e-1)/(e+(l+1)/l)
+    return mat_coeff
+"""
+
+@njit
+def zero_frequency(x, mie):
+    err = 1.e-16
+    l_init = int(0.5*x)+1
+    logx = np.log(x)
+    e = mie.n**2
+    S =  (e-1)/(e+(l_init+1)/l_init)*np.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+    
+    # upward summation
+    l = l_init + 1
+    while True:
+        term = (e-1)/(e+(l+1)/l)*np.exp(2*l*logx - lgamma(2*l+1)-x)
+        S += term
+        if term/S < err:
+            break
+        l += 1
+
+    if l_init == 1:
+        return S
+
+    # downward summation
+    l = l_init - 1
+    while True:
+        term = (e-1)/(e+(l+1)/l)*np.exp(2*l*logx - lgamma(2*l+1)-x)
+        S += term
+        if term/S < err:
+            break
+        l -= 1
+        if l == 0:
+            break
+
+    return S
 
 
 @jit("float64(float64, float64)", nopython=True)
