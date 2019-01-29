@@ -7,6 +7,8 @@ from scipy.sparse.linalg import splu
 from scipy.sparse import eye
 from scipy.sparse import coo_matrix
 
+from scipy.constants import Boltzmann, hbar, c
+
 from index import itt
 from kernel import phiKernel
 import sys
@@ -526,10 +528,49 @@ def energy_zero(R1, R2, L, materials, N, M, X, nproc):
     return energy/(2*np.pi)
 
 
+def energy_finite(R1, R2, L, T, materials, N, M, nproc):
+    """
+    Computes the energy. (add formula?)
+
+    Parameters
+    ----------
+    eps: float
+        positive, ratio L/R
+    N: int
+        positive, quadrature order of k-integration
+    M: int
+        positive, quadrature order of phi-integration
+    X: int
+        positive, quadrature order of K-integration
+    nproc: int
+        number of processes spawned by multiprocessing module
+
+    Returns
+    -------
+    energy: float
+        Casimir energy
+
+    
+    Dependencies
+    ------------
+    quadrature, get_mie, LogDet_sparse_mp
+
+    """
+    pts, wts = quadrature(N)
+    energy = 0.
+    
+    K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
+    print(K_matsubara)
+    energy = LogDet(R1, R2, L, materials, K_matsubara, N, M, pts, wts, nproc)
+    #return 0.5*Boltzmann*T*energy
+    return energy
+
 if __name__ == "__main__":
-    R1 = 10
-    R2 = 10
-    L = 1 
+    R1 = 1e-06
+    R2 = 1e-06
+    L = 0.1e-06
+    T = 293.015
+    materials = ("Silica1", "Water", "Silica1")
     
     rho1 = R1/L
     rho2 = R2/L
@@ -539,11 +580,6 @@ if __name__ == "__main__":
     N = int(eta*np.sqrt(max(rho1, rho2)))
     M = N
     X = 20
-    materials = ("PS1", "Water", "PTFE")
     phiSequence = make_phiSequence(phiKernel)
-    #k_pts, k_wts = quadrature(N)
-    #print(LogDet_sparse_mp(nproc, rho1, rho2, 0.00001, N, M, k_pts, k_wts))
-    print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
-    #from analytical import PFA_spheresphere, PFAcorr_spheresphere
-    #print(PFA_spheresphere(rho1, rho2))
-    #print(PFAcorr_spheresphere(rho1, rho2))
+    #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
+    print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
