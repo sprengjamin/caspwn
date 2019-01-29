@@ -14,6 +14,7 @@ from kernel import phiKernel
 import sys
 sys.path.append("../sphere/")
 from mie import mie_cache
+import scattering_amplitude
 sys.path.append("../ufuncs/")
 from integration import quadrature
 sys.path.append("../material/")
@@ -448,10 +449,14 @@ def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc):
     n1 = n_sphere1/n_medium
     # aspect ratio
     rho1 = R1/L
-    # size parameter
-    x1 = n_medium*Kvac*rho1
+    
     # precompute mie coefficients
-    mie = mie_cache(int(2*x1)+1, x1, n1) # initial lmax arbitrary
+    if Kvac == 0.:
+        mie = mie_cache(3, 1., n1)              # dummy cache
+    else:
+        x1 = n_medium*Kvac*rho1                 # size parameter
+        mie = mie_cache(int(2*x1)+1, x1, n1)    # initial lmax arbitrary
+    
     row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, N, M, pts, wts, mie)
     
     #r2 = 1/(1+rho2/rho1)
@@ -459,10 +464,14 @@ def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc):
     n2 = n_sphere2/n_medium
     # aspect ratio
     rho2 = R2/L
-    # size parameter
-    x2 = n_medium*Kvac*rho2
+    
     # precompute mie coefficients
-    mie = mie_cache(int(2*x2)+1, x2, n2) # initial lmax arbitrary
+    if Kvac == 0.:
+        mie = mie_cache(3, 1., n2)              # dummy cache
+    else:
+        x2 = n_medium*Kvac*rho2                 # size parameter
+        mie = mie_cache(int(2*x2)+1, x2, n2)    # initial lmax arbitrary
+    
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, N, M, pts, wts, mie)
     
     # m=0
@@ -557,29 +566,40 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
 
     """
     pts, wts = quadrature(N)
-    energy = 0.
     
     K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
-    print(K_matsubara)
-    energy = LogDet(R1, R2, L, materials, K_matsubara, N, M, pts, wts, nproc)
-    #return 0.5*Boltzmann*T*energy
-    return energy
+    n = 0
+    term = LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+    print(n, term)
+    energy = term
+    n += 1
+    while(True):
+        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+        print(n, term)
+        if abs(term/energy) < 1.e-4:
+            energy += term
+            break
+        n += 1
+        
+    return 0.5*T*energy
+    #return energy
 
 if __name__ == "__main__":
-    R1 = 1e-06
-    R2 = 1e-06
+    R1 = 8e-06
+    R2 = 16.5e-06
     L = 0.1e-06
     T = 293.015
-    materials = ("Silica1", "Water", "Silica1")
+    materials = ("PS1", "Water", "Silica1")
     
     rho1 = R1/L
     rho2 = R2/L
-    eta = 10
+    eta = 5
 
     nproc = 4
     N = int(eta*np.sqrt(max(rho1, rho2)))
     M = N
     X = 20
     phiSequence = make_phiSequence(phiKernel)
+
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
     print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
