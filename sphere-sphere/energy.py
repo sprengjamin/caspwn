@@ -11,13 +11,13 @@ from scipy.constants import Boltzmann, hbar, c
 
 from index import itt
 from kernel import phiKernel
-import sys
-sys.path.append("../sphere/")
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
-sys.path.append("../ufuncs/")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
-sys.path.append("../material/")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
 
@@ -584,6 +584,51 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
     return 0.5*T*energy
     #return energy
 
+def energy_faster(R1, R2, L, T, materials, N, M, nproc):
+    """
+    Computes the energy. (add formula?)
+
+    Parameters
+    ----------
+    eps: float
+        positive, ratio L/R
+    N: int
+        positive, quadrature order of k-integration
+    M: int
+        positive, quadrature order of phi-integration
+    X: int
+        positive, quadrature order of K-integration
+    nproc: int
+        number of processes spawned by multiprocessing module
+
+    Returns
+    -------
+    energy: float
+        Casimir energy
+
+    
+    Dependencies
+    ------------
+    quadrature, get_mie, LogDet_sparse_mp
+
+    """
+    pts, wts = quadrature(N)
+    
+    K_matsubara = Boltzmann*T/(hbar*c)
+    term = LogDet(R1, R2, L, materials, 0, N, M, pts, wts, nproc)
+    print(n, term)
+    energy = term
+    n += 1
+    while(True):
+        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+        print(n, term)
+        if abs(term/energy) < 1.e-4:
+            energy += term
+            break
+        n += 1
+        
+    return 0.5*T*energy
+    #return energy
 if __name__ == "__main__":
     R1 = 8e-06
     R2 = 16.5e-06
