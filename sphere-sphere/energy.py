@@ -17,6 +17,7 @@ from mie import mie_cache
 import scattering_amplitude
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
+from psd import psd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
@@ -570,14 +571,13 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
     K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
     n = 0
     term = LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
-    print(n, term)
     energy = term
     n += 1
     while(True):
         term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
-        print(n, term)
-        if abs(term/energy) < 1.e-4:
-            energy += term
+        energy += term
+        print(K_matsubara*n, term)
+        if abs(term/energy) < 1.e-12:
             break
         n += 1
         
@@ -614,31 +614,30 @@ def energy_faster(R1, R2, L, T, materials, N, M, nproc):
     """
     pts, wts = quadrature(N)
     
-    K_matsubara = Boltzmann*T/(hbar*c)
-    term = LogDet(R1, R2, L, materials, 0, N, M, pts, wts, nproc)
-    print(n, term)
-    energy = term
-    n += 1
-    while(True):
-        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
-        print(n, term)
-        if abs(term/energy) < 1.e-4:
-            energy += term
-            break
-        n += 1
-        
+    K_matsubara = Boltzmann*T*L/(hbar*c)
+    energy = LogDet(R1, R2, L, materials, 0., N, M, pts, wts, nproc)
+
+    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+    order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
+    xi, eta = psd(order)
+    for n in range(order):
+        term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+        print(K_matsubara*xi[n], term)
+        energy += term
+    
     return 0.5*T*energy
     #return energy
+
 if __name__ == "__main__":
     R1 = 8e-06
     R2 = 16.5e-06
-    L = 0.1e-06
+    L = 0.8e-06
     T = 293.015
     materials = ("PS1", "Water", "Silica1")
     
     rho1 = R1/L
     rho2 = R2/L
-    eta = 5
+    eta = 10
 
     nproc = 4
     N = int(eta*np.sqrt(max(rho1, rho2)))
@@ -648,3 +647,4 @@ if __name__ == "__main__":
 
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
     print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
+    print(energy_faster(R1, R2, L, T, materials, N, M, nproc))
