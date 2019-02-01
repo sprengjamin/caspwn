@@ -1,4 +1,6 @@
-r"""Fresnel coefficients.
+r"""Fresnel reflection coefficients.
+
+They describe the reflection amplitudes of plane waves for a given polarization.
 
 """
 from numba import njit
@@ -6,7 +8,7 @@ import math
 
 @njit
 def rTE(K, k, epsilon):
-    r"""Fresnel coefficients for TE-polarized modes.
+    r"""Fresnel reflection coefficients for TE-polarized modes.
 
     .. math::
         r_\mathrm{TE}(iK, k) = \frac{\kappa - \sqrt{\kappa^2 + K^2[\epsilon(iK)-1]}}{\kappa + \sqrt{\kappa^2 + K^2[\epsilon(iK)-1]}
@@ -14,16 +16,16 @@ def rTE(K, k, epsilon):
     Parameters
     ----------
     K : float
-        positive, wave number
+        positive, wavenumber in medium
     k : float
-        positive, parallel wave number
+        positive, parallel wavenumber
     epsilon : float
         positive, relative permittivity
 
     Returns
     -------
     rTE : float
-        TE fresnel coefficient :math:`\in[-1,0]`
+        TE fresnel reflection coefficient :math:`\in[-1,0]`
 
     """
     kappa = math.sqrt(k**2 + K**2)
@@ -36,7 +38,7 @@ def rTE(K, k, epsilon):
 
 @njit
 def rTM(K, k, epsilon):
-    r"""Fresnel coefficients for TM-polarized modes.
+    r"""Fresnel reflection coefficients for TM-polarized modes.
 
     .. math::
         r_\mathrm{TM}(iK, k) = \frac{\epsilon(iK)\kappa - \sqrt{\kappa^2 + K^2[\epsilon(iK)-1]}}{\epsilon(iK)\kappa + \sqrt{\kappa^2 + K^2[\epsilon(iK)-1]}
@@ -44,16 +46,16 @@ def rTM(K, k, epsilon):
     Parameters
     ----------
     K : float
-        positive, wave number
+        positive, wavenumber in medium
     k : float
-        positive, parallel wave number
+        positive, parallel wavenumber
     epsilon : float
         positive, relative permittivity
 
     Returns
     -------
     rTE : float
-        TE fresnel coefficient :math:`\in[-1,0]`
+        TE fresnel reflection coefficient :math:`\in[-1,0]`
 
     """
     kappa = math.sqrt(k**2 + K**2)
