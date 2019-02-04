@@ -472,7 +472,7 @@ def energy_zero(R, L, materials, N, M, nproc):
 
     """
     pts, wts = quadrature(N)
-    logdet = lambda Kvac : LogDet(R, L, Kvac, materials, N, M, pts, wts, nproc)
+    logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
     energy = auto_integration(logdet)
     return energy/(2*np.pi)
 
