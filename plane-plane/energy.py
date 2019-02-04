@@ -25,7 +25,8 @@ def energy_finite(L, T, materials):
     eps1 = eps_plane1/eps_medium
     eps2 = eps_plane2/eps_medium
     f = lambda k: integrand(0., k, eps1, eps2)
-    energy = 2*quad(f, 0, np.inf)[0]
+    energy0 = quad(f, 0, np.inf)[0]
+    energy = 0.
     n = 1
     while(True):    
         eps_plane1 = eval("material."+materials[0]+".epsilon(K_matsubara*n)")
@@ -34,13 +35,12 @@ def energy_finite(L, T, materials):
         eps1 = eps_plane1/eps_medium
         eps2 = eps_plane2/eps_medium
         f = lambda k: integrand(K_matsubara*n*L*np.sqrt(eps_medium), k, eps1, eps2)
-        term = quad(f, 0, np.inf)[0]
+        term = 2*quad(f, 0, np.inf)[0]
         energy += term
         if abs(term/energy) < 1.e-12:
             break
         n += 1
-    print(n)
-    return 0.5*T*energy
+    return 0.5*T*(energy0+energy), 0.5*T*energy
 
 
 def energy_faster(L, T, materials):
@@ -51,10 +51,10 @@ def energy_faster(L, T, materials):
     eps1 = eps_plane1/eps_medium
     eps2 = eps_plane2/eps_medium
     f = lambda k: integrand(0., k, eps1, eps2)
-    energy = 2*quad(f, 0, np.inf)[0]
+    energy0 = quad(f, 0, np.inf)[0]
     N = int(10/np.sqrt(4*np.pi*Boltzmann*T*L/(hbar*c)))
-    print(N)
     xi, eta = psd(N)    
+    energy = 0.
     for n in range(N):
         eps_plane1 = eval("material."+materials[0]+".epsilon(K_matsubara*xi[n])")
         eps_medium = eval("material."+materials[1]+".epsilon(K_matsubara*xi[n])")
@@ -63,8 +63,8 @@ def energy_faster(L, T, materials):
         eps2 = eps_plane2/eps_medium
         f = lambda k: integrand(K_matsubara*xi[n]*L*np.sqrt(eps_medium), k, eps1, eps2)
         term = quad(f, 0, np.inf)[0]
-        energy += eta[n]*term
-    return 0.5*T*energy
+        energy += 2*eta[n]*term
+    return 0.5*T*(energy0+energy), 0.5*T*energy
     
 
 
