@@ -1,12 +1,13 @@
 import numpy as np
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane-plane/"))
-from energy import energy_finite
+from energy import energy_faster
 
 
 def PFA(R1, R2, L, T, materials):
     Reff = R1*R2/(R1+R2)
-    return 2*np.pi*Reff*energy_finite(L, T, materials)/L**2
+    energy0, energy = energy_faster(L, T, materials)
+    return 2*np.pi*Reff*energy0/L**2, 2*np.pi*Reff*energy/L**2
 
 
 if __name__ == "__main__":

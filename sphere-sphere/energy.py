@@ -570,8 +570,8 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
     
     K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
     n = 0
-    term = LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
-    energy = term
+    energy0 = LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+    energy = 0.
     n += 1
     while(True):
         term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
@@ -581,7 +581,7 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
             break
         n += 1
         
-    return 0.5*T*energy
+    return 0.5*T*(energy+energy0), 0.5*T*energy
     #return energy
 
 def energy_faster(R1, R2, L, T, materials, N, M, nproc):
@@ -615,8 +615,9 @@ def energy_faster(R1, R2, L, T, materials, N, M, nproc):
     pts, wts = quadrature(N)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy = LogDet(R1, R2, L, materials, 0., N, M, pts, wts, nproc)
+    energy0 = LogDet(R1, R2, L, materials, 0., N, M, pts, wts, nproc)
 
+    energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
     order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
@@ -625,8 +626,8 @@ def energy_faster(R1, R2, L, T, materials, N, M, nproc):
         print(K_matsubara*xi[n], term)
         energy += term
     
-    return 0.5*T*energy
-    #return energy
+    return 0.5*T*(energy+energy0), 0.5*T*energy
+
 
 if __name__ == "__main__":
     R1 = 8e-06

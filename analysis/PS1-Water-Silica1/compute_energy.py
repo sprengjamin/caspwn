@@ -17,9 +17,9 @@ T = 293.015
 materials = ("PS1", "Water", "Silica1")
 
 eta = 10.
-nproc = 4
+nproc = 10
 
-filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v2.dat"
+filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v3.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
@@ -30,11 +30,11 @@ if not os.path.isfile(filename):
         N = int(eta*np.sqrt(max(rho1, rho2)))
         M = N
         start = time.time()
-        en = energy_faster(R1, R2, L, T, materials, N, M, nproc)
+        en0, en = energy_faster(R1, R2, L, T, materials, N, M, nproc)
         end = time.time()
         t = end-start
         f=open(filename, "ab")
-        np.savetxt(f, [[L, en, t]])
+        np.savetxt(f, [[L, en0, en, t]])
         f.close()
 else:
     print("File already exists!")
