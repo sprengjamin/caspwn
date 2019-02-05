@@ -23,6 +23,23 @@ import material
 
 
 def logdet_sparse(mat):
+    r"""This module computes
+
+    .. math::
+        \log\det(1-\mathcal{M})
+
+    where :math:`\mathcal{M}` is given by the sparse matrix mat.
+
+    Parameters
+    ----------
+    mat: sparse coo_matrix
+        round-trip matrix
+
+    Returns
+    -------
+    float
+    
+    """
     dim = mat.shape[0]
     lu = splu(eye(dim, format="csc")-mat)
     return np.sum(np.log(lu.U.diagonal()))
