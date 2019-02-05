@@ -519,7 +519,7 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     return logdet
 
     
-def energy_zero(R1, R2, L, materials, N, M, X, nproc):
+def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -547,18 +547,19 @@ def energy_zero(R1, R2, L, materials, N, M, X, nproc):
     quadrature, get_mie, LogDet_sparse_mp
 
     """
-    k_pts, k_wts = quadrature(N)
+    p_in, w_in = quadrature(Nin)
+    p_out, w_out = quadrature(Nout)
     K_pts, K_wts = quadrature(X)
     
     energy = 0.
     for i in range(X):
-        result = LogDet(R1, R2, L, materials, K_pts[i], N, M, k_pts, k_wts, nproc)
+        result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
         print("K=", K_pts[i], ", val=", result)
         energy += K_wts[i]*result
     return energy/(2*np.pi)
 
 
-def energy_finite(R1, R2, L, T, materials, N, M, nproc):
+def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -586,15 +587,16 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
     quadrature, get_mie, LogDet_sparse_mp
 
     """
-    pts, wts = quadrature(N)
+    p_in, w_in = quadrature(Nin)
+    p_out, w_out = quadrature(Nout)
     
     K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
     n = 0
-    energy0 = LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
     energy = 0.
     n += 1
     while(True):
-        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, N, M, pts, wts, nproc)
+        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
         energy += term
         print(K_matsubara*n, term)
         if abs(term/energy) < 1.e-12:
@@ -670,5 +672,6 @@ if __name__ == "__main__":
     phiSequence = make_phiSequence(phiKernel)
 
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
-    #print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
+    print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
     print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
