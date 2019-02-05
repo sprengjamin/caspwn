@@ -9,7 +9,7 @@ from scipy.sparse import coo_matrix
 
 from scipy.constants import Boltzmann, hbar, c
 
-from index import itt
+from index import itt, itt_nosquare
 from kernel import phiKernel
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
@@ -135,6 +135,12 @@ def mSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     mie: class instance
         cache for the exponentially scaled mie coefficients
 
+    Returns
+    -------
+    np.ndarray
+        array of length 4 of the phi sequence for the polarization contributions
+        TMTM, TETE, TMTE, TETM
+
     Dependencies
     ------------
     phiSequence
@@ -231,15 +237,13 @@ def compute_mElement_offdiag(i, j, rho, r, sign, K, N, M, k, w, mie):
     mSequence
 
     """
-    #row = [i, N+i, N+j, N+i] 
-    #col = [j, N+j, i, j] 
-    row = [i, N+i, N+j, j] 
-    col = [j, N+j, i, N+i] 
-    data = mSequence(rho, r, sign, K, M, k[i], k[j], w[i], w[j], mie)
+    row = [i, Nrow+i, Nrow+i, i] 
+    col = [j, Ncol+j, j, Ncol+j] 
+    data = mSequence(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
     return row, col, data
 
 
-def mArray_sparse_part(dindices, oindices, rho, r, sign, K, N, M, k, w, mie):
+def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie):
     """
     Computes the m-array.
 
@@ -281,40 +285,37 @@ def mArray_sparse_part(dindices, oindices, rho, r, sign, K, N, M, k, w, mie):
 
     """
     # 16 is just arbitrary here
+    N = max(Nrow, Ncol)
     row = np.empty(16*N, dtype=np.int32)
     col = np.empty(16*N, dtype=np.int32)
     data = np.empty((16*N, M//2+1))
     
     ind = 0
-    for i in dindices:
-        if isFinite(rho, r, K, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, r, sign, K, N, M, k, w, mie)
-            row[ind+3] = col[ind+2]
-            col[ind+3] = row[ind+2]
-            data[ind+3, :] = -data[ind+2, :]
+    for index in indices:
+        i, j = itt_nosquare(index, Nrow, Ncol)
+        if isFinite(rho, r, K, krow[i], kcol[j]):
+            row[ind] = i
+            col[ind] = j
+            row[ind+1] = i+Nrow
+            col[ind+1] = j+Ncol
+            row[ind+2] = i
+            col[ind+2] = j+Ncol
+            row[ind+3] = i+Nrow
+            col[ind+3] = j
+            data[ind:ind+4, :] = mSequence(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
             ind += 4
-
-    for oindex in oindices:
-        i, j = itt(oindex)
-        if isFinite(rho, r, K, k[i], k[j]):
-            if ind+8 >= len(row):
+            if ind >= len(row):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
                 col = np.hstack((col, np.empty(len(row), dtype=np.int32)))
                 data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, r, sign, K, N, M, k, w, mie)
-            row[ind+4:ind+8] = col[ind:ind+4]
-            col[ind+4:ind+8] = row[ind:ind+4]
-            data[ind+4:ind+6, :] = data[ind:ind+2, :]
-            data[ind+6:ind+8, :] = -data[ind+2:ind+4, :]
-            ind += 8
-                
+    
     row = row[:ind] 
     col = col[:ind] 
     data = data[:ind, :] 
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, r, sign, K, N, M, pts, wts, mie):
+def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, mie):
     """
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -354,22 +355,24 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, N, M, pts, wts, mie):
 
     """
     
-    def worker(dindices, oindices, rho, r, sign, K, N, M, k, w, mie, out):
-        out.put(mArray_sparse_part(dindices, oindices, rho, r, sign, K, N, M, k, w, mie))
+    def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
+        out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
 
     b = 0.5 ### for now
-    k = b*pts
-    w = np.sqrt(b*wts*2*np.pi/M)
+    krow = b*pts_row
+    kcol = b*pts_col
+    wrow = np.sqrt(b*wts_row*2*np.pi/M)
+    wcol = np.sqrt(b*wts_col*2*np.pi/M)
     
-    dindices = np.array_split(np.random.permutation(N), nproc)
-    oindices = np.array_split(np.random.permutation(N*(N-1)//2), nproc)
-    
+    ncol = np.arange(Ncol) 
+    nrow = np.arange(Ncol) 
+    indices = np.array_split(np.random.permutation(Nrow*Ncol), nproc)
     out = mp.Queue()
     procs = []
     for i in range(nproc):
         p = mp.Process(
                 target = worker,
-                args = (dindices[i], oindices[i], rho, r, sign, K, N, M, k, w, mie, out))
+                args = (indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out))
         procs.append(p)
         p.start()
     
@@ -425,7 +428,7 @@ def isFinite(rho, r, K, k1, k2):
         return True
             
 
-def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc): 
+def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
     """
     Computes the sum of the logdets the m-matrices.
 
@@ -475,7 +478,7 @@ def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc):
         x1 = n_medium*Kvac*rho1                 # size parameter
         mie = mie_cache(int(2*x1)+1, x1, n1)    # initial lmax arbitrary
     
-    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, N, M, pts, wts, mie)
+    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, mie)
     
     #r2 = 1/(1+rho2/rho1)
     r2 = 0.5
@@ -490,24 +493,24 @@ def LogDet(R1, R2, L, materials, Kvac, N, M, pts, wts, nproc):
         x2 = n_medium*Kvac*rho2                 # size parameter
         mie = mie_cache(int(2*x2)+1, x2, n2)    # initial lmax arbitrary
     
-    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, N, M, pts, wts, mie)
+    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
     # m=0
-    sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*N,2*N)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*N,2*N)).tocsc()
+    sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    sprsmat2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
     mat = sprsmat1.dot(sprsmat2)
     logdet = logdet_sparse(mat) 
     
     # m>0    
     for m in range(1, M//2):
-        sprsmat1 = coo_matrix((data1[:, m], (row1, col1)), shape=(2*N,2*N)).tocsc()
-        sprsmat2 = coo_matrix((data2[:, m], (row2, col2)), shape=(2*N,2*N)).tocsc()
+        sprsmat1 = coo_matrix((data1[:, m], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+        sprsmat2 = coo_matrix((data2[:, m], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
         mat = sprsmat1.dot(sprsmat2)
         logdet += 2*logdet_sparse(mat) 
     
     # last m
-    sprsmat1 = coo_matrix((data1[:, M//2], (row1, col1)), shape=(2*N,2*N)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, M//2], (row2, col2)), shape=(2*N,2*N)).tocsc()
+    sprsmat1 = coo_matrix((data1[:, M//2], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    sprsmat2 = coo_matrix((data2[:, M//2], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
     mat = (sprsmat1).dot(sprsmat2)
     if M%2==0:
         logdet += logdet_sparse(mat)
@@ -601,7 +604,7 @@ def energy_finite(R1, R2, L, T, materials, N, M, nproc):
     return 0.5*T*(energy+energy0), 0.5*T*energy
     #return energy
 
-def energy_faster(R1, R2, L, T, materials, N, M, nproc):
+def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -629,17 +632,18 @@ def energy_faster(R1, R2, L, T, materials, N, M, nproc):
     quadrature, get_mie, LogDet_sparse_mp
 
     """
-    pts, wts = quadrature(N)
+    p_in, w_in = quadrature(Nin)
+    p_out, w_out = quadrature(Nout)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy0 = LogDet(R1, R2, L, materials, 0., N, M, pts, wts, nproc)
+    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
 
     energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
     order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
-        term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+        term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
         print(K_matsubara*xi[n], term)
         energy += term
     
@@ -655,14 +659,16 @@ if __name__ == "__main__":
     
     rho1 = R1/L
     rho2 = R2/L
+    rhoeff = rho1*rho2/(rho1+rho2)
     eta = 10
 
     nproc = 4
-    N = int(eta*np.sqrt(max(rho1, rho2)))
-    M = N
+    Nin = int(eta*np.sqrt(rho1+rho2))
+    Nout = int(eta*np.sqrt(rhoeff))
+    M = Nin
     X = 20
     phiSequence = make_phiSequence(phiKernel)
 
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
-    print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
-    print(energy_faster(R1, R2, L, T, materials, N, M, nproc))
+    #print(energy_finite(R1, R2, L, T, materials, N, M, nproc))
+    print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))

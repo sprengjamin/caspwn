@@ -40,6 +40,8 @@ def itt_scalar(n):
     column_index = n - row_index*(row_index+1)//2
     return (row_index, column_index)
 
+def itt_nosquare(index, Nrow, Ncol):
+    return index//Ncol, index%Ncol
 
 if __name__ == "__main__":
     print(itt_scalar(5))
