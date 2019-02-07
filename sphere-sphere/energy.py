@@ -272,8 +272,6 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     wrow = np.sqrt(b*wts_row*2*np.pi/M)
     wcol = np.sqrt(b*wts_col*2*np.pi/M)
     
-    ncol = np.arange(Ncol) 
-    nrow = np.arange(Ncol) 
     indices = np.array_split(np.random.permutation(Nrow*Ncol), nproc)
     out = mp.Queue()
     procs = []
