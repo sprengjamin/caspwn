@@ -37,8 +37,8 @@ from numba import njit
 from numba import float64
 from numba.types import UniTuple
 from math import lgamma
-import sys
-sys.path.append("../ufuncs/")
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 from angular import pte, pte_low, pte_asymptotics
 from mie import mie_cache
 

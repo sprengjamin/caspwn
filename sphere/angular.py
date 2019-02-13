@@ -23,8 +23,8 @@ and to prevent under/overflow it is important to consider the exponentially scal
 import numpy as np
 import math
 from numba import njit
-import sys
-sys.path.append("../ufuncs/")
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from bessel import Ine
 from legendre import Ple_asymptotics
 

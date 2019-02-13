@@ -35,8 +35,8 @@ import numpy as np
 import math
 from numba import njit, jitclass
 from numba import int64, float64
-import sys
-sys.path.append("../ufuncs/")
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from bessel import InuKnu_e
 from bessel import fraction
 
