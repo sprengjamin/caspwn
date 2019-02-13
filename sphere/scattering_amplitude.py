@@ -32,6 +32,7 @@ with
 
 """
 import numpy as np
+import math
 from numba import jit, njit
 from numba import float64
 from numba.types import UniTuple
@@ -53,14 +54,14 @@ def make_mat_coeff(e):
 def zero_frequency(x, mie):
     err = 1.e-16
     l_init = int(0.5*x)+1
-    logx = np.log(x)
+    logx = math.log(x)
     e = mie.n**2
-    S =  (e-1)/(e+(l_init+1)/l_init)*np.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+    S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
     
     # upward summation
     l = l_init + 1
     while True:
-        term = (e-1)/(e+(l+1)/l)*np.exp(2*l*logx - lgamma(2*l+1)-x)
+        term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
         S += term
         if term/S < err:
             break
@@ -72,7 +73,7 @@ def zero_frequency(x, mie):
     # downward summation
     l = l_init - 1
     while True:
-        term = (e-1)/(e+(l+1)/l)*np.exp(2*l*logx - lgamma(2*l+1)-x)
+        term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
         S += term
         if term/S < err:
             break
@@ -85,7 +86,7 @@ def zero_frequency(x, mie):
 
 @jit("float64(float64, float64)", nopython=True)
 def chi_back(nu, x):
-    return nu**2/(np.sqrt(nu**2 + x**2) + x) + nu*np.log(x/(nu + np.sqrt(nu**2 + x**2)))
+    return nu**2/(math.sqrt(nu**2 + x**2) + x) + nu*math.log(x/(nu + math.sqrt(nu**2 + x**2)))
 
 
 @jit(float64(float64, mie_cache.class_type.instance_type), nopython=True)
@@ -109,13 +110,13 @@ def S_back(x, mie):
     err = 1.0e-16
 
     l = 1
-    exp = np.exp(2*chi_back(l+0.5, x))
+    exp = math.exp(2*chi_back(l+0.5, x))
     ale, ble = mie.read(l)
     S = (l+0.5)*(ale + ble)*exp
     
     l += 1
     while(True):
-        exp = np.exp(2*chi_back(l+0.5, x))
+        exp = math.exp(2*chi_back(l+0.5, x))
         ale, ble = mie.read(l)
         Sterm = (l+0.5)*(ale + ble)*exp
         if Sterm/S < err:
@@ -148,18 +149,18 @@ def chi(l, x, z):
     # computes chi using some algebraic manipulation
     nu = l + 0.5
     y = nu/x
-    delta = y - np.sqrt((z-1)/2) # this is the accuracy bottle neck
-    t1 = delta*(y+np.sqrt((z-1)/2))/(np.sqrt(y**2+1) + np.sqrt((1+z)/2))
-    W = np.sqrt((delta + np.sqrt((z-1)/2))**2 + 1)
-    t21 = -2*delta**2 - 4*delta*np.sqrt((z-1)/2) - 2*delta*W - 2*(z-1)*delta*(delta+np.sqrt(2*(z-1)))/(np.sqrt(z**2-1) + np.sqrt(z**2-1 + 2*(z-1)*delta*(delta+np.sqrt(2*(z-1)))))
-    t2 = np.log1p(t21/(y+np.sqrt(y**2+1))**2)
+    delta = y - math.sqrt((z-1)/2) # this is the accuracy bottle neck
+    t1 = delta*(y+math.sqrt((z-1)/2))/(math.sqrt(y**2+1) + math.sqrt((1+z)/2))
+    W = math.sqrt((delta + math.sqrt((z-1)/2))**2 + 1)
+    t21 = -2*delta**2 - 4*delta*math.sqrt((z-1)/2) - 2*delta*W - 2*(z-1)*delta*(delta+math.sqrt(2*(z-1)))/(math.sqrt(z**2-1) + math.sqrt(z**2-1 + 2*(z-1)*delta*(delta+math.sqrt(2*(z-1)))))
+    t2 = math.log1p(t21/(y+math.sqrt(y**2+1))**2)
     return x*(y*t2 + 2*t1)
 
 
 @jit("float64(int64, float64, float64)", nopython=True)
 def chi_old(l, x, z):
     nu = l + 0.5
-    return nu*np.arccosh(z) + 2*np.sqrt(nu**2 + x**2) - 2*nu*np.arcsinh(nu/x) - 2*x*np.sqrt((1+z)/2)
+    return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
 
 
 @jit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type), nopython=True)
@@ -191,24 +192,24 @@ def S1S2(x, z, mie):
         S = S_back(x, mie)
         return -S, S
 
-    arccoshz = np.arccosh(z)
-    pte_cache = np.vstack(pte_low(1000, arccoshz))
-    lest = x*np.sqrt(np.abs(z-1)/2)
+    acoshz = math.acosh(z)
+    pte_cache = np.vstack(pte_low(1000, acoshz))
+    lest = x*math.sqrt(math.fabs(z-1)/2)
     lest_int = int(lest)+1
     #print("lest", lest)
 
-    pe, te = pte(lest_int, arccoshz, pte_cache)
+    pe, te = pte(lest_int, acoshz, pte_cache)
     ale, ble = mie.read(lest_int)
-    exp = np.exp(chi(lest_int, x, z))
+    exp = math.exp(chi(lest_int, x, z))
     S1 = (ale*pe + ble*te)*exp
     S2 = (ale*te + ble*pe)*exp
     
     # upwards summation
     l = lest_int+1
     while(True):
-        pe, te = pte(l, arccoshz, pte_cache)
+        pe, te = pte(l, acoshz, pte_cache)
         ale, ble = mie.read(l)
-        exp = np.exp(chi(l, x, z))
+        exp = math.exp(chi(l, x, z))
         S1term = (ale*pe + ble*te)*exp
         S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
@@ -226,9 +227,9 @@ def S1S2(x, z, mie):
     # downwards summation
     l = lest_int-1
     while(True):
-        pe, te = pte(l, arccoshz, pte_cache)
+        pe, te = pte(l, acoshz, pte_cache)
         ale, ble = mie.read(l)
-        exp = np.exp(chi(l, x, z))
+        exp = math.exp(chi(l, x, z))
         S1term = (ale*pe + ble*te)*exp
         S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
@@ -247,8 +248,9 @@ def S1S2(x, z, mie):
 if __name__ == "__main__":
     x = 100
     z = 2.3
+    n = 1.8
     #ale, ble = mie_e_array(1e5, x)
-    mie = mie_cache(1e1, x)
+    mie = mie_cache(1e1, x, n)
     print(mie.lmax)
     S1, S2 = S1S2(x, z, mie)
     print(mie.lmax)
@@ -256,7 +258,7 @@ if __name__ == "__main__":
     print(mie.lmax)
     
     """
-    sigma = np.sqrt((1+z)/2)
+    sigma = math.sqrt((1+z)/2)
     S1a = -0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
     S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)
     print("compare to asymptotics")
@@ -266,7 +268,7 @@ if __name__ == "__main__":
     print(S2)
     print(S2a)
     print((S2-S2a)/S2a)
-    width = np.sqrt(x*np.sqrt((1+z)/2))
+    width = math.sqrt(x*math.sqrt((1+z)/2))
     print("width", width)
     print("6*width", 6*width)
     #jit()(S1S2).inspect_types()

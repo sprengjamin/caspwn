@@ -11,6 +11,7 @@ for large orders :math:`\ell\geq 1000` using asymptotics.
 """
 
 import numpy as np
+import math
 from bessel import Ine
 from numba import jit
 
@@ -121,7 +122,7 @@ def gammafraction(l):
         Coefficient :math:`C_{\ell, 0}`
 
     """
-    return  (1 - 3/(8*l) + 25/(128*l**2) - 105/(1024*l**3) + 1659/(32768*l**4 - 6237/262144*l**5))/np.sqrt(l)
+    return  (1 - 3/(8*l) + 25/(128*l**2) - 105/(1024*l**3) + 1659/(32768*l**4 - 6237/262144*l**5))/math.sqrt(l)
 
 @jit("float64(int64, float64)", nopython=True)
 def Ple_high(l, x):
@@ -157,8 +158,8 @@ def Ple_high(l, x):
     Clm = 1.
     for m in range(1, 17):
         Clm *= (m-0.5)**2/(m*(l+m+0.5))
-        res += Clm*(1+np.exp(-(2*m+2*l+1)*x))/((-np.expm1(-2*x))**m)
-    return np.sqrt(1/(2*np.pi*np.sinh(x)))*gammafraction(l)*res
+        res += Clm*(1+math.exp(-(2*m+2*l+1)*x))/((-math.expm1(-2*x))**m)
+    return math.sqrt(1/(2*math.pi*math.sinh(x)))*gammafraction(l)*res
 
 @jit("float64(int64, float64)", nopython=True)
 def Ple_asymptotics(l, x):
@@ -180,7 +181,7 @@ def Ple_asymptotics(l, x):
         Exponentially scaled Legendre function
 
     """
-    if (l+1)*np.sinh(x) > 25:
+    if (l+1)*math.sinh(x) > 25:
         return Ple_high(l, x)
     else:
         return Ple_low(l, x)

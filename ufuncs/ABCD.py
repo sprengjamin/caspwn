@@ -7,6 +7,7 @@ polarization basis.
 """
 
 import numpy as np
+import math
 from numba import jit
 
 @jit("UniTuple(float64, 4)(float64, float64, float64, float64)", nopython=True)
@@ -59,14 +60,14 @@ def ABCD(xi, k1, k2, phi):
     """
     if phi == 0.:
         return 1., 0., 0., 0.
-    elif phi == np.pi:
+    elif phi == math.pi:
         return -1., 0., 0., 0.
     else:
-        kappa1 = np.sqrt(xi**2+k1**2)
-        kappa2 = np.sqrt(xi**2+k2**2)
-        denom = k1**2*k2**2*(1+np.cos(phi)**2) + xi**2*(k1**2+k2**2) + 2*k1*k2*kappa1*kappa2*np.cos(phi)
-        numA = xi**2*(k1**2+k2**2)*np.cos(phi) + 2*k1**2*k2**2*np.cos(phi) + k1*k2*kappa1*kappa2*(1+np.cos(phi)**2)
-        numB = xi**2*k1*k2*np.sin(phi)**2
-        numC = -xi*np.sin(phi)*(kappa2*k1**2+kappa1*k1*k2*np.cos(phi))
-        numD = xi*np.sin(phi)*(kappa1*k2**2+kappa2*k1*k2*np.cos(phi))
+        kappa1 = math.sqrt(xi**2+k1**2)
+        kappa2 = math.sqrt(xi**2+k2**2)
+        denom = k1**2*k2**2*(1+math.cos(phi)**2) + xi**2*(k1**2+k2**2) + 2*k1*k2*kappa1*kappa2*math.cos(phi)
+        numA = xi**2*(k1**2+k2**2)*math.cos(phi) + 2*k1**2*k2**2*math.cos(phi) + k1*k2*kappa1*kappa2*(1+math.cos(phi)**2)
+        numB = xi**2*k1*k2*math.sin(phi)**2
+        numC = -xi*math.sin(phi)*(kappa2*k1**2+kappa1*k1*k2*math.cos(phi))
+        numD = xi*math.sin(phi)*(kappa1*k2**2+kappa2*k1*k2*math.cos(phi))
         return numA/denom, numB/denom, numC/denom, numD/denom

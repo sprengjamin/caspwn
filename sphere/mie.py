@@ -32,6 +32,7 @@ For perfectly reflecting spheres the mie coefficients are
 """
 
 import numpy as np
+import math
 from numba import jit, jitclass
 from numba import int64, float64
 import sys
@@ -60,12 +61,12 @@ def _expdiff(l, x):
     float
 
     """
-    t1 = l-0.5+np.sqrt((l-0.5)**2+x**2)
-    t2 = l+0.5+np.sqrt((l+0.5)**2+x**2)
+    t1 = l-0.5+math.sqrt((l-0.5)**2+x**2)
+    t2 = l+0.5+math.sqrt((l+0.5)**2+x**2)
     delta = 2*l/(t1+t2-2*l)
     ans = -delta
-    ans += l*np.log1p((1+delta)/t1) 
-    return np.exp(ans)*np.sqrt(t1*t2)/x
+    ans += l*math.log1p((1+delta)/t1) 
+    return math.exp(ans)*math.sqrt(t1*t2)/x
 
 
 @jit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64)", nopython=True)
@@ -94,9 +95,9 @@ def mie_e(l, x, inum, knum, inup, knup):
         (:math:`\tilde a_\ell(ix)`, :math:`\tilde b_\ell(ix))`
     
     """
-    ble = np.pi/2*inup/knup
+    ble = math.pi/2*inup/knup
     epsi = _expdiff(l, x)
-    ale = np.pi/2*(x*epsi*inum - l*inup)/(x/epsi*knum + l*knup)
+    ale = math.pi/2*(x*epsi*inum - l*inup)/(x/epsi*knum + l*knup)
     return ale, ble
 
 
@@ -140,8 +141,8 @@ def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
     sc = i_p_nx*(x/epsi*k_m_x + l*k_p_x)
     sd = i_p_nx*k_p_x*(g_nx - l)
     
-    ale = np.pi/2*(n**2*sa - sb)/(n**2*sc + sd)
-    ble = np.pi/2*(sb-sa)/(sc + sd)
+    ale = math.pi/2*(n**2*sa - sb)/(n**2*sc + sd)
+    ble = math.pi/2*(sb-sa)/(sc + sd)
     return ale, ble
 
 
@@ -218,7 +219,7 @@ class mie_cache(object):
         self._make_mie_array()
     
     def _make_mie_array(self):
-        if self.n == np.inf:
+        if self.n == math.inf:
             self.ale, self.ble = mie_e_array_PR(self.lmax, self.x)
         else:
             self.ale, self.ble = mie_e_array_mat(self.lmax, self.x, self.n)
@@ -238,17 +239,20 @@ class mie_cache(object):
 
 if __name__ == "__main__":
     lmax = 1e4
-    x = 2.3
-    n = np.inf
+    x = 200.3
+    n = 100.
     cache = mie_cache(lmax, x, n)
     print(cache.read(int(1e4)+1))
     print(len(cache.ale))
     print(len(cache.ble))
     ale = cache.ale
     ble = cache.ble
+    l = np.arange(1,len(cache.ale)+1)
     import matplotlib.pyplot as plt
-    plt.loglog(ale)
-    plt.loglog(ble)
+    plt.loglog(l, ale, label="a")
+    plt.loglog(l, ble, label="b")
+    plt.loglog(l, l**(-2.), "k-")
+    plt.legend()
     plt.show()
     print(ale)
     print(ble)

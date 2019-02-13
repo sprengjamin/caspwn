@@ -22,6 +22,7 @@ motivated by the `Debye asymptotic expansion`_.
 """
 
 import numpy as np
+import math
 from numba import jit
 
 @jit("float64(int64, float64)", nopython=True)
@@ -76,9 +77,9 @@ def InuKnu_e_asymptotics(nu, x):
 
     """
     z = x/nu
-    pinv = np.sqrt(1+z*z)
-    Inu_e = np.sqrt(1/((2*np.pi*nu)*pinv)) 
-    Knu_e = np.sqrt(np.pi/((2*nu)*pinv))
+    pinv = math.sqrt(1+z*z)
+    Inu_e = math.sqrt(1/((2*math.pi*nu)*pinv)) 
+    Knu_e = math.sqrt(math.pi/((2*nu)*pinv))
     p = 1/pinv
     Inu_e *= 1+_U(1,p)/nu+_U(2,p)/(nu*nu)+_U(3,p)/(nu*nu*nu)+_U(4,p)/(nu**4)
     Knu_e *= 1-_U(1,p)/nu+_U(2,p)/(nu*nu)-_U(3,p)/(nu*nu*nu)+_U(4,p)/(nu**4)
@@ -86,19 +87,19 @@ def InuKnu_e_asymptotics(nu, x):
 
 @jit("float64(float64, float64)", nopython=True)
 def _t(nu, x):
-    return nu + np.sqrt(nu**2 + x**2)
+    return nu + math.sqrt(nu**2 + x**2)
 
 @jit("float64(float64, float64)", nopython=True)
 def _expPsi1(nu, x):
-    delta11 = (2*nu + 1)/(np.sqrt((nu + 1)**2 + x**2) + np.sqrt(nu**2 + x**2))
-    return x/_t(nu+1, x)*np.exp(delta11 - nu*np.log1p((1 + delta11)/_t(nu, x)))
+    delta11 = (2*nu + 1)/(math.sqrt((nu + 1)**2 + x**2) + math.sqrt(nu**2 + x**2))
+    return x/_t(nu+1, x)*math.exp(delta11 - nu*math.log1p((1 + delta11)/_t(nu, x)))
 
 @jit("float64(float64, float64)", nopython=True)
 def _expPsi2(nu, x):
-    delta21 = 4*nu/(np.sqrt((nu + 1)**2 + x**2) + np.sqrt((nu - 1)**2 + x**2))
+    delta21 = 4*nu/(math.sqrt((nu + 1)**2 + x**2) + math.sqrt((nu - 1)**2 + x**2))
     tnup1 = _t(nu+1, x)
     tnum1 = _t(nu-1, x)
-    return x**2/(tnup1*tnum1)*np.exp(delta21 - nu*np.log1p((2 + delta21)/tnum1))
+    return x**2/(tnup1*tnum1)*math.exp(delta21 - nu*math.log1p((2 + delta21)/tnum1))
 
 @jit("float64(float64, float64, float64, float64)", nopython=True)
 def Knu_e_next(nu, x, new, old):
@@ -217,8 +218,8 @@ def InuKnu_e(lmax, x):
     """
     tI = np.empty(lmax+1)
     tK = np.empty(lmax+2)
-    tK[0] = np.sqrt(np.pi/(2*_t(0.5, x)))*np.exp(0.25/(np.sqrt(0.25 + x**2) + x))
-    tK[1] = np.sqrt(np.pi/2)*(_t(1.5, x)**-1.5)*(1+x)*np.exp(2.25/(np.sqrt(2.25 + x**2) + x))
+    tK[0] = math.sqrt(math.pi/(2*_t(0.5, x)))*math.exp(0.25/(math.sqrt(0.25 + x**2) + x))
+    tK[1] = math.sqrt(math.pi/2)*(_t(1.5, x)**-1.5)*(1+x)*math.exp(2.25/(math.sqrt(2.25 + x**2) + x))
     tI[0] = Inu_e_wronskian(0.5, x, tK[0], tK[1])
     for l in range(1, min(lmax, 1000)+1):
         tK[l+1] = Knu_e_next(l+0.5, x, tK[l], tK[l-1])
@@ -374,7 +375,7 @@ def I0e(x):
         y = x/2.0 - 2.0
         return _chbevlA0(y)
     else:
-        return _chbevlB0(32.0/x - 2.0)/np.sqrt(x)
+        return _chbevlB0(32.0/x - 2.0)/math.sqrt(x)
 
 A1 = np.array([
      2.77791411276104639959E-18,
@@ -488,12 +489,12 @@ def I1e(x):
         www.netlib.org/cephes/bessel.tgz
     
     """
-    z = np.abs(x)
+    z = math.fabs(x)
     if z <= 8.0:
         y = z/2.0 - 2.0
         z = z*_chbevlA1(y)
     else:
-        z = _chbevlB1(32.0/z - 2.0)/np.sqrt(z)
+        z = _chbevlB1(32.0/z - 2.0)/math.sqrt(z)
     if x < 0.:
         z = -z
     return z
@@ -535,11 +536,11 @@ def Ine(n, x):
     bi = np.empty(n+1, dtype=np.float64)
     bi[n] = 1.
     bi[n-1] = fraction(n-1, x)
-    tox = 2.0/np.fabs(x)
+    tox = 2.0/math.fabs(x)
     j = n-1
     while(j>0):
         bi[j-1] = bi[j+1]+j*tox*bi[j]
-        if np.fabs(bi[j-1]) > BIGNO:
+        if math.fabs(bi[j-1]) > BIGNO:
             bi *= BIGNI
         j -= 1
     bi[::2] *= I0e(x)/bi[0]

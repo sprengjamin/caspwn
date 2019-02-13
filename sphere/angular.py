@@ -21,6 +21,7 @@ and to prevent under/overflow it is important to consider the exponentially scal
 
 """
 import numpy as np
+import math
 from numba import jit
 import sys
 sys.path.append("../ufuncs/")
@@ -53,7 +54,7 @@ def _c1(x):
         y = _cf(1, x)
         return -y/8.
     else:
-        return (1 - x/np.tanh(x))/(8.*x**2)
+        return (1 - x/math.tanh(x))/(8.*x**2)
 
 @jit("float64(float64)", nopython=True)
 def _c2(x):
@@ -61,7 +62,7 @@ def _c2(x):
         y = _cf(2, x)
         return (-3 + 8*y*(3 + x**2*y))/(384.*(3 + x**2*y)**2)
     else:
-        y = x/np.tanh(x)
+        y = x/math.tanh(x)
         return (8*x**2 - 3*(-7 + 6*y + y**2))/(384.*x**4) 
 
 @jit("float64(float64)", nopython=True)
@@ -70,7 +71,7 @@ def _c3(x):
         y = _cf(3, x)
         return (225*(1 - 8*y) - x**2*(-40 + 3*y*(75 + y*(240 + x**2*(23 + (24 + x**2)*y)))))/(3072.*(15 + x**2*(1 + 3*y))**3)
     else:
-        y = x/np.tanh(x)
+        y = x/math.tanh(x)
         return (40*x**2 - 3*(-33 + 27*y + 5*y**2 + y**3))/(3072.*x**6) 
 
 @jit("float64(float64)", nopython=True)
@@ -79,7 +80,7 @@ def _c4(x):
         y = _cf(4, x)
         return (64*x**12*y**4 + 1157625*(-41 + 384*y) + 73500*x**2*(-181 + 9*y*(191 + 288*y)) + 80*x**10*y**2*(3 + y*(68 + 321*y)) + 350*x**4*(-5293 + 3*y*(10994 + 81*y*(641 + 320*y))) + 100*x**6*(-291 + y*(-1589 + 9*y*(5795 + 3*y*(2699 + 480*y)))) + 15*x**8*(-15 + y*(-124 + y*(3238 + y*(43364 + 21105*y)))))/(1.47456e6*(105 + x**4*y + 5*x**2*(2 + 3*y))**4) 
     else:
-        y = x/np.tanh(x)
+        y = x/math.tanh(x)
         return (64*x**4 + 240*x**2*(55 + y**2) - 45*(-715 + 572*y + 110*y**2 + 28*y**3 + 5*y**4))/(1.47456e6*x**8)
 
 @jit("float64(float64)", nopython=True)
@@ -88,7 +89,7 @@ def _c5(x):
         y = _cf(5, x)
         return -(105*x**20*y**5 + 265831216875*(-23 + 256*y) + 5*x**18*y**3*(2 + 5*y)*(-16 + 575*y) + 843908625*x**2*(-4426 + 35*y*(1037 + 1024*y)) + 281302875*x**4*(-1640 + y*(17183 + 10*y*(4937 + 1792*y))) + 595350*x**6*(-87376 + 5*y*(159064 + 7*y*(114732 + 5*y*(21851 + 3584*y)))) + x**16*y*(64 + 5*y*(-1072 + y*(19416 + 25*y*(6467 + 9314*y)))) + 33075*x**8*(-72320 + y*(319544 + 5*y*(1376594 + y*(2351546 + 35*y*(28379 + 1792*y))))) + 315*x**10*(-159072 + 5*y*(-46832 + 5*y*(953804 + 35*y*(127002 + y*(98842 + 16051*y))))) + 6*x**14*(128 + 5*y*(-2368 + y*(15296 + 5*y*(107096 + 7*y*(58516 + 52555*y))))) + 35*x**12*(-11392 + y*(-169136 + 25*y*(126584 + y*(1247390 + y*(2623270 + 806183*y))))))/(3.93216e6*(945 + 105*x**2*(1 + y) + x**4*(1 + 10*y))**5)
     else:
-        y = x/np.tanh(x)
+        y = x/math.tanh(x)
         return (-64*x**4*(-3 + y) + 80*x**2*(325 + 9*y**2 + 2*y**3) - 15*(-4199 + 3315*y + 650*y**2 + 182*y**3 + 45*y**4 + 7*y**5))/(3.93216e6*x**10)
 
 @jit("float64[:](float64)", nopython=True)
@@ -176,7 +177,7 @@ def pe_asymptotics(l, x):
     for k in range(kmax):
         ans += c[k]*ff*bessels[k+1]*(2*x/nu)**k
         ff *= 1.5+k
-    return 2.*np.sqrt(x/np.sinh(x)**3)*ans
+    return 2.*math.sqrt(x/math.sinh(x)**3)*ans
 
 @jit("UniTuple(float64, 2)(float64, float64)", nopython=True)
 def pte_high(l, x):
@@ -205,7 +206,7 @@ def pte_high(l, x):
 
     """
     pe = pe_asymptotics(l, x)
-    te = -np.cosh(x)*pe + (2*l+1)*Ple_asymptotics(l, x)
+    te = -math.cosh(x)*pe + (2*l+1)*Ple_asymptotics(l, x)
     return pe, te
 
 @jit("UniTuple(float64[:], 2)(int64, float64)", nopython=True)
@@ -241,11 +242,11 @@ def pte_low(l, x):
     """
     p = np.empty(l)
     t = np.empty(l)
-    z = np.cosh(x)
-    emz = np.exp(-x)
-    em2z = np.exp(-2*x)
+    z = math.cosh(x)
+    emz = math.exp(-x)
+    em2z = math.exp(-2*x)
     p[-1] = 0.
-    p[0] = 3/2*np.exp(-1.5*x)
+    p[0] = 3/2*math.exp(-1.5*x)
     t[0] = z*p[0]
     
     for i in range(1, l):

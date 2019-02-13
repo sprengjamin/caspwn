@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from numba import jit
 from numba import float64, int64
 from numba.types import UniTuple
@@ -40,12 +41,12 @@ def phiKernel(rho, r, sign, K, k1, k2, phi, mie):
 
     """
     if K == 0:
-        x = 2*rho*np.sqrt(k1*k2)*np.cos(phi/2)
+        x = 2*rho*math.sqrt(k1*k2)*math.cos(phi/2)
         exponent = x - (k1+k2)*(rho+r)
         if exponent < -37:
             return np.array([0., 0., 0., 0.])
-        e = np.exp(exponent)
-        norm = rho/(2*np.pi)
+        e = math.exp(exponent)
+        norm = rho/(2*math.pi)
         S = zero_frequency(x, mie)
         TMTM = norm*S*e
         TETE = 0.
@@ -53,15 +54,15 @@ def phiKernel(rho, r, sign, K, k1, k2, phi, mie):
         TETM = 0.
         return np.array([TMTM, TETE, TMTE, TETM])
     else:
-        kappa1 = np.sqrt(k1*k1+K*K)
-        kappa2 = np.sqrt(k2*k2+K*K)
-        z = (kappa1*kappa2+k1*k2*np.cos(phi))/K**2
-        exponent = 2*rho*K*np.sqrt((1+z)/2) - (kappa1+kappa2)*(rho+r)
+        kappa1 = math.sqrt(k1*k1+K*K)
+        kappa2 = math.sqrt(k2*k2+K*K)
+        z = (kappa1*kappa2+k1*k2*math.cos(phi))/K**2
+        exponent = 2*rho*K*math.sqrt((1+z)/2) - (kappa1+kappa2)*(rho+r)
         if exponent < -37:
             return np.array([0., 0., 0., 0.])
-        e = np.exp(exponent)
+        e = math.exp(exponent)
         A, B, C, D = ABCD(K, k1, k2, phi)
-        norm = np.sqrt(k1*k2)/(2*np.pi*K*np.sqrt(kappa1*kappa2))
+        norm = math.sqrt(k1*k2)/(2*math.pi*K*math.sqrt(kappa1*kappa2))
         S1, S2 = S1S2(K*rho, z, mie)
         pkTMTM =  norm*(B*S1+A*S2)*e
         pkTETE =  norm*(A*S1+B*S2)*e
