@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from ABCD import ABCD
 
 
-@njit("float64(float64, float64, float64, float64, float64)")
-def phase(rho, K, k1, k2, phi):
+@njit("float64(float64, float64, float64, float64, float64, float64)")
+def phase(rho, r, K, k1, k2, phi):
     r"""The phase difference.
 
     Parameters
@@ -40,7 +40,7 @@ def phase(rho, K, k1, k2, phi):
     """
     kappa1 = math.sqrt(k1*k1+K*K)
     kappa2 = math.sqrt(k2*k2+K*K)
-    return -((k1 - k2)**2 + 4*k1*k2*math.sin(phi/2)**2)/(math.sqrt(2*(kappa1*kappa2 + k1*k2*math.cos(phi) + K**2)) + kappa1 + kappa2)*rho - kappa1 - kappa2
+    return -((k1 - k2)**2 + 4*k1*k2*math.sin(phi/2)**2)/(math.sqrt(2*(kappa1*kappa2 + k1*k2*math.cos(phi) + K**2)) + kappa1 + kappa2)*rho - r*(kappa1 + kappa2)
 
 
 @njit(UniTuple(float64, 4)(float64, float64, float64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
@@ -90,7 +90,7 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
         kappa1 = math.sqrt(k1*k1+K*K)
         kappa2 = math.sqrt(k2*k2+K*K)
         z = (kappa1*kappa2+k1*k2*math.cos(phi))/K**2
-        exponent = phase(rho, K, k1, k2, phi)
+        exponent = phase(rho, r, K, k1, k2, phi)
         if exponent < -37:
             return 0., 0., 0., 0.
         e = math.exp(exponent)
