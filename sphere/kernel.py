@@ -107,7 +107,7 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
 if __name__ == "__main__":
     rho = 1.
     K = 1.
-    k1 = 1.3
+    k1 = 1.
     k2 = 1.
     phi = 1.
     #print(phase(rho, K, k1, k2, phi))
