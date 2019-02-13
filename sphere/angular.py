@@ -22,13 +22,13 @@ and to prevent under/overflow it is important to consider the exponentially scal
 """
 import numpy as np
 import math
-from numba import jit
+from numba import njit
 import sys
 sys.path.append("../ufuncs/")
 from bessel import Ine
 from legendre import Ple_asymptotics
 
-@jit("float64(int64, float64)", nopython=True)
+@njit("float64(int64, float64)")
 def _cf(m, x):
     """
     2*n+1 is start value
@@ -48,7 +48,7 @@ def _cf(m, x):
         ratio_last = ratio
         n += 1
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def _c1(x):
     if x < 1.:
         y = _cf(1, x)
@@ -56,7 +56,7 @@ def _c1(x):
     else:
         return (1 - x/math.tanh(x))/(8.*x**2)
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def _c2(x):
     if x < 1.:
         y = _cf(2, x)
@@ -65,7 +65,7 @@ def _c2(x):
         y = x/math.tanh(x)
         return (8*x**2 - 3*(-7 + 6*y + y**2))/(384.*x**4) 
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def _c3(x):
     if x < 1.:
         y = _cf(3, x)
@@ -74,7 +74,7 @@ def _c3(x):
         y = x/math.tanh(x)
         return (40*x**2 - 3*(-33 + 27*y + 5*y**2 + y**3))/(3072.*x**6) 
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def _c4(x):
     if x < 1.:
         y = _cf(4, x)
@@ -83,7 +83,7 @@ def _c4(x):
         y = x/math.tanh(x)
         return (64*x**4 + 240*x**2*(55 + y**2) - 45*(-715 + 572*y + 110*y**2 + 28*y**3 + 5*y**4))/(1.47456e6*x**8)
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def _c5(x):
     if x < 1.:
         y = _cf(5, x)
@@ -92,7 +92,7 @@ def _c5(x):
         y = x/math.tanh(x)
         return (-64*x**4*(-3 + y) + 80*x**2*(325 + 9*y**2 + 2*y**3) - 15*(-4199 + 3315*y + 650*y**2 + 182*y**3 + 45*y**4 + 7*y**5))/(3.93216e6*x**10)
 
-@jit("float64[:](float64)", nopython=True)
+@njit("float64[:](float64)")
 def c_coefficients(x):
     r"""Coefficients :math:`c_k(x)`.
 
@@ -133,7 +133,7 @@ def c_coefficients(x):
     c[5] = _c5(x)
     return c 
 
-@jit("float64(float64, float64)", nopython=True)
+@njit("float64(float64, float64)")
 def pe_asymptotics(l, x):
     r"""Exponentially scaled angular function :math:`\tilde p_\ell\left(\cosh(x)\right)` for large order.
 
@@ -179,7 +179,7 @@ def pe_asymptotics(l, x):
         ff *= 1.5+k
     return 2.*math.sqrt(x/math.sinh(x)**3)*ans
 
-@jit("UniTuple(float64, 2)(float64, float64)", nopython=True)
+@njit("UniTuple(float64, 2)(float64, float64)")
 def pte_high(l, x):
     r"""Exponentially scaled angular function :math:`\tilde p_\ell\left(\cosh(x)\right)`
     and :math:`\tilde t_\ell\left(\cosh(x)\right)` for large order.
@@ -209,7 +209,7 @@ def pte_high(l, x):
     te = -math.cosh(x)*pe + (2*l+1)*Ple_asymptotics(l, x)
     return pe, te
 
-@jit("UniTuple(float64[:], 2)(int64, float64)", nopython=True)
+@njit("UniTuple(float64[:], 2)(int64, float64)")
 def pte_low(l, x):
     r"""Exponentially scaled angular function :math:`\tilde p_\ell\left(\cosh(x)\right)`
     and :math:`\tilde t_\ell\left(\cosh(x)\right)` for small order.
@@ -254,14 +254,14 @@ def pte_low(l, x):
         t[i] = (i+1)*z*p[i] - (2*i+3)*i/(2*i+1)*emz*p[i-1]
     return p, t
 
-@jit("UniTuple(float64, 2)(int64, float64, float64[:,:])", nopython=True)
+@njit("UniTuple(float64, 2)(int64, float64, float64[:,:])")
 def pte(l, x, cache):
     if l < 1001:
         return cache[0, l-1], cache[1, l-1]
     else:
         return pte_high(l, x)
 
-@jit("UniTuple(float64, 2)(int64, float64)", nopython=True)
+@njit("UniTuple(float64, 2)(int64, float64)")
 def pte_asymptotics(l, x):
     if l < 1001:
         pe, te = pte_low(l, x)

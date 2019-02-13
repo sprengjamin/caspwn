@@ -8,9 +8,9 @@ polarization basis.
 
 import numpy as np
 import math
-from numba import jit
+from numba import njit
 
-@jit("UniTuple(float64, 4)(float64, float64, float64, float64)", nopython=True)
+@njit("UniTuple(float64, 4)(float64, float64, float64, float64)")
 def ABCD(xi, k1, k2, phi):
     r"""Coefficients :math:`A`, :math:`B`, :math:`C` and :math:`D`.
 

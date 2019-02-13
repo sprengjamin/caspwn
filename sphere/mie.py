@@ -33,14 +33,14 @@ For perfectly reflecting spheres the mie coefficients are
 
 import numpy as np
 import math
-from numba import jit, jitclass
+from numba import njit, jitclass
 from numba import int64, float64
 import sys
 sys.path.append("../ufuncs/")
 from bessel import InuKnu_e
 from bessel import fraction
 
-@jit("float64(float64, float64)", nopython=True)
+@njit("float64(float64, float64)")
 def _expdiff(l, x):
     r"""Computes the expression
 
@@ -69,7 +69,7 @@ def _expdiff(l, x):
     return math.exp(ans)*math.sqrt(t1*t2)/x
 
 
-@jit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64)", nopython=True)
+@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64)")
 def mie_e(l, x, inum, knum, inup, knup):
     r"""
     Exponentially scaled Mie coefficients.
@@ -101,7 +101,7 @@ def mie_e(l, x, inum, knum, inup, knup):
     return ale, ble
 
 
-@jit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)", nopython=True)
+@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)")
 def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
     r"""
     Exponentially scaled Mie coefficients for real materials.
@@ -146,7 +146,7 @@ def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
     return ale, ble
 
 
-@jit("UniTuple(float64[:], 2)(int64, float64, float64)", nopython=True)
+@njit("UniTuple(float64[:], 2)(int64, float64, float64)")
 def mie_e_array_mat(lmax, x, n):
     r"""
     Array of exponentially scaled Mie coefficients.
@@ -175,7 +175,7 @@ def mie_e_array_mat(lmax, x, n):
     return ale, ble
 
 
-@jit("UniTuple(float64[:], 2)(int64, float64)", nopython=True)
+@njit("UniTuple(float64[:], 2)(int64, float64)")
 def mie_e_array_PR(lmax, x):
     r"""
     Array of exponentially scaled Mie coefficients.

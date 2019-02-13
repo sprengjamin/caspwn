@@ -13,9 +13,9 @@ for large orders :math:`\ell\geq 1000` using asymptotics.
 import numpy as np
 import math
 from bessel import Ine
-from numba import jit
+from numba import njit
 
-@jit("float64(int64, float64)", nopython=True)
+@njit("float64(int64, float64)")
 def Ple_low(l, x):
     r"""Exponentially scaled Legendre function for small arguments.
 
@@ -98,7 +98,7 @@ def Ple_low(l, x):
     Pl += bessels[6]*(x/nu)**6*233526463/43599790080
     return Pl
 
-@jit("float64(float64)", nopython=True)
+@njit("float64(float64)")
 def gammafraction(l):
     r"""Coefficient :math:`C_{\ell, 0}` for large :math:`\ell`.
 
@@ -124,7 +124,7 @@ def gammafraction(l):
     """
     return  (1 - 3/(8*l) + 25/(128*l**2) - 105/(1024*l**3) + 1659/(32768*l**4 - 6237/262144*l**5))/math.sqrt(l)
 
-@jit("float64(int64, float64)", nopython=True)
+@njit("float64(int64, float64)")
 def Ple_high(l, x):
     r"""Exponentially scaled Legendre function for large arguments.
     
@@ -161,7 +161,7 @@ def Ple_high(l, x):
         res += Clm*(1+math.exp(-(2*m+2*l+1)*x))/((-math.expm1(-2*x))**m)
     return math.sqrt(1/(2*math.pi*math.sinh(x)))*gammafraction(l)*res
 
-@jit("float64(int64, float64)", nopython=True)
+@njit("float64(int64, float64)")
 def Ple_asymptotics(l, x):
     r"""Exponentially scaled Legendre function for large arguments.
     

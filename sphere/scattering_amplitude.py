@@ -33,7 +33,7 @@ with
 """
 import numpy as np
 import math
-from numba import jit, njit
+from numba import njit
 from numba import float64
 from numba.types import UniTuple
 from math import lgamma
@@ -84,12 +84,12 @@ def zero_frequency(x, mie):
     return S
 
 
-@jit("float64(float64, float64)", nopython=True)
+@njit("float64(float64, float64)")
 def chi_back(nu, x):
     return nu**2/(math.sqrt(nu**2 + x**2) + x) + nu*math.log(x/(nu + math.sqrt(nu**2 + x**2)))
 
 
-@jit(float64(float64, mie_cache.class_type.instance_type), nopython=True)
+@njit(float64(float64, mie_cache.class_type.instance_type))
 def S_back(x, mie):
     r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
 
@@ -127,7 +127,7 @@ def S_back(x, mie):
     return S
 
 
-@jit("float64(int64, float64, float64)", nopython=True)
+@njit("float64(int64, float64, float64)")
 def chi(l, x, z):    
     r"""Implementation of :math:`\chi(\ell, x, z)` where cancellation errors are minimized
     by some algebraic manipulation of the expressions.
@@ -157,13 +157,13 @@ def chi(l, x, z):
     return x*(y*t2 + 2*t1)
 
 
-@jit("float64(int64, float64, float64)", nopython=True)
+@njit("float64(int64, float64, float64)")
 def chi_old(l, x, z):
     nu = l + 0.5
     return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
 
 
-@jit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type), nopython=True)
+@njit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type))
 def S1S2(x, z, mie):
     r"""Mie scattering amplitudes for plane waves.
 
