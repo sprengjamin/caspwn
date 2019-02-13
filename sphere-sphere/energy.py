@@ -277,7 +277,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     get_b, mArray_sparse_part
 
     """
-    
+    os.environ["MKL_NUM_THREADS"] = "1" 
     def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
         out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
 
@@ -311,7 +311,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
         row = np.hstack((row, results[i][0]))
         col = np.hstack((col, results[i][1]))
         data = np.vstack((data, results[i][2]))
-        
+    del os.environ["MKL_NUM_THREADS"]     
     return row, col, data
 
 
@@ -585,14 +585,21 @@ if __name__ == "__main__":
     rhoeff = rho1*rho2/(rho1+rho2)
     eta = 10
 
-    nproc = 4
+    nproc = 2
     Nin = int(eta*np.sqrt(rho1+rho2))
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
     X = 20
     phiSequence = make_phiSequence(kernel_polar)
-
+    
+    import time
+    start = time.time()
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
     print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    end = time.time()
+    print("time", end-start)
+    #print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    start = time.time()
     print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    end = time.time()
+    print("time", end-start)
