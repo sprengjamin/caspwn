@@ -17,9 +17,9 @@ T = 293.015
 materials = ("PS1", "Water", "Silica1")
 
 eta = 10.
-nproc = 10
+nproc = 2
 
-filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v4.dat"
+filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v5.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
