@@ -1,8 +1,11 @@
 import numpy as np
+
 from numba import jit
 from numba import float64, int64
 from numba.types import UniTuple
+
 import multiprocessing as mp
+
 from scipy.sparse.linalg import splu
 from scipy.sparse import eye
 from scipy.sparse import coo_matrix
@@ -10,11 +13,11 @@ from scipy.sparse import coo_matrix
 from scipy.constants import Boltzmann, hbar, c
 
 from index import itt, itt_nosquare
-from kernel import phiKernel
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
+from kernel import kernel_polar
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
 from psd import psd
@@ -93,11 +96,19 @@ def make_phiSequence(kernel):
         phiarr = np.empty((4, M))
 
         # phi = 0.
-        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, K, k1, k2, 0., mie)
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., mie)
+        phiarr[0, 0] = w1*w2*kernelTMTM
+        phiarr[1, 0] = w1*w2*kernelTETE
+        phiarr[2, 0] = w1*w2*kernelTMTE
+        phiarr[3, 0] = w1*w2*kernelTETM
         
         if M%2==0:
             # phi = np.pi
-            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, K, k1, k2, np.pi, mie)
+            kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, mie)
+            phiarr[0, M//2] = w1*w2*kernelTMTM
+            phiarr[1, M//2] = w1*w2*kernelTETE
+            phiarr[2, M//2] = w1*w2*kernelTMTE
+            phiarr[3, M//2] = w1*w2*kernelTETM
             imax = M//2-1
             phi = 2*np.pi*np.arange(M//2)/M
         else:
@@ -105,7 +116,11 @@ def make_phiSequence(kernel):
             phi = 2*np.pi*np.arange(M//2+1)/M
         
         for i in range(1, imax+1):
-            phiarr[:, i] = w1*w2*kernel(rho, r, sign, K, k1, k2, phi[i], mie)
+            kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], mie)
+            phiarr[0, i] = w1*w2*kernelTMTM
+            phiarr[1, i] = w1*w2*kernelTETE
+            phiarr[2, i] = w1*w2*kernelTMTE
+            phiarr[3, i] = w1*w2*kernelTETM
             phiarr[0, M-i] = phiarr[0, i]
             phiarr[1, M-i] = phiarr[1, i]
             phiarr[2, M-i] = -phiarr[2, i]
@@ -575,7 +590,7 @@ if __name__ == "__main__":
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
     X = 20
-    phiSequence = make_phiSequence(phiKernel)
+    phiSequence = make_phiSequence(kernel_polar)
 
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
     print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
