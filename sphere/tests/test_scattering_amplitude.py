@@ -4,7 +4,7 @@ sys.path.append(".")
 from scattering_amplitude import S1S2
 from mie import mie_cache
 from mpmath import *
-mpf.dps = 40
+mpf.dps = 80
 maxterms = 1e6
 
 def mp_chi(l, x, z):
@@ -108,7 +108,7 @@ def test_scattering_amplitude():
         mpS1 = data[2]
         mpS2 = data[3]
         lmax = data[4]
-        mie = mie_cache(lmax, x)
+        mie = mie_cache(lmax, x, np.inf)
         S1, S2 = S1S2(x, z, mie)
         print(x, z)
         print(abs(-S1/mpS1-1.))

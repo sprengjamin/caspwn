@@ -4,7 +4,7 @@ sys.path.append(".")
 from mie import mie_e, mie_cache
 from bessel import InuKnu_e_asymptotics
 from mpmath import *
-mp.dps = 30
+mp.dps = 80
 maxterms = 1e6
 
 rtol = 2.0e-15
@@ -76,7 +76,7 @@ def test_mie_cache():
     for data in mp_data:
         l = int(data[0])
         x = data[1]
-        mie = mie_cache(l, x)
+        mie = mie_cache(l, x, np.inf)
         num_ale, num_ble = mie.read(l)
         #print("l", data[0], "x","%.16e"% data[1])
         #print(np.abs(num_ale/data[2]-1.))
@@ -85,6 +85,8 @@ def test_mie_cache():
         np.testing.assert_allclose(num_ble, data[3], rtol=rtol)
 
 if __name__ == "__main__":
+    test_mie_cache()
+    """
     from mie import mie_e_array_mat
     l = 100000
     x = 133.
@@ -93,3 +95,4 @@ if __name__ == "__main__":
     mp_ale, mp_ble = mp_mie_e_mat(l, x, n)
     print(abs(ale[l-1]/mp_ale-1.))
     print(abs(ble[l-1]/mp_ble-1.))
+    """
