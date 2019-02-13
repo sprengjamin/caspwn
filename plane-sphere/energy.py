@@ -491,8 +491,13 @@ if __name__ == "__main__":
     #mie = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., mie))
     mat = ("PR", "Water", "PS1") 
+    import time
+    start = time.time()
     en = energy_zero(R, L, mat, N, M, nproc) 
+    end = time.time()
     print("energy")
     print(en)
     print("PFA")
     print(-np.pi**3*rho/720)
+    print("time")
+    print(end-start)
