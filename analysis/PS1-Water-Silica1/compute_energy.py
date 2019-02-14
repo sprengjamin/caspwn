@@ -6,9 +6,9 @@ sys.path.append("../../ufuncs")
 sys.path.append("../../sphere")
 sys.path.append("../../material")
 from energy import energy_faster, make_phiSequence
-from kernel import phiKernel
+from kernel import kernel_polar
 import energy
-energy.phiSequence = make_phiSequence(phiKernel)
+energy.phiSequence = make_phiSequence(kernel_polar)
 
 R1 = 8.e-06
 R2 = 16.5e-06
@@ -16,10 +16,10 @@ Lvals = np.arange(0.008, 0.801, 0.001)[::-1]*1.e-06
 T = 293.015
 materials = ("PS1", "Water", "Silica1")
 
-eta = 10.
-nproc = 2
+eta = 15.
+nproc = 4
 
-filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v5.dat"
+filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v6.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
