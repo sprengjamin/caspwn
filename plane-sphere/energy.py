@@ -13,14 +13,17 @@ from numba.types import UniTuple
 from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
 
-import sys
-sys.path.append("../sphere/")
-from mie import mie_cache
-sys.path.append("../ufuncs/")
-from integration import quadrature, auto_integration
-sys.path.append("../material/")
-import material
 from index import itt
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
+from mie import mie_cache
+import scattering_amplitude
+from kernel import kernel_polar
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
+from integration import quadrature, auto_integration
+from psd import psd
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
+import material
 
 
 def make_phiSequence(kernel):
