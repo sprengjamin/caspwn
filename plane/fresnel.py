@@ -28,6 +28,8 @@ def rTE(K, k, epsilon):
         TE fresnel reflection coefficient :math:`\in[-1,0]`
 
     """
+    if epsilon == math.inf:
+        return -1.
     kappa = math.sqrt(k**2 + K**2)
     #num = kappa - math.sqrt(kappa**2 + K**2*(epsilon-1))
     #den = kappa + math.sqrt(kappa**2 + K**2*(epsilon-1))
@@ -58,6 +60,8 @@ def rTM(K, k, epsilon):
         TE fresnel reflection coefficient :math:`\in[-1,0]`
 
     """
+    if epsilon == math.inf:
+        return 1.
     kappa = math.sqrt(k**2 + K**2)
     #num = epsilon*kappa - math.sqrt(kappa**2 + K**2*(epsilon-1))
     #den = epsilon*kappa + math.sqrt(kappa**2 + K**2*(epsilon-1))
