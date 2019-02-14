@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
 from kernel import kernel_polar
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
+from fresnel import rTM, rTE
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature, auto_integration
 from psd import psd
@@ -70,11 +72,11 @@ def make_phiSequence(kernel):
         phiarr = np.empty((4, M))
 
         # phi = 0.
-        phiarr[:, 0] = -w1*w2*kernel(rho, K, k1, k2, 0., mie)
+        phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] =  kernel(rho, 1., 1., K, k1, k2, 0., mie)
         
         if M%2==0:
             # phi = np.pi
-            phiarr[:, M//2] = -w1*w2*kernel(rho, K, k1, k2, np.pi, mie)
+            phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] =  kernel(rho, 1., 1., K, k1, k2, np.pi, mie)
             imax = M//2-1
             phi = 2*np.pi*np.arange(M//2)/M
         else:
@@ -82,13 +84,22 @@ def make_phiSequence(kernel):
             phi = 2*np.pi*np.arange(M//2+1)/M
         
         for i in range(1, imax+1):
-            phiarr[:, i] = -w1*w2*kernel(rho, K, k1, k2, phi[i], mie)
+            phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] =  kernel(rho, 1., 1., K, k1, k2, phi[i], mie)
             phiarr[0, M-i] = phiarr[0, i]
             phiarr[1, M-i] = phiarr[1, i]
             phiarr[2, M-i] = -phiarr[2, i]
             phiarr[3, M-i] = -phiarr[3, i]
+
+        rTE1, rTM1 = fresnel_coefficients(K, k1, np.inf)
+        rTE2, rTM2 = fresnel_coefficients(K, k2, np.inf)
+
+        phiarr[0, :] = w1*w2*np.sqrt(rTM1*rTM2)*phiarr[0, :]
+        phiarr[1, :] = w1*w2*np.sqrt(rTE1*rTE2)*phiarr[1, :]
+        phiarr[2, :] = w1*w2*np.sqrt(-rTM1*rTE2)*phiarr[2, :]
+        phiarr[3, :] = w1*w2*np.sqrt(-rTE1*rTM2)*phiarr[3, :]
         return phiarr
     return phiSequence
+        
 
 def mSequence(rho, K, M, k1, k2, w1, w2, mie):
     r"""
