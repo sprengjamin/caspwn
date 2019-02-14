@@ -18,7 +18,6 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
-from kernel import kernel_polar
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
 from fresnel import rTM, rTE
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
@@ -75,14 +74,16 @@ def make_phiSequence(kernel):
         phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] =  kernel(rho, 1., 1., K, k1, k2, 0., mie)
         
         if M%2==0:
-            # phi = np.pi
+            # phi = np.pi is assumed
             phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] =  kernel(rho, 1., 1., K, k1, k2, np.pi, mie)
             imax = M//2-1
             phi = 2*np.pi*np.arange(M//2)/M
         else:
+            # phi = np.pi is not assumed
             imax = M//2
             phi = 2*np.pi*np.arange(M//2+1)/M
-        
+       
+        # 0 < phi < np.pi
         for i in range(1, imax+1):
             phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] =  kernel(rho, 1., 1., K, k1, k2, phi[i], mie)
             phiarr[0, M-i] = phiarr[0, i]
@@ -90,11 +91,13 @@ def make_phiSequence(kernel):
             phiarr[2, M-i] = -phiarr[2, i]
             phiarr[3, M-i] = -phiarr[3, i]
 
-        rTE1, rTM1 = fresnel_coefficients(K, k1, np.inf)
-        rTE2, rTM2 = fresnel_coefficients(K, k2, np.inf)
+        rTE1 = rTE(K, k1, np.inf)
+        rTM1 = rTM(K, k1, np.inf)
+        rTE2 = rTE(K, k2, np.inf)
+        rTM2 = rTM(K, k2, np.inf)
 
         phiarr[0, :] = w1*w2*np.sqrt(rTM1*rTM2)*phiarr[0, :]
-        phiarr[1, :] = w1*w2*np.sqrt(rTE1*rTE2)*phiarr[1, :]
+        phiarr[1, :] = -w1*w2*np.sqrt(rTE1*rTE2)*phiarr[1, :]
         phiarr[2, :] = w1*w2*np.sqrt(-rTM1*rTE2)*phiarr[2, :]
         phiarr[3, :] = w1*w2*np.sqrt(-rTE1*rTM2)*phiarr[3, :]
         return phiarr
@@ -127,7 +130,7 @@ def mSequence(rho, K, M, k1, k2, w1, w2, mie):
     """
     phiarr = phiSequence(rho, K, M, k1, k2, w1, w2, mie)
     marr = np.fft.rfft(phiarr)
-    return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
+    return np.array([marr[0,:].real, marr[1,:].real, marr[2,:].imag, marr[3,:].imag])
 
 
 def compute_mElement_diag(i, rho, K, N, M, k, w, mie):
@@ -436,22 +439,23 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     
     # m=0
     sprsmat = coo_matrix((data[:, 0], (row, col)), shape=(2*N,2*N))
-    factor = cholesky(sprsmat.tocsc(), beta=1.)
+    factor = cholesky(-sprsmat.tocsc(), beta=1.)
     logdet = factor.logdet()
 
     # m>0    
     for m in range(1, M//2):
         sprsmat = coo_matrix((data[:, m], (row, col)), shape=(2*N,2*N))
-        factor = cholesky(sprsmat.tocsc(), beta=1.)
+        factor = cholesky(-sprsmat.tocsc(), beta=1.)
         logdet += 2*factor.logdet()
 
     # last m
     sprsmat = coo_matrix((data[:, M//2], (row, col)), shape=(2*N,2*N))
-    factor = cholesky(sprsmat.tocsc(), beta=1.)
+    factor = cholesky(-sprsmat.tocsc(), beta=1.)
     if M%2==0:
         logdet += factor.logdet()
     else:
         logdet += 2*factor.logdet()
+    print(Kvac, logdet)
     return logdet
 
 
@@ -499,12 +503,12 @@ if __name__ == "__main__":
     print("N", N)
     M = N
     nproc = 4
-    from kernel import phiKernel
-    phiSequence = make_phiSequence(phiKernel)
+    from kernel import kernel_polar
+    phiSequence = make_phiSequence(kernel_polar)
     
     #mie = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., mie))
-    mat = ("PR", "Water", "PS1") 
+    mat = ("PR", "Vacuum", "PR") 
     import time
     start = time.time()
     en = energy_zero(R, L, mat, N, M, nproc) 
