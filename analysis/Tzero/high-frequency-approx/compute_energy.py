@@ -4,24 +4,32 @@
 import numpy as np
 import sys, os
 import time
+from numba import njit
 sys.path.append("../../../plane-sphere")
-sys.path.append("../../../ufuncs")
 sys.path.append("../../../sphere")
 sys.path.append("../../../material")
 from energy import energy_zero, make_phiSequence
 import energy
-from test_kernel import phiKernel_approx
-energy.phiSequence = make_phiSequence(phiKernel_approx)
+from kernel import kernel_polar
+import kernel
+#from test_kernel import phiKernel_approx
+#energy.phiSequence = make_phiSequence(phiKernel_approx)
 
+@njit
+def S1S2_high_frequency(x, z, mie):
+    return -0.5*x, 0.5*x
+
+# replace S1S2 by the high frequency asmpytotics
+kernel.S1S2 = S1S2_high_frequency
+kernel_polar.recompile()
+
+energy.phiSequence = make_phiSequence(kernel.kernel_polar)
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
 
 eta = 10.
-
-from multiprocessing import cpu_count
-nproc = cpu_count()
-print("Computing on "+str(nproc)+" CPUs!")
+nproc = 4
 
 filename = "approx_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
 

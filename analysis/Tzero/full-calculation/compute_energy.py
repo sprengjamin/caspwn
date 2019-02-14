@@ -1,24 +1,20 @@
 import numpy as np
 import sys, os
 import time
-sys.path.append("../../plane-sphere")
-sys.path.append("../../ufuncs")
-sys.path.append("../../sphere")
-sys.path.append("../../material")
+sys.path.append("../../../plane-sphere")
+sys.path.append("../../../sphere")
+sys.path.append("../../../material")
 from energy import energy_zero, make_phiSequence
-from kernel import phiKernel
+from kernel import kernel_polar
 import energy
-energy.phiSequence = make_phiSequence(phiKernel)
+energy.phiSequence = make_phiSequence(kernel_polar)
 
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
 
 eta = 10.
-
-from multiprocessing import cpu_count
-nproc = cpu_count()
-print("Computing on "+str(nproc)+" CPUs!")
+nproc = 10
 
 filename = "full_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
 
