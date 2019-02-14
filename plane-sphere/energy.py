@@ -317,6 +317,7 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
     get_b, mArray_sparse_part
 
     """
+    os.environ["MKL_NUM_THREADS"] = "1" 
     
     def worker(dindices, oindices, rho, K, N, M, k, w, mie, out):
         out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
@@ -354,6 +355,7 @@ out))
         col = np.hstack((col, results[i][1]))
         data = np.vstack((data, results[i][2]))
         
+    del os.environ["MKL_NUM_THREADS"]     
     return row, col, data
 
 
@@ -502,7 +504,7 @@ if __name__ == "__main__":
     N = int(5*np.sqrt(rho))*2+1
     print("N", N)
     M = N
-    nproc = 4
+    nproc = 2
     from kernel import kernel_polar
     phiSequence = make_phiSequence(kernel_polar)
     
