@@ -128,37 +128,7 @@ def S_back(x, mie):
 
 
 @njit("float64(int64, float64, float64)")
-def chi(l, x, z):    
-    r"""Implementation of :math:`\chi(\ell, x, z)` where cancellation errors are minimized
-    by some algebraic manipulation of the expressions.
-
-    Parameters
-    ----------
-    l : int
-        positive, angular momentum number
-    x : float
-        positive, imaginary frequency
-    z : float
-        positive, :math:`z=-\cos \Theta`
-    
-    Returns
-    -------
-    float
-        function value
-    """
-    # computes chi using some algebraic manipulation
-    nu = l + 0.5
-    y = nu/x
-    delta = y - math.sqrt((z-1)/2) # this is the accuracy bottle neck
-    t1 = delta*(y+math.sqrt((z-1)/2))/(math.sqrt(y**2+1) + math.sqrt((1+z)/2))
-    W = math.sqrt((delta + math.sqrt((z-1)/2))**2 + 1)
-    t21 = -2*delta**2 - 4*delta*math.sqrt((z-1)/2) - 2*delta*W - 2*(z-1)*delta*(delta+math.sqrt(2*(z-1)))/(math.sqrt(z**2-1) + math.sqrt(z**2-1 + 2*(z-1)*delta*(delta+math.sqrt(2*(z-1)))))
-    t2 = math.log1p(t21/(y+math.sqrt(y**2+1))**2)
-    return x*(y*t2 + 2*t1)
-
-
-@njit("float64(int64, float64, float64)")
-def chi_old(l, x, z):
+def chi(l, x, z):
     nu = l + 0.5
     return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
 
@@ -186,7 +156,6 @@ def S1S2(x, z, mie):
     
     """
     err = 1.0e-16
-    chi = chi_old # for the moment
 
     if z <= 1.:
         S = S_back(x, mie)
