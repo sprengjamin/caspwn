@@ -33,8 +33,9 @@ with
 """
 import numpy as np
 import math
+from math import sqrt
 from numba import njit
-from numba import float64
+from numba import float64, boolean
 from numba.types import UniTuple
 from math import lgamma
 import sys, os
@@ -126,6 +127,60 @@ def S_back(x, mie):
         l += 1
     return S
 
+@njit
+def S1S2_asymptotics(x, z, n):
+    """Asymptotic expansion of the scattering amplitudes for large size
+    parameter :math:`x`.
+
+    The implementation evaluates the first two terms of the expansion and is
+    valid even when :math:`z=1`.
+
+    Parameters
+    ----------
+    x : float
+        positive, imaginary frequency
+    z : float
+        positive, :math:`z=-\cos \Theta`
+    n : float
+        positive, refractive index (may be infinite)
+    
+    Returns
+    -------
+    (float, float)
+        (:math:`\tilde S_1`, :math:`\tilde S_2`)
+
+    """
+    s = sqrt((1+z)/2)
+    
+    s1_PR = 0.5*(1-2*s**2)/s**3
+    s2_PR = -0.5/s**3
+
+    if n == math.inf:
+        S1 = -0.5*x*(1 + s1_PR/x)
+        S2 = 0.5*x*(1 + s2_PR/x)
+        return S1, S2
+    else:
+        eps = n**2
+        rTE = -(eps-1.)/(s + sqrt(eps-1. + s**2))**2
+        rTM = ((eps-1.)*s - (eps-1.)/(s + sqrt(eps-1. + s**2)))/(eps*s + sqrt(eps-1 + s**2))
+        S1wkb = 0.5*x*rTE
+        S2wkb = 0.5*x*rTM
+
+        c2 = 1 - s**2
+
+        s1_diel1 = 1/s/(c2+s*sqrt(n**2-c2))
+        s1_diel2 = -0.5*(2*n**2-c2)/(n**2-c2)**1.5
+        s1_diel = (s1_PR + s1_diel1 + s1_diel2)/x
+
+        s2_diel1 = 1/s/(c2-s*sqrt(n**2-c2))
+        s2_diel2 = 0.5*n**2/(n**2-c2)**1.5*(2*n**4-n**2*c2*(1+c2)-c2**2)/(n**2*s**2-c2)**2
+        s2_diel3 = -c2/s**3*(2*n**4*s**2-n**2*c2*(c2*s**2+1)+c2**3)/(n**2-c2)/(n**2*s**2-c2)**2
+        s2_diel = (s2_PR + s2_diel1 + s2_diel2 + s2_diel3)/x
+
+        S1 = S1wkb*(1. + s1_diel)
+        S2 = S2wkb*(1. + s2_diel)
+        return S1, S2
+
 
 @njit("float64(int64, float64, float64)")
 def chi(l, x, z):
@@ -133,8 +188,8 @@ def chi(l, x, z):
     return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
 
 
-@njit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type))
-def S1S2(x, z, mie):
+@njit
+def S1S2(x, z, mie, use_asymptotics=True):
     r"""Mie scattering amplitudes for plane waves.
 
     Parameters
@@ -143,19 +198,19 @@ def S1S2(x, z, mie):
         positive, imaginary frequency
     z : float
         positive, :math:`z=-\cos \Theta`
-    ale : nd.array
-        Mie coefficient cache
-    ble : nd.array
-        Mie coefficient cache
-    
+    mie: mie_cache class instance
+        contains the mie coefficients 
+
     Returns
     -------
     (float, float)
         (:math:`\tilde S_1`, :math:`\tilde S_2`)
     
-    
     """
-    err = 1.0e-16
+    if x > 5.e3 and use_asymptotics:
+        return S1S2_asymptotics(x, z, mie.n)
+
+    err = 1.0e-10
 
     if z <= 1.:
         S = S_back(x, mie)

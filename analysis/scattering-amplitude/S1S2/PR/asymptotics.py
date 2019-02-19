@@ -17,7 +17,7 @@ from mie import mie_cache
 from scattering_amplitude import S1S2
 
 X = np.array([1e2, 5e2, 1e3, 5e3, 1e4, 5e4, 1e5])
-X = np.array([5e2, 1e3, 5e3])
+X = np.array([5e2, 1e3, 5e3, 1e4])
 Z = 1. + np. logspace(-3, 3, 30)
 
 z, x = np.meshgrid(Z, X)
@@ -39,7 +39,7 @@ for i, x in enumerate(X):
     for j, z in enumerate(Z):
         print(x, z)
         mie = mie_cache(1e4, x, np.inf)
-        data1[i, j], data2[i, j] = S1S2(x, z, mie)
+        data1[i, j], data2[i, j] = S1S2(x, z, mie, False)
 
 f, (ax1, ax2) = plt.subplots(2)
 ax1.imshow(np.log10(np.fabs((data1-S1a)/S1wkb)))

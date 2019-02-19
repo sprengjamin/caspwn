@@ -60,7 +60,7 @@ for i, x in enumerate(X):
     for j, z in enumerate(Z):
         print(x, z)
         mie = mie_cache(1e4, x, n)
-        data1[i, j], data2[i, j] = S1S2(x, z, mie)
+        data1[i, j], data2[i, j] = S1S2(x, z, mie, False)
 
 f, (ax1, ax2) = plt.subplots(2)
 ax1.imshow(np.log10(np.fabs((data1-S1a)/S1wkb)))
