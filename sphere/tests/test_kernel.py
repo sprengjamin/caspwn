@@ -28,7 +28,7 @@ rtol = 1.e-15
        k2=floats(min_value=1.0e-8, max_value=1.0e8),
        phi=floats(min_value=0., max_value=3.141278494324434))
 def test_phase(rho, xi, k1, k2, phi):
-    result = phase(rho, xi, k1, k2, phi)
+    result = phase(rho, 1., xi, k1, k2, phi)
     if result < -100.:
         return
     exact = mp_phase(rho, xi, k1, k2, phi)
