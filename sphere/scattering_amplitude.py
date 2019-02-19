@@ -210,11 +210,11 @@ def S1S2(x, z, mie, use_asymptotics=True):
     if x > 5.e3 and use_asymptotics:
         return S1S2_asymptotics(x, z, mie.n)
 
-    err = 1.0e-10
-
     if z <= 1.:
         S = S_back(x, mie)
         return -S, S
+
+    err = 1.0e-16
 
     acoshz = math.acosh(z)
     pte_cache = np.vstack(pte_low(1000, acoshz))
