@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 sys.path.append(".")
-from scattering_amplitude import S1S2
+from scattering_amplitude import S1S2, S1S2_asymptotics
 from mie import mie_cache
 from mpmath import *
 mpf.dps = 80
@@ -99,8 +99,8 @@ def mp_S1S2(x, z):
     print("dl-", lest_int - l)
     return float(S1), float(S2), int(lmax)
 
-rtol = 1.e-10
 def test_scattering_amplitude():
+    rtol = 1.e-10
     mp_data = np.loadtxt("tests/testdata/scattering_amplitude.dat")
     for data in mp_data:
         x = data[0]
@@ -109,13 +109,41 @@ def test_scattering_amplitude():
         mpS2 = data[3]
         lmax = data[4]
         mie = mie_cache(lmax, x, np.inf)
-        S1, S2 = S1S2(x, z, mie)
+        S1, S2 = S1S2(x, z, mie, False)
         print(x, z)
         print(abs(-S1/mpS1-1.))
         print(abs(S2/mpS2-1.))
         np.testing.assert_allclose(mpS1, -S1, rtol=rtol)
         np.testing.assert_allclose(mpS2, S2, rtol=rtol)
 
+def test_asymptotics_low():
+    N = [1.1, 10., np.inf]
+    rtol = 1.1e-06
+    for n in N:
+        x = 5.e3
+        Z = 1. + np.logspace(-3, 3, 5)
+        mie = mie_cache(1e4, x, n)
+        for z in Z:
+            S1a, S2a = S1S2_asymptotics(x, z, n)
+            S1, S2 = S1S2(x, z, mie, False)
+            np.testing.assert_allclose(S1a, S1, rtol=rtol)
+            np.testing.assert_allclose(S2a, S2, rtol=rtol)
+
+def test_asymptotics_high():
+    N = [1.1, 10., np.inf]
+    rtol = 3.e-08
+    for n in N:
+        x = 6.e4
+        Z = 1. + np.logspace(-3, 3, 5)
+        mie = mie_cache(1e4, x, n)
+        for z in Z:
+            S1a, S2a = S1S2_asymptotics(x, z, n)
+            S1, S2 = S1S2(x, z, mie, False)
+            print(x, z, n)
+            print(np.fabs(S1/S1a-1.))
+            print(np.fabs(S2/S2a-1.))
+            np.testing.assert_allclose(S1a, S1, rtol=rtol)
+            np.testing.assert_allclose(S2a, S2, rtol=rtol)
 
 if __name__ == "__main__":
     test_scattering_amplitude()
