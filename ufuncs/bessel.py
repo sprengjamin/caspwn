@@ -25,7 +25,7 @@ import numpy as np
 import math
 from numba import njit
 
-@njit("float64(int64, float64)")
+@njit("float64(int64, float64)", cache=True)
 def _U(k, p):
     r"""Helper function used in :meth:`bessel.InuKnu_e_asymptotics`.
 
@@ -47,7 +47,7 @@ def _U(k, p):
         return (p**4*(4465125 - 94121676*p**2 + 349922430*p**4 - 446185740*p**6 + 185910725*p**8))/3.981312e7 
     return 0.
 
-@njit("UniTuple(float64, 2)(float64, float64)") 
+@njit("UniTuple(float64, 2)(float64, float64)", cache=True) 
 def InuKnu_e_asymptotics(nu, x):
     r"""Exponentially scaled modified Bessel functions using Debye asymptotics.
     
@@ -85,23 +85,23 @@ def InuKnu_e_asymptotics(nu, x):
     Knu_e *= 1-_U(1,p)/nu+_U(2,p)/(nu*nu)-_U(3,p)/(nu*nu*nu)+_U(4,p)/(nu**4)
     return Inu_e, Knu_e
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def _t(nu, x):
     return nu + math.sqrt(nu**2 + x**2)
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def _expPsi1(nu, x):
     delta11 = (2*nu + 1)/(math.sqrt((nu + 1)**2 + x**2) + math.sqrt(nu**2 + x**2))
     return x/_t(nu+1, x)*math.exp(delta11 - nu*math.log1p((1 + delta11)/_t(nu, x)))
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def _expPsi2(nu, x):
     delta21 = 4*nu/(math.sqrt((nu + 1)**2 + x**2) + math.sqrt((nu - 1)**2 + x**2))
     tnup1 = _t(nu+1, x)
     tnum1 = _t(nu-1, x)
     return x**2/(tnup1*tnum1)*math.exp(delta21 - nu*math.log1p((2 + delta21)/tnum1))
 
-@njit("float64(float64, float64, float64, float64)")
+@njit("float64(float64, float64, float64, float64)", cache=True)
 def Knu_e_next(nu, x, new, old):
     r"""Recurrence relation for exponentially scaled modified Bessel function
     of second kind.
@@ -129,7 +129,7 @@ def Knu_e_next(nu, x, new, old):
     """
     return 2*nu/x*_expPsi1(nu, x)*new + _expPsi2(nu, x)*old
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def fraction(nu, x):
     r"""Returns the fraction
 
@@ -171,7 +171,7 @@ def fraction(nu, x):
         ratio_last = ratio
         l += 1
 
-@njit("float64(float64, float64, float64, float64)")
+@njit("float64(float64, float64, float64, float64)", cache=True)
 def Inu_e_wronskian(nu, x, Knu0, Knu1):
     r"""Computes :math:`\tilde{I}_\nu(x)` using the Wronskian.
 
@@ -194,7 +194,7 @@ def Inu_e_wronskian(nu, x, Knu0, Knu1):
     """
     return 1/(x*(Knu1/_expPsi1(nu, x) + Knu0/fraction(nu, x)))
 
-@njit("UniTuple(float64[:], 2)(int64, float64)")
+@njit("UniTuple(float64[:], 2)(int64, float64)", cache=True)
 def InuKnu_e(lmax, x):
     r"""Computes nd.array of exponentially scaled modified Bessel functions of
     first and second kind of half-integer order:
@@ -290,7 +290,7 @@ B0 = np.array([
      8.04490411014108831608E-1
     ], dtype=np.float64)
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def _chbevlA0(x):
     r"""Evaluation of Chebyshev series.
 
@@ -319,7 +319,7 @@ def _chbevlA0(x):
         b0 = x*b1 - b2 + A0[i+1]
     return 0.5*(b0-b2)
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def _chbevlB0(x):
     """
     Evaluation of Chebyshev series.
@@ -349,7 +349,7 @@ def _chbevlB0(x):
         b0 = x*b1 - b2 + B0[i+1]
     return 0.5*(b0-b2)
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def I0e(x):
     r"""Exponentially scaled modified Bessel function :math:`e^{-x}I_0(x)` of zero order.
 
@@ -437,7 +437,7 @@ B1 = np.array([
      7.78576235018280120474E-1
     ])
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def _chbevlA1(x):
     """
     Evaluation of Chebyshev series.
@@ -453,7 +453,7 @@ def _chbevlA1(x):
         b0 = x*b1 - b2 + A1[i+1]
     return 0.5*(b0-b2)
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def _chbevlB1(x):
     """
     Evaluation of Chebyshev series.
@@ -469,7 +469,7 @@ def _chbevlB1(x):
         b0 = x*b1 - b2 + B1[i+1]
     return 0.5*(b0-b2)
 
-@njit("float64(float64)")
+@njit("float64(float64)", cache=True)
 def I1e(x):
     r"""Exponentially scaled modified Bessel function :math:`e^{-x}I_1(x)` of first order.
 
@@ -503,7 +503,7 @@ ACC = 10000.
 BIGNO = 1.0e10
 BIGNI = 1.0e-10
 
-@njit("float64[:](int64, float64)")
+@njit("float64[:](int64, float64)", cache=True)
 def Ine(n, x):
     r"""Compute array of exponentially scaled modified Bessel function of
     integer order using Miller's algorithm. Instead of rescaling all the array

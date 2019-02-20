@@ -36,7 +36,7 @@ import math
 from math import sqrt
 from numba import njit
 from numba import float64, boolean
-from numba.types import UniTuple
+from numba.types import UniTuple, Omitted
 from math import lgamma
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
@@ -51,7 +51,7 @@ def make_mat_coeff(e):
     return mat_coeff
 """
 
-@njit
+@njit(float64(float64, mie_cache.class_type.instance_type))
 def zero_frequency(x, mie):
     err = 1.e-16
     l_init = int(0.5*x)+1
@@ -85,7 +85,7 @@ def zero_frequency(x, mie):
     return S
 
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def chi_back(nu, x):
     return nu**2/(math.sqrt(nu**2 + x**2) + x) + nu*math.log(x/(nu + math.sqrt(nu**2 + x**2)))
 
@@ -127,9 +127,9 @@ def S_back(x, mie):
         l += 1
     return S
 
-@njit
+@njit("UniTuple(float64, 2)(float64, float64, float64)", cache=True)
 def S1S2_asymptotics(x, z, n):
-    """Asymptotic expansion of the scattering amplitudes for large size
+    r"""Asymptotic expansion of the scattering amplitudes for large size
     parameter :math:`x`.
 
     The implementation evaluates the first two terms of the expansion and is
@@ -182,12 +182,13 @@ def S1S2_asymptotics(x, z, n):
         return S1, S2
 
 
-@njit("float64(int64, float64, float64)")
+@njit("float64(int64, float64, float64)", cache=True)
 def chi(l, x, z):
     nu = l + 0.5
     return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
 
 
+#@njit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type, Omitted(True)))
 @njit
 def S1S2(x, z, mie, use_asymptotics=True):
     r"""Mie scattering amplitudes for plane waves.
@@ -270,13 +271,13 @@ def S1S2(x, z, mie, use_asymptotics=True):
 
 
 if __name__ == "__main__":
-    x = 100
+    x = 100.
     z = 2.3
     n = 1.8
     #ale, ble = mie_e_array(1e5, x)
     mie = mie_cache(1e1, x, n)
     print(mie.lmax)
-    S1, S2 = S1S2(x, z, mie)
+    S1, S2 = S1S2(x, z, mie, False)
     print(mie.lmax)
     S1, S2 = S1S2(1000, z, mie)
     print(mie.lmax)

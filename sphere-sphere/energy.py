@@ -1,6 +1,6 @@
 import numpy as np
 
-from numba import jit
+from numba import njit
 from numba import float64, int64
 from numba.types import UniTuple
 
@@ -62,7 +62,7 @@ def make_phiSequence(kernel):
     phiSequence
 
     """
-    @jit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
+    @njit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
     def phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
         """
         Returns the a phi sqeuence for the kernel function for each polarization block.
@@ -585,7 +585,7 @@ if __name__ == "__main__":
     rhoeff = rho1*rho2/(rho1+rho2)
     eta = 10
 
-    nproc = 2
+    nproc = 4
     Nin = int(eta*np.sqrt(rho1+rho2))
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin

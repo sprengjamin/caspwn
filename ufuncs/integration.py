@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 
 
-@njit("float64[:](int64)")
+@njit("float64[:](int64)", cache=True)
 def weights(N):
     r"""Fourier-Chebyshev quadrature weights.
     
@@ -16,7 +16,7 @@ def weights(N):
     return wts
 
 
-@njit("UniTuple(float64[:], 2)(int64)")
+@njit("UniTuple(float64[:], 2)(int64)", cache=True)
 def quadrature(N):
     r"""Fourier-Chebyshev quadrature rule.
 

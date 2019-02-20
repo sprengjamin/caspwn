@@ -6,7 +6,7 @@ They describe the reflection amplitudes of plane waves for a given polarization.
 from numba import njit
 import math
 
-@njit
+@njit("float64(float64, float64, float64)", cache=True)
 def rTE(K, k, epsilon):
     r"""Fresnel reflection coefficients for TE-polarized modes.
 
@@ -38,7 +38,7 @@ def rTE(K, k, epsilon):
     den = (kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
     return num/den
 
-@njit
+@njit("float64(float64, float64, float64)", cache=True)
 def rTM(K, k, epsilon):
     r"""Fresnel reflection coefficients for TM-polarized modes.
 

@@ -7,7 +7,7 @@ r""" Casimir energy for the plane-sphere geometry.
 """
 import numpy as np
 import multiprocessing as mp
-from numba import jit
+from numba import njit
 from numba import float64, int64
 from numba.types import UniTuple
 from sksparse.cholmod import cholesky
@@ -41,7 +41,7 @@ def make_phiSequence(kernel):
     phiSequence
 
     """
-    @jit(float64[:,:](float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
+    @njit(float64[:,:](float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
     def phiSequence(rho, K, M, k1, k2, w1, w2, mie):
         r"""
         Returns the a phi sqeuence for the kernel function for each polarization block.
@@ -504,7 +504,7 @@ if __name__ == "__main__":
     N = int(5*np.sqrt(rho))*2+1
     print("N", N)
     M = N
-    nproc = 2
+    nproc = 4
     from kernel import kernel_polar
     phiSequence = make_phiSequence(kernel_polar)
     

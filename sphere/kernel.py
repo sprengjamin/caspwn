@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from ABCD import ABCD
 
 
-@njit("float64(float64, float64, float64, float64, float64, float64)")
+@njit("float64(float64, float64, float64, float64, float64, float64)", cache=True)
 def phase(rho, r, K, k1, k2, phi):
     r"""The phase difference.
 

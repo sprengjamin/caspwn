@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from bessel import InuKnu_e
 from bessel import fraction
 
-@njit("float64(float64, float64)")
+@njit("float64(float64, float64)", cache=True)
 def _expdiff(l, x):
     r"""Computes the expression
 
@@ -69,7 +69,7 @@ def _expdiff(l, x):
     return math.exp(ans)*math.sqrt(t1*t2)/x
 
 
-@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64)")
+@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64)", cache=True)
 def mie_e(l, x, inum, knum, inup, knup):
     r"""
     Exponentially scaled Mie coefficients.
@@ -101,7 +101,7 @@ def mie_e(l, x, inum, knum, inup, knup):
     return ale, ble
 
 
-@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)")
+@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)", cache=True)
 def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
     r"""
     Exponentially scaled Mie coefficients for real materials.
@@ -146,7 +146,7 @@ def mie_e_mat(l, x, n, i_p_x, i_p_nx, k_m_x, k_p_x):
     return ale, ble
 
 
-@njit("UniTuple(float64[:], 2)(int64, float64, float64)")
+@njit("UniTuple(float64[:], 2)(int64, float64, float64)", cache=True)
 def mie_e_array_mat(lmax, x, n):
     r"""
     Array of exponentially scaled Mie coefficients.
@@ -175,7 +175,7 @@ def mie_e_array_mat(lmax, x, n):
     return ale, ble
 
 
-@njit("UniTuple(float64[:], 2)(int64, float64)")
+@njit("UniTuple(float64[:], 2)(int64, float64)", cache=True)
 def mie_e_array_PR(lmax, x):
     r"""
     Array of exponentially scaled Mie coefficients.

@@ -10,7 +10,7 @@ import numpy as np
 import math
 from numba import njit
 
-@njit("UniTuple(float64, 4)(float64, float64, float64, float64)")
+@njit("UniTuple(float64, 4)(float64, float64, float64, float64)", cache=True)
 def ABCD(xi, k1, k2, phi):
     r"""Coefficients :math:`A`, :math:`B`, :math:`C` and :math:`D`.
 
