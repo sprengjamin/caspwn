@@ -17,7 +17,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
-from kernel import kernel_polar
+from kernel import kernel_polar as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
 from psd import psd
@@ -48,90 +48,75 @@ def logdet_sparse(mat):
     return np.sum(np.log(lu.U.diagonal()))
 
 
-def make_phiSequence(kernel):
+@njit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
+def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     """
-    Makes phiSequence function for specified kernel.
+    Returns the a phi sqeuence for the kernel function for each polarization block.
 
     Parameters
     ----------
-    kernel: function
-        specified kernel function
+    rho: float
+        positive, aspect ratio R/L
+    r: float
+        positive, relative effective radius R_eff/R
+    sign: +1/-1
+        sign, differs for the two spheres
+    K: float
+        positive, rescaled frequency
+    M: int
+        positive, length of sequence
+    k1, k2: float
+        positive, rescaled wave numbers
+    w1, w2: float
+        positive, quadrature weights corresponding to k1 and k2, respectively.
+    mie: class instance
+        cache for the exponentially scaled mie coefficients
 
     Returns
     -------
-    phiSequence
+    np.ndarray
+        array of length 4 of the phi sequence for the polarization contributions
+        TMTM, TETE, TMTE, TETM
 
     """
-    @njit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
-    def phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
-        """
-        Returns the a phi sqeuence for the kernel function for each polarization block.
+    phiarr = np.empty((4, M))
 
-        Parameters
-        ----------
-        rho: float
-            positive, aspect ratio R/L
-        r: float
-            positive, relative effective radius R_eff/R
-        sign: +1/-1
-            sign, differs for the two spheres
-        K: float
-            positive, rescaled frequency
-        M: int
-            positive, length of sequence
-        k1, k2: float
-            positive, rescaled wave numbers
-        w1, w2: float
-            positive, quadrature weights corresponding to k1 and k2, respectively.
-        mie: class instance
-            cache for the exponentially scaled mie coefficients
-
-        Returns
-        -------
-        np.ndarray
-            array of length 4 of the phi sequence for the polarization contributions
-            TMTM, TETE, TMTE, TETM
-
-        """
-        phiarr = np.empty((4, M))
-
-        # phi = 0.
-        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., mie)
-        phiarr[0, 0] = w1*w2*kernelTMTM
-        phiarr[1, 0] = w1*w2*kernelTETE
-        phiarr[2, 0] = w1*w2*kernelTMTE
-        phiarr[3, 0] = w1*w2*kernelTETM
-        
-        if M%2==0:
-            # phi = np.pi
-            kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, mie)
-            phiarr[0, M//2] = w1*w2*kernelTMTM
-            phiarr[1, M//2] = w1*w2*kernelTETE
-            phiarr[2, M//2] = w1*w2*kernelTMTE
-            phiarr[3, M//2] = w1*w2*kernelTETM
-            imax = M//2-1
-            phi = 2*np.pi*np.arange(M//2)/M
-        else:
-            imax = M//2
-            phi = 2*np.pi*np.arange(M//2+1)/M
-        
-        for i in range(1, imax+1):
-            kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], mie)
-            phiarr[0, i] = w1*w2*kernelTMTM
-            phiarr[1, i] = w1*w2*kernelTETE
-            phiarr[2, i] = w1*w2*kernelTMTE
-            phiarr[3, i] = w1*w2*kernelTETM
-            phiarr[0, M-i] = phiarr[0, i]
-            phiarr[1, M-i] = phiarr[1, i]
-            phiarr[2, M-i] = -phiarr[2, i]
-            phiarr[3, M-i] = -phiarr[3, i]
-        return phiarr
-    return phiSequence
+    # phi = 0.
+    kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., mie)
+    phiarr[0, 0] = w1*w2*kernelTMTM
+    phiarr[1, 0] = w1*w2*kernelTETE
+    phiarr[2, 0] = w1*w2*kernelTMTE
+    phiarr[3, 0] = w1*w2*kernelTETM
+    
+    if M%2==0:
+        # phi = np.pi
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, mie)
+        phiarr[0, M//2] = w1*w2*kernelTMTM
+        phiarr[1, M//2] = w1*w2*kernelTETE
+        phiarr[2, M//2] = w1*w2*kernelTMTE
+        phiarr[3, M//2] = w1*w2*kernelTETM
+        imax = M//2-1
+        phi = 2*np.pi*np.arange(M//2)/M
+    else:
+        imax = M//2
+        phi = 2*np.pi*np.arange(M//2+1)/M
+    
+    for i in range(1, imax+1):
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], mie)
+        phiarr[0, i] = w1*w2*kernelTMTM
+        phiarr[1, i] = w1*w2*kernelTETE
+        phiarr[2, i] = w1*w2*kernelTMTE
+        phiarr[3, i] = w1*w2*kernelTETM
+        phiarr[0, M-i] = phiarr[0, i]
+        phiarr[1, M-i] = phiarr[1, i]
+        phiarr[2, M-i] = -phiarr[2, i]
+        phiarr[3, M-i] = -phiarr[3, i]
+    return phiarr
 
 
-def mSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
+def m_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     """
-    Computes mSqeuence by means of a FFT of the computed phiSequence.
+    Computes the m_array by means of a FFT of the computed phi_array.
 
     Parameters
     ----------
@@ -158,10 +143,10 @@ def mSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
 
     Dependencies
     ------------
-    phiSequence
+    phi_array
 
     """
-    phiarr = phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie)
+    phiarr = phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
 
@@ -225,7 +210,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
             col[ind+2] = j+Ncol
             row[ind+3] = i+Nrow
             col[ind+3] = j
-            data[ind:ind+4, :] = mSequence(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
+            data[ind:ind+4, :] = m_array(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
             ind += 4
             if ind >= len(row):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
@@ -591,7 +576,6 @@ if __name__ == "__main__":
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
     X = 20
-    phiSequence = make_phiSequence(kernel_polar)
     
     import time
     start = time.time()
