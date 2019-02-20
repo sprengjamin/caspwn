@@ -2,13 +2,8 @@ import numpy as np
 import sys, os
 import time
 sys.path.append("../../sphere-sphere")
-sys.path.append("../../ufuncs")
-sys.path.append("../../sphere")
-sys.path.append("../../material")
-from energy import energy_faster, make_phiSequence
-from kernel import kernel_polar
+from energy import energy_faster
 import energy
-energy.phiSequence = make_phiSequence(kernel_polar)
 
 R1 = 8.e-06
 R2 = 16.5e-06
@@ -17,9 +12,9 @@ T = 293.015
 materials = ("PS1", "Water", "Silica1")
 
 eta = 15.
-nproc = 4
+nproc = 10
 
-filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v6.dat"
+filename = "energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v7.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
