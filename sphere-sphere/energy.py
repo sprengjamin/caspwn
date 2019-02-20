@@ -574,6 +574,7 @@ def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
 
 
 if __name__ == "__main__":
+    np.random.seed(0)
     R1 = 8e-06
     R2 = 16.5e-06
     L = 0.8e-06

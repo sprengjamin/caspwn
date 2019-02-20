@@ -498,6 +498,7 @@ def energy_zero(R, L, materials, N, M, nproc):
 
 
 if __name__ == "__main__":
+    np.random.seed(0)
     R = 10.
     L = 1.
     rho = R/L
