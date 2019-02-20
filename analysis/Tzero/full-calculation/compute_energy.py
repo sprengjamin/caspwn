@@ -2,21 +2,17 @@ import numpy as np
 import sys, os
 import time
 sys.path.append("../../../plane-sphere")
-sys.path.append("../../../sphere")
 sys.path.append("../../../material")
-from energy import energy_zero, make_phiSequence
-from kernel import kernel_polar
-import energy
-energy.phiSequence = make_phiSequence(kernel_polar)
+from energy import energy_zero
 
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
 
 eta = 10.
-nproc = 10
+nproc = 4
 
-filename = "full_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
+filename = "full_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v2.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
@@ -34,7 +30,3 @@ if not os.path.isfile(filename):
         f.close()
 else:
     print("File already exists!")
-
-
-
-

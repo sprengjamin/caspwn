@@ -9,7 +9,7 @@ sys.path.append("../../../plane-sphere")
 sys.path.append("../../../sphere")
 sys.path.append("../../../material")
 from scattering_amplitude import S1S2
-from energy import energy_zero, make_phiSequence
+from energy import energy_zero
 import energy
 from kernel import kernel_polar
 import kernel
@@ -27,8 +27,7 @@ def ABCD_same_plane(xi, k1, k2, phi):
 kernel.S1S2 = S1S2_TE_only
 kernel.ABCD = ABCD_same_plane
 kernel_polar.recompile()
-
-energy.phiSequence = make_phiSequence(kernel.kernel_polar)
+energy.phi_array.recompile()
 
 R = 1.
 Lvals = np.logspace(-1, -4, 61)

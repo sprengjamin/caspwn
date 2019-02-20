@@ -8,12 +8,10 @@ from numba import njit
 sys.path.append("../../../plane-sphere")
 sys.path.append("../../../sphere")
 sys.path.append("../../../material")
-from energy import energy_zero, make_phiSequence
+from energy import energy_zero
 import energy
 from kernel import kernel_polar
 import kernel
-#from test_kernel import phiKernel_approx
-#energy.phiSequence = make_phiSequence(phiKernel_approx)
 
 @njit
 def S1S2_high_frequency(x, z, mie):
@@ -22,8 +20,8 @@ def S1S2_high_frequency(x, z, mie):
 # replace S1S2 by the high frequency asmpytotics
 kernel.S1S2 = S1S2_high_frequency
 kernel_polar.recompile()
+energy.phi_array.recompile()
 
-energy.phiSequence = make_phiSequence(kernel.kernel_polar)
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
@@ -31,7 +29,7 @@ materials = ("PR", "Vacuum", "PR")
 eta = 10.
 nproc = 4
 
-filename = "approx_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
+filename = "approx_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v2.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
