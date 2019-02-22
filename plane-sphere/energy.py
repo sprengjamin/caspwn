@@ -421,7 +421,10 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     # size parameter
     x = n_medium*Kvac*rho
     # precompute mie coefficients
-    mie = mie_cache(min(int(2*x)+1, 1e5), x, n) # initial lmax arbitrary
+    if x > 5e3:
+        mie = mie_cache(1, x, n)
+    else:
+        mie = mie_cache(int(20*x)+1, x, n)    # initial lmax arbitrary
 
     row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
     
