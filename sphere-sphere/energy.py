@@ -381,8 +381,11 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     if Kvac == 0.:
         mie = mie_cache(3, 1., n1)              # dummy cache
     else:
-        x1 = n_medium*Kvac*rho1                 # size parameter
-        mie = mie_cache(min(int(2*x1)+1, 1e5), x1, n1)    # initial lmax arbitrary
+        x1 = n_medium*Kvac*rho1               # size parameter
+        if x1 > 5e3:
+            mie = mie_cache(1, x1, n1)
+        else:
+            mie = mie_cache(int(20*x1)+1, x1, n1)    # initial lmax arbitrary
     
     row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, mie)
     
@@ -397,7 +400,10 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
         mie = mie_cache(3, 1., n2)              # dummy cache
     else:
         x2 = n_medium*Kvac*rho2                 # size parameter
-        mie = mie_cache(min(int(2*x2)+1, 1e5), x2, n2)    # initial lmax arbitrary
+        if x2 > 5e3:
+            mie = mie_cache(1, x2, n2)
+        else:
+            mie = mie_cache(int(20*x2)+1, x2, n2)    # initial lmax arbitrary
     
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
