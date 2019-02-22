@@ -14,7 +14,7 @@ materials = ("PR", "Vacuum", "PR")
 eta = 10.
 nproc = 4
 
-filename = "energy3_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
+filename = "energy3_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v2.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
