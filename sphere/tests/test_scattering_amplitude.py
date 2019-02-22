@@ -100,7 +100,7 @@ def mp_S1S2(x, z):
     return float(S1), float(S2), int(lmax)
 
 def test_scattering_amplitude():
-    rtol = 1.e-10
+    rtol = 1.4e-10
     mp_data = np.loadtxt("tests/testdata/scattering_amplitude.dat")
     for data in mp_data:
         x = data[0]
