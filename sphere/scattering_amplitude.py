@@ -182,10 +182,10 @@ def S1S2_asymptotics(x, z, n):
         return S1, S2
 
 
-@njit("float64(int64, float64, float64)", cache=True)
-def chi(l, x, z):
+@njit("float64(int64, float64, float64, float64)", cache=True)
+def chi(l, x, z, acoshz):
     nu = l + 0.5
-    return nu*math.acosh(z) + 2*math.sqrt(nu**2 + x**2) - 2*nu*math.asinh(nu/x) - 2*x*math.sqrt((1+z)/2)
+    return nu*acoshz + 2*(math.sqrt(nu*nu + x*x) - nu*math.asinh(nu/x) - x*math.sqrt((1+z)/2))
 
 
 #@njit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type, Omitted(True)))
@@ -225,7 +225,7 @@ def S1S2(x, z, mie, use_asymptotics=True):
 
     pe, te = pte(lest_int, acoshz, pte_cache)
     ale, ble = mie.read(lest_int)
-    exp = math.exp(chi(lest_int, x, z))
+    exp = math.exp(chi(lest_int, x, z, acoshz))
     S1 = (ale*pe + ble*te)*exp
     S2 = (ale*te + ble*pe)*exp
     
@@ -234,7 +234,7 @@ def S1S2(x, z, mie, use_asymptotics=True):
     while(True):
         pe, te = pte(l, acoshz, pte_cache)
         ale, ble = mie.read(l)
-        exp = math.exp(chi(l, x, z))
+        exp = math.exp(chi(l, x, z, acoshz))
         S1term = (ale*pe + ble*te)*exp
         S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
@@ -254,7 +254,7 @@ def S1S2(x, z, mie, use_asymptotics=True):
     while(True):
         pe, te = pte(l, acoshz, pte_cache)
         ale, ble = mie.read(l)
-        exp = math.exp(chi(l, x, z))
+        exp = math.exp(chi(l, x, z, acoshz))
         S1term = (ale*pe + ble*te)*exp
         S2term = (ale*te + ble*pe)*exp
         if S1term/S1 < err:
