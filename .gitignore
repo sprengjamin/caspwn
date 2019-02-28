@@ -13,6 +13,9 @@
 # notes output
 notes.pdf
 
+# analysis plots
+*.pdf
+
 # vim
 *.swp
 

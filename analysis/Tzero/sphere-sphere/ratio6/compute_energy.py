@@ -5,7 +5,7 @@ sys.path.append("../../../../sphere-sphere")
 from energy import energy_zero
 
 R1 = 1.
-R2 = 2.
+R2 = 6.
 R_eff = R1*R2/(R1+R2)
 Eps_eff = np.logspace(-1, -4, 61)
 
@@ -14,7 +14,7 @@ materials = ("PR", "Vacuum", "PR")
 eta = 10.
 nproc = 4
 
-filename = "energy2_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v3.dat"
+filename = "energy6_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
