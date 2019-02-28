@@ -303,8 +303,6 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
     get_b, mArray_sparse_part
 
     """
-    os.environ["MKL_NUM_THREADS"] = "1" 
-    
     def worker(dindices, oindices, rho, K, N, M, k, w, mie, out):
         out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
 mie))
@@ -341,7 +339,6 @@ out))
         col = np.hstack((col, results[i][1]))
         data = np.vstack((data, results[i][2]))
         
-    del os.environ["MKL_NUM_THREADS"]     
     return row, col, data
 
 
@@ -424,9 +421,11 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     if x > 5e3:
         mie = mie_cache(1, x, n)
     else:
-        mie = mie_cache(int(20*x)+1, x, n)    # initial lmax arbitrary
+        mie = mie_cache(int(2*x)+1000, x, n)    # initial lmax arbitrary
 
+    os.environ["MKL_NUM_THREADS"] = "1" 
     row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
+    del os.environ["MKL_NUM_THREADS"]     
     
     # m=0
     sprsmat = coo_matrix((data[:, 0], (row, col)), shape=(2*N,2*N))
