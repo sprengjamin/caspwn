@@ -14,10 +14,18 @@ nproc = 4
 
 filename = "full_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v4.dat"
 
-if not os.path.isfile(filename):
-    f=open(filename, "a")
-    for L in Lvals:
-        print("computing L=",L)
+# read number of lines
+f=open(filename, "r+")
+num_lines = 0
+for line in f:
+    num_lines += 1
+f.close()
+
+for i, L in enumerate(Lvals):
+    print("computing L =",L)
+    if i < num_lines:
+        print("Point already computed!")
+    else:
         rho = R/L
         N = int(eta*np.sqrt(rho))
         M = N
@@ -28,5 +36,3 @@ if not os.path.isfile(filename):
         f=open(filename, "ab")
         np.savetxt(f, [[L, en, t]])
         f.close()
-else:
-    print("File already exists!")
