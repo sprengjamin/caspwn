@@ -4,9 +4,6 @@
 # hypothesis
 .hypothesis
 
-# ignore test data
-*.dat
-
 # LaTeX
 *.aux
 *.log
