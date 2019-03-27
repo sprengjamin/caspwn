@@ -15,6 +15,6 @@ eta = 10.
 X = 200
 nproc = 4
 
-filename = "energy10_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_v3.dat"
+filename = "energy10_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
 
 compute_to_file(filename, L, R1, R2, materials, eta, X, nproc)
