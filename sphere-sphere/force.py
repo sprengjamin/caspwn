@@ -10,11 +10,12 @@ from scipy.sparse import coo_matrix
 from scipy.constants import Boltzmann, hbar, c
 
 from index import itt, itt_nosquare
-from kernel import phiKernel
+from energy import mArray_sparse_mp
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
 import scattering_amplitude
+from kernel import kernel_polar as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
 from psd import psd
@@ -22,11 +23,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
 
-def logdet_sparse(mat):
+def dL_logdet_sparse(M1, M2, M1p, M2p):
     r"""This module computes
 
     .. math::
-        \log\det(1-\mathcal{M})
+        \frac{\partial}{\partial L}\log\det(1-\mathcal{M})
 
     where :math:`\mathcal{M}` is given by the sparse matrix mat.
 
@@ -40,303 +41,15 @@ def logdet_sparse(mat):
     float
     
     """
-    dim = mat.shape[0]
-    lu = splu(eye(dim, format="csc")-mat)
-    return np.sum(np.log(lu.U.diagonal()))
-
-
-def make_phiSequence(kernel):
-    """
-    Makes phiSequence function for specified kernel.
-
-    Parameters
-    ----------
-    kernel: function
-        specified kernel function
-
-    Returns
-    -------
-    phiSequence
-
-    """
-    @jit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type), nopython=True)
-    def phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
-        """
-        Returns the a phi sqeuence for the kernel function for each polarization block.
-
-        Parameters
-        ----------
-        rho: float
-            positive, aspect ratio R/L
-        r: float
-            positive, relative effective radius R_eff/R
-        sign: +1/-1
-            sign, differs for the two spheres
-        K: float
-            positive, rescaled frequency
-        M: int
-            positive, length of sequence
-        k1, k2: float
-            positive, rescaled wave numbers
-        w1, w2: float
-            positive, quadrature weights corresponding to k1 and k2, respectively.
-        mie: class instance
-            cache for the exponentially scaled mie coefficients
-
-        Returns
-        -------
-        np.ndarray
-            array of length 4 of the phi sequence for the polarization contributions
-            TMTM, TETE, TMTE, TETM
-
-        """
-        phiarr = np.empty((4, M))
-
-        # phi = 0.
-        phiarr[:, 0] = w1*w2*kernel(rho, r, sign, K, k1, k2, 0., mie)
-        
-        if M%2==0:
-            # phi = np.pi
-            phiarr[:, M//2] = w1*w2*kernel(rho, r, sign, K, k1, k2, np.pi, mie)
-            imax = M//2-1
-            phi = 2*np.pi*np.arange(M//2)/M
-        else:
-            imax = M//2
-            phi = 2*np.pi*np.arange(M//2+1)/M
-        
-        for i in range(1, imax+1):
-            phiarr[:, i] = w1*w2*kernel(rho, r, sign, K, k1, k2, phi[i], mie)
-            phiarr[0, M-i] = phiarr[0, i]
-            phiarr[1, M-i] = phiarr[1, i]
-            phiarr[2, M-i] = -phiarr[2, i]
-            phiarr[3, M-i] = -phiarr[3, i]
-        return phiarr
-    return phiSequence
-
-
-def mSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie):
-    """
-    Computes mSqeuence by means of a FFT of the computed phiSequence.
-
-    Parameters
-    ----------
-    rho: float
-        positive, aspect ratio R/L
-    r: float
-        positive, relative effective radius R_eff/R
-    K: float
-        positive, rescaled frequency
-    M: int
-        positive, length of sequence
-    k1, k2: float
-        positive, rescaled wave numbers
-    w1, w2: float
-        positive, quadrature weights corresponding to k1 and k2, respectively.
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
-
-    Returns
-    -------
-    np.ndarray
-        array of length 4 of the phi sequence for the polarization contributions
-        TMTM, TETE, TMTE, TETM
-
-    Dependencies
-    ------------
-    phiSequence
-
-    """
-    phiarr = phiSequence(rho, r, sign, K, M, k1, k2, w1, w2, mie)
-    marr = np.fft.rfft(phiarr)
-    return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
-
-
-def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie):
-    """
-    Computes the m-array.
-
-    Parameters
-    ----------
-    dindices: np.ndarray
-        array of diagonal indices
-    oindices: np.ndarray
-        array of off-diagonal indices
-    rho: float
-        positive, aspect ratio R/L
-    r: float
-        positive, relative effective radius R_eff/R
-    sign: +1/-1
-        sign, differs for the two spheres
-    K: float
-        positive, rescaled frequency
-    N: int
-        positive, quadrature order of k-integration
-    M: int
-        positive, quadrature order of phi-integration
-    k, w: np.ndarray
-        quadrature points and weights of the k-integration after rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
-
-    Returns
-    -------
-    row: np.ndarray
-        array of row indices
-    col: np.ndarray
-        array of column indices
-    data: np.ndarray
-        array containing the kernel data
-
-    Dependencies
-    ------------
-    isFinite, compute_mElement_diag, itt, compute_mElement_offdiag
-
-    """
-    # 16 is just arbitrary here
-    N = max(Nrow, Ncol)
-    row = np.empty(16*N, dtype=np.int32)
-    col = np.empty(16*N, dtype=np.int32)
-    data = np.empty((16*N, M//2+1))
-    
-    ind = 0
-    for index in indices:
-        i, j = itt_nosquare(index, Nrow, Ncol)
-        if isFinite(rho, r, K, krow[i], kcol[j]):
-            row[ind] = i
-            col[ind] = j
-            row[ind+1] = i+Nrow
-            col[ind+1] = j+Ncol
-            row[ind+2] = i
-            col[ind+2] = j+Ncol
-            row[ind+3] = i+Nrow
-            col[ind+3] = j
-            data[ind:ind+4, :] = mSequence(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
-            ind += 4
-            if ind >= len(row):
-                row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
-                col = np.hstack((col, np.empty(len(row), dtype=np.int32)))
-                data = np.vstack((data, np.empty((len(row), M//2+1))))
-    
-    row = row[:ind] 
-    col = col[:ind] 
-    data = data[:ind, :] 
-    return row, col, data
-
-
-def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, mie):
-    """
-    Computes the m-array in parallel using the multiprocessing module.
-
-    Parameters
-    ----------
-    nproc: int
-        number of processes
-    rho: float
-        positive, aspect ratio R/L
-    r: float
-        positive, relative effective radius R_eff/R
-    sign: +1/-1
-        sign, differs for the two spheres
-    K: float
-        positive, rescaled frequency
-    N: int
-        positive, quadrature order of k-integration
-    M: int
-        positive, quadrature order of phi-integration
-    pts, wts: np.ndarray
-        quadrature points and weights of the k-integration before rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
-
-    Returns
-    -------
-    row: np.ndarray
-        array of row indices
-    col: np.ndarray
-        array of column indices
-    data: np.ndarray
-        array containing the kernel data
-
-    Dependencies
-    ------------
-    get_b, mArray_sparse_part
-
-    """
-    
-    def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
-        out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
-
-    b = 0.5 ### for now
-    krow = b*pts_row
-    kcol = b*pts_col
-    wrow = np.sqrt(b*wts_row*2*np.pi/M)
-    wcol = np.sqrt(b*wts_col*2*np.pi/M)
-    
-    ncol = np.arange(Ncol) 
-    nrow = np.arange(Ncol) 
-    indices = np.array_split(np.random.permutation(Nrow*Ncol), nproc)
-    out = mp.Queue()
-    procs = []
-    for i in range(nproc):
-        p = mp.Process(
-                target = worker,
-                args = (indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out))
-        procs.append(p)
-        p.start()
-    
-    results = np.empty(nproc, dtype=object)
-    for i in range(nproc):
-        results[i] = out.get()
-    
-    for p in procs:
-        p.join()
-    
-    row = results[0][0]
-    col = results[0][1]
-    data = results[0][2]
-    for i in range(1, nproc):
-        row = np.hstack((row, results[i][0]))
-        col = np.hstack((col, results[i][1]))
-        data = np.vstack((data, results[i][2]))
-        
-    return row, col, data
-
-
-def isFinite(rho, r, K, k1, k2):
-    """
-    Estimates by means of the asymptotics of the scattering amplitudes if the given
-    matrix element can be numerically set to zero.
-
-    Parameters
-    ----------
-    rho: float
-        positive, aspect ratio R/L
-    r: float
-        positive, relative effective radius R_eff/R
-    K: float
-        positive, rescaled frequency
-    k1, k2: float
-        positive, rescaled wave numbers
-
-    Returns
-    -------
-    boolean
-        True if the matrix element must not be neglected
-
-    """
-    if K == 0.:
-        exponent = 2*rho*np.sqrt(k1*k2) - (k1+k2)*(rho+r)
-    else:
-        kappa1 = np.sqrt(k1*k1+K*K)
-        kappa2 = np.sqrt(k2*k2+K*K)
-        exponent = rho*np.sqrt(2*(K*K + kappa1*kappa2 + k1*k2)) - (kappa1+kappa2)*(rho+r)
-    if exponent < -37:
-        return False
-    else:
-        return True
+    Mp = M1p.dot(M2) + M1.dot(M2p)
+    M = M1.dot(M2)
+    dim = M.shape[0]
+    lu = splu(eye(dim, format="csc")-M)
+    A = lu.solve(Mp.todense())
+    return -np.trace(A)
             
 
-def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
+def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
     """
     Computes the sum of the logdets the m-matrices.
 
@@ -403,71 +116,46 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
+    K1 = Kvac*n_medium
+    k_in = 0.5*pts_in   # this 0.5 is b
+    k_out = 0.5*pts_out # this 0.5 is b
+    kappa_in = np.sqrt(k_in*k_in + K1*K1)
+    kappa_out = np.sqrt(k_out*k_out + K1*K1)
+    data1prime = data1.copy()
+    for i in range(len(data1prime)):
+        data1prime[i,:] *= -0.5*(kappa_in[col1[i]%Nin]+kappa_out[row1[i]%Nout])
+    data2prime = data2.copy()
+    for i in range(len(data2prime)):
+        data2prime[i,:] *= -0.5*(kappa_in[row2[i]%Nin]+kappa_out[col2[i]%Nout])
+
     # m=0
-    sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-    mat = sprsmat1.dot(sprsmat2)
-    logdet = logdet_sparse(mat) 
-    
+    M1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    M1p = coo_matrix((data1prime[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    M2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
+    M2p = coo_matrix((data2prime[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
+    dL_logdet = dL_logdet_sparse(M1, M2, M1p, M2p)
+
     # m>0    
     for m in range(1, M//2):
-        sprsmat1 = coo_matrix((data1[:, m], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-        sprsmat2 = coo_matrix((data2[:, m], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-        mat = sprsmat1.dot(sprsmat2)
-        logdet += 2*logdet_sparse(mat) 
+        M1 = coo_matrix((data1[:, m], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+        M1p = coo_matrix((data1prime[:, m], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+        M2 = coo_matrix((data2[:, m], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
+        M2p = coo_matrix((data2prime[:, m], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
+        dL_logdet += 2*dL_logdet_sparse(M1, M2, M1p, M2p)
     
     # last m
-    sprsmat1 = coo_matrix((data1[:, M//2], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, M//2], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-    mat = (sprsmat1).dot(sprsmat2)
+    M1 = coo_matrix((data1[:, M//2], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    M1p = coo_matrix((data1prime[:, M//2], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
+    M2 = coo_matrix((data2[:, M//2], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
+    M2p = coo_matrix((data2prime[:, M//2], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
     if M%2==0:
-        logdet += logdet_sparse(mat)
+        dL_logdet += dL_logdet_sparse(M1, M2, M1p, M2p)
     else:
-        logdet += 2*logdet_sparse(mat)
-    return logdet
-
-    
-def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
-    """
-    Computes the energy. (add formula?)
-
-    Parameters
-    ----------
-    eps: float
-        positive, ratio L/R
-    N: int
-        positive, quadrature order of k-integration
-    M: int
-        positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of K-integration
-    nproc: int
-        number of processes spawned by multiprocessing module
-
-    Returns
-    -------
-    energy: float
-        Casimir energy
-
-    
-    Dependencies
-    ------------
-    quadrature, get_mie, LogDet_sparse_mp
-
-    """
-    p_in, w_in = quadrature(Nin)
-    p_out, w_out = quadrature(Nout)
-    K_pts, K_wts = quadrature(X)
-    
-    energy = 0.
-    for i in range(X):
-        result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-        print("K=", K_pts[i], ", val=", result)
-        energy += K_wts[i]*result
-    return energy/(2*np.pi)
+        dL_logdet += 2*dL_logdet_sparse(M1, M2, M1p, M2p)
+    return dL_logdet
 
 
-def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
+def force_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -500,21 +188,21 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     
     K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
     n = 0
-    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-    energy = 0.
+    force0 = dL_LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+    force = 0.
     n += 1
     while(True):
-        term = 2*LogDet(R1, R2, L, materials, K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-        energy += term
+        term = 2*dL_LogDet(R1, R2, L, materials, K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+        force += term
         print(K_matsubara*n, term)
-        if abs(term/energy) < 1.e-12:
+        if abs(term/force) < 1.e-12:
             break
         n += 1
         
-    return 0.5*T*(energy+energy0), 0.5*T*energy
+    return 0.5*T*(force+force0)/L, 0.5*T*force/L
     #return energy
 
-def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
+def force_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -546,24 +234,24 @@ def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     p_out, w_out = quadrature(Nout)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+    force0 = dL_LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
 
-    energy = 0.
+    force = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
     order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
-        term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+        term = 2*eta[n]*dL_LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
         print(K_matsubara*xi[n], term)
-        energy += term
+        force += term
     
-    return 0.5*T*(energy+energy0), 0.5*T*energy
+    return 0.5*T*(force+force0)/L, 0.5*T*force/L
 
 
 if __name__ == "__main__":
     R1 = 8e-06
     R2 = 16.5e-06
-    L = 0.8e-06
+    L = 0.799e-06
     T = 293.015
     materials = ("PS1", "Water", "Silica1")
     
@@ -577,9 +265,8 @@ if __name__ == "__main__":
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
     X = 20
-    phiSequence = make_phiSequence(phiKernel)
 
     #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
-    print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
-    print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    #print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
+    print(force_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    print(force_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
