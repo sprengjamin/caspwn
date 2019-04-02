@@ -17,6 +17,11 @@ import kernel
 def S1S2_high_frequency(x, z, mie):
     return -0.5*x, 0.5*x
 
+@njit
+def ABCD_same_plane(xi, k1, k2, phi):
+    return 1., 0., 0., 0. 
+
+kernel.ABCD = ABCD_same_plane
 # replace S1S2 by the high frequency asmpytotics
 kernel.S1S2 = S1S2_high_frequency
 kernel_polar.recompile()
@@ -29,7 +34,7 @@ materials = ("PR", "Vacuum", "PR")
 eta = 15.
 nproc = 4
 
-filename = "approx_energy_"+materials[0]+"_"+materials[1]+"_"+materials[2]+"_eta=15.dat"
+filename = "approx_energy_sameplanes_"+materials[0]+"_"+materials[1]+"_"+materials[2]+".dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")

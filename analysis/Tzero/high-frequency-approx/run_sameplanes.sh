@@ -14,5 +14,5 @@
 export OMP_NUM_THREADS=4
 
 echo "# starting on `hostname` at `date`"
-srun /alcc/gpfs1/sw/anaconda3/bin/python compute_energy.py
+srun /alcc/gpfs1/sw/anaconda3/bin/python compute_energy_sameplanes.py
 echo "# finished at `date`"
