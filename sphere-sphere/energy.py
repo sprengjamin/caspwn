@@ -12,6 +12,8 @@ from scipy.sparse import coo_matrix
 
 from scipy.constants import Boltzmann, hbar, c
 
+from scipy.integrate import quad
+
 from index import itt, itt_nosquare
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
@@ -470,6 +472,40 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
         energy += K_wts[i]*result
     return energy/(2*np.pi)
 
+def energy_quad(R1, R2, L, materials, Nin, Nout, M, nproc):
+    """
+    Computes the energy. (add formula?)
+
+    Parameters
+    ----------
+    eps: float
+        positive, ratio L/R
+    N: int
+        positive, quadrature order of k-integration
+    M: int
+        positive, quadrature order of phi-integration
+    X: int
+        positive, quadrature order of K-integration
+    nproc: int
+        number of processes spawned by multiprocessing module
+
+    Returns
+    -------
+    energy: float
+        Casimir energy
+
+    
+    Dependencies
+    ------------
+    quadrature, get_mie, LogDet_sparse_mp
+
+    """
+    p_in, w_in = quadrature(Nin)
+    p_out, w_out = quadrature(Nout)
+    
+    f = lambda x: LogDet(R1, R2, L, materials, x, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+    energy = quad(f, 0, np.inf)[0]
+    return energy/(2*np.pi)
 
 def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     """
@@ -566,11 +602,11 @@ def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
 
 if __name__ == "__main__":
     np.random.seed(0)
-    R1 = 8e-06
-    R2 = 16.5e-06
-    L = 0.8e-06
+    R1 = 1
+    R2 = 1
+    L = 0.01
     T = 293.015
-    materials = ("PS1", "Water", "Silica1")
+    materials = ("PR", "Vacuum", "PR")
     
     rho1 = R1/L
     rho2 = R2/L
@@ -591,6 +627,7 @@ if __name__ == "__main__":
     print("time", end-start)
     #print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
     start = time.time()
-    print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    #print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
+    print(energy_quad(R1, R2, L, materials, Nin, Nout, M, nproc))
     end = time.time()
     print("time", end-start)

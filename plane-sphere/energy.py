@@ -12,6 +12,7 @@ from numba import float64, int64
 from numba.types import UniTuple
 from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
+from scipy.integrate import quad
 
 from index import itt
 import sys, os
@@ -484,6 +485,41 @@ def energy_zero(R, L, materials, N, M, nproc):
     energy = auto_integration(logdet)
     return energy/(2*np.pi)
 
+
+def energy_quad(R, L, materials, N, M, nproc):
+    r"""
+    Computes the Casimir at zero temperature.
+
+    Parameters
+    ----------
+    R: float
+        positive, radius of the sphere
+    L: float
+        positive, surface-to-surface distance
+    materials : string
+        name of material 
+    N: int
+        positive, quadrature order of k-integration
+    M: int
+        positive, quadrature order of phi-integration
+    nproc: int
+        number of processes spawned by multiprocessing module
+
+    Returns
+    -------
+    energy: float
+        Casimir energy in units of :math:`\hbar c/L`.
+
+    
+    Dependencies
+    ------------
+    quadrature, get_mie, LogDet_sparse_mp
+
+    """
+    pts, wts = quadrature(N)
+    logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
+    energy = quad(logdet, 0, np.inf)[0]
+    return energy/(2*np.pi)
 
 if __name__ == "__main__":
     np.random.seed(0)
