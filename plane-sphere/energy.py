@@ -304,6 +304,9 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
     get_b, mArray_sparse_part
 
     """
+    if type(nproc) != int:
+        raise TypeError("nproc must be an integer!")
+
     def worker(dindices, oindices, rho, K, N, M, k, w, mie, out):
         out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
 mie))
@@ -314,7 +317,9 @@ mie))
     
     dindices = np.array_split(np.random.permutation(N), nproc)
     oindices = np.array_split(np.random.permutation(N*(N-1)//2), nproc)
+   
     
+    os.environ["OMP_NUM_THREADS"] = "1" 
     out = mp.Queue()
     procs = []
     for i in range(nproc):
@@ -332,6 +337,7 @@ out))
     for p in procs:
         p.join()
     
+    os.environ["OMP_NUM_THREADS"] = str(nproc) 
     row = results[0][0]
     col = results[0][1]
     data = results[0][2]
@@ -424,9 +430,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     else:
         mie = mie_cache(int(2*x)+1000, x, n)    # initial lmax arbitrary
 
-    os.environ["MKL_NUM_THREADS"] = "1" 
     row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
-    del os.environ["MKL_NUM_THREADS"]     
     
     # m=0
     sprsmat = coo_matrix((data[:, 0], (row, col)), shape=(2*N,2*N))
@@ -523,7 +527,7 @@ def energy_quad(R, L, materials, N, M, nproc):
 
 if __name__ == "__main__":
     np.random.seed(0)
-    R = 10.
+    R = 100.
     L = 1.
     rho = R/L
     N = int(5*np.sqrt(rho))*2+1

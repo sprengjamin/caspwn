@@ -264,7 +264,9 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     get_b, mArray_sparse_part
 
     """
-    os.environ["MKL_NUM_THREADS"] = "1" 
+    if type(nproc) != int:
+        raise TypeError("nproc must be an integer!")
+    
     def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
         out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
 
@@ -275,6 +277,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     wcol = np.sqrt(b*wts_col*2*np.pi/M)
     
     indices = np.array_split(np.random.permutation(Nrow*Ncol), nproc)
+    
+    os.environ["OMP_NUM_THREADS"] = "1" 
     out = mp.Queue()
     procs = []
     for i in range(nproc):
@@ -291,6 +295,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     for p in procs:
         p.join()
     
+    os.environ["OMP_NUM_THREADS"] = str(nproc)
+    
     row = results[0][0]
     col = results[0][1]
     data = results[0][2]
@@ -298,7 +304,6 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
         row = np.hstack((row, results[i][0]))
         col = np.hstack((col, results[i][1]))
         data = np.vstack((data, results[i][2]))
-    del os.environ["MKL_NUM_THREADS"]     
     return row, col, data
 
 
