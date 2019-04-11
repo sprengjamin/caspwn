@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#SBATCH --job-name=T0-full
+#SBATCH --job-name=rndtrp
 #SBATCH --account=theo1
 #SBATCH --partition=alcc1
-#SBATCH --mem=10000mb
+#SBATCH --mem=20000mb
 #SBATCH --time=5-0
 
 # parallel jobs
