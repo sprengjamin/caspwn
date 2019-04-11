@@ -16,6 +16,7 @@ for i in range(10):
     #plt.loglog(L, (r**2-1)/3*L, "k--")
 
     ## 2nd corr
+    #plt.plot(L, np.abs(trM/pfa-1.)/((r**2-1)/3*L), label=str(r))
     plt.loglog(L, np.abs(trM/pfa-1.+(r**2-1)/3*L), label=str(r))
 
 plt.loglog(L, L**2, "k--")
@@ -27,5 +28,5 @@ plt.loglog(L, 200*L**2, "k--")
 plt.loglog(L, 10*L**1.5, "k-")
 
 plt.legend()
-plt.savefig("ten_roundtrips.pdf")
+#plt.savefig("ten_roundtrips.pdf")
 plt.show()

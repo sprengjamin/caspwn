@@ -152,7 +152,7 @@ energy.phi_array.recompile()
 
 def xi_integration(R, L, N, M, X, nproc):
     materials = ("PR", "Vacuum", "PR")
-    pts, wts = quadrature(N)
+   pts, wts = quadrature(N)
     xi_pts, xi_wts = quadrature(X)
     traces = np.zeros(10)
     for i in range(X):
@@ -162,11 +162,11 @@ def xi_integration(R, L, N, M, X, nproc):
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 
-eta = 12.
+eta = 15.
 nproc = 4
 X = 300
 
-filename = "all_roundtrips.dat"
+filename = "all_roundtrips_eta15.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
