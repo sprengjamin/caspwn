@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append(".")
 import os
-from angular import pte_asymptotics
+from angular import pte_asymptotics, pte_low
 from angular import _c1, _c2, _c3, _c4, _c5
 
 from mpmath import *
@@ -16,7 +16,8 @@ def mp_pte(l, x):
 
 rtol=1.0e-15
 
-def test_pte_low():
+def test_pte_lowx():
+    # test pte for high l, but low x values
     lValues = np.floor(np.logspace(3.003, 9.08, 11))
     for l in lValues:
         xmax = np.arcsinh(25/(l+1))
@@ -37,7 +38,8 @@ def test_pte_low():
             np.testing.assert_allclose(num_te, float(mp_te), rtol=rtol)
 
 rtol = 1e-15
-def test_pte_high():
+def test_pte_highx():
+    # test pte for high l and high x values
     InuKnue_data = np.loadtxt("tests/testdata/pte_high.dat")
     for data in InuKnue_data:
         num_pe, num_te = pte_asymptotics(data[0], data[1])
@@ -46,6 +48,28 @@ def test_pte_high():
         print(np.abs(num_te/data[3]-1.))
         np.testing.assert_allclose(num_pe, data[2], rtol=rtol)
         np.testing.assert_allclose(num_te, data[3], rtol=rtol)
+
+
+def test_pte_lowl():
+    # test pte for low l values
+    X = np.logspace(-3, 1, 10)
+    for x in X:
+        pe, te = pte_low(1000, x)
+        L = [1, 10, 100, 1000]
+        for l in L:
+            rtol = 1e-13*l
+            mp_pe, mp_te = mp_pte(mpf(l), mpf(x))
+            num_pe, num_te = pe[l-1], te[l-1]
+            print("l", l, "x", x)
+            print("pe prec","%.16e"%(num_pe/mp_pe-1.))
+            print("pe","%.16e"%num_pe)
+            print("mp","%.16e"%mp_pe)
+            print("te prec","%.16e"%(num_te/mp_te-1.))
+            print("te","%.16e"%num_te)
+            print("mp","%.16e"%mp_te)
+            np.testing.assert_allclose(num_pe, float(mp_pe), rtol=rtol)
+            np.testing.assert_allclose(num_te, float(mp_te), rtol=rtol)
+
 
 def mp_c1(x):
     return (1 - x*coth(x))/(8.*x**2)
@@ -78,9 +102,10 @@ def test_c_coefficients():
 
 
 if __name__ == "__main__":
-    #test_pte_low()
-    #test_pte_high()
-    test_c_coefficients()
+    #test_pte_lowx()
+    #test_pte_highx()
+    #test_c_coefficients()
+    test_pte_lowl()
     """
     #print(mp_c1(mpf(0.001)))
     import matplotlib.pyplot as plt
