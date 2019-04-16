@@ -103,10 +103,10 @@ R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
 
-eta = 15.
+eta = 20.
 nproc = 4
 
-filename = "approx_energy_sameplanes_eta15.dat"
+filename = "approx_energy_sameplanes_eta20.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
