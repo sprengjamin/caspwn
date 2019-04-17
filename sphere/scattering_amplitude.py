@@ -40,7 +40,7 @@ from numba.types import UniTuple, Omitted
 from math import lgamma
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
-from angular import pte, pte_low, pte_asymptotics
+from angular import pte, pte_low, pte_asymptotics, pte_array
 from mie import mie_cache
 
 """
@@ -214,49 +214,66 @@ def S1S2(x, z, mie, use_asymptotics=True):
     if z <= 1.:
         S = S_back(x, mie)
         return -S, S
-
-    err = 1.0e-16
-
+    
+    err = 1.0e-16   # convergence
+    dl = 1000       # chunks-size for pte
+    
+    # precompute frequently used values
     acoshz = math.acosh(z)
-    pte_cache = np.vstack(pte_low(1000, acoshz))
+    #em = math.exp(-acoshz)
+    #em2 = math.exp(-2*acoshz)
+    
+    # estimated l with main contribution to the sum
     lest = x*math.sqrt(math.fabs(z-1)/2)
     lest_int = int(lest)+1
-    #print("lest", lest)
+    print("lest_int", lest_int)
 
-    pe, te = pte(lest_int, acoshz, pte_cache)
-    ale, ble = mie.read(lest_int)
-    exp = math.exp(chi(lest_int, x, z, acoshz))
-    S1 = (ale*pe + ble*te)*exp
-    S2 = (ale*te + ble*pe)*exp
+    lmax = lest_int+dl
+    pe, te = pte_array(lest_int, lmax, acoshz)
+    lmin = min(lmax-len(pe)+1, lest_int)
+    
+    
+    ale, ble = mie.read(lmin)
+    exp = math.exp(chi(lmin, x, z, acoshz))
+    S1 = (ale*pe[0] + ble*te[0])*exp
+    S2 = (ale*te[0] + ble*pe[0])*exp
     
     # upwards summation
-    l = lest_int+1
+    l = lmin+1
+    i = 1
     while(True):
-        pe, te = pte(l, acoshz, pte_cache)
+        if i >= len(pe):
+            pe, te = pte_array(l, l+dl, acoshz)
+            i = 0
         ale, ble = mie.read(l)
         exp = math.exp(chi(l, x, z, acoshz))
-        S1term = (ale*pe + ble*te)*exp
-        S2term = (ale*te + ble*pe)*exp
-        if S1term/S1 < err:
-            S1 += S1term
-            S2 += S2term
-            break
+        S1term = (ale*pe[i] + ble*te[i])*exp
+        S2term = (ale*te[i] + ble*pe[i])*exp
+        if S1 > 0.:
+            if S1term/S1 < err:
+                S1 += S1term
+                S2 += S2term
+                break
         S1 += S1term
         S2 += S2term
         l += 1
+        i += 1
     #print("dl+", l-lest_int)
     
-    if lest_int == 1:
+    if lest_int < 1000:
         return -S1, S2 
     
     # downwards summation
     l = lest_int-1
+    i = -1
     while(True):
-        pe, te = pte(l, acoshz, pte_cache)
+        if i < 0:
+            pe, te = pte_array(max(l-dl, 1), l, acoshz)
+            i = len(pe)-1
         ale, ble = mie.read(l)
         exp = math.exp(chi(l, x, z, acoshz))
-        S1term = (ale*pe + ble*te)*exp
-        S2term = (ale*te + ble*pe)*exp
+        S1term = (ale*pe[i] + ble*te[i])*exp
+        S2term = (ale*te[i] + ble*pe[i])*exp
         if S1term/S1 < err:
             S1 += S1term
             S2 += S2term
@@ -264,25 +281,18 @@ def S1S2(x, z, mie, use_asymptotics=True):
         S1 += S1term
         S2 += S2term
         l -= 1
+        i -= 1
         if l == 0:
             break
-    #print("dl-",lest_int-l)
     return -S1, S2
 
 
 if __name__ == "__main__":
-    x = 100.
-    z = 2.3
-    n = 1.8
-    #ale, ble = mie_e_array(1e5, x)
+    x = 3.593813663804626
+    z = 100001.0
+    n = np.inf
     mie = mie_cache(1e1, x, n)
-    print(mie.lmax)
     S1, S2 = S1S2(x, z, mie, False)
-    print(mie.lmax)
-    S1, S2 = S1S2(1000, z, mie)
-    print(mie.lmax)
-    
-    """
     sigma = math.sqrt((1+z)/2)
     S1a = -0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
     S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)
@@ -293,7 +303,8 @@ if __name__ == "__main__":
     print(S2)
     print(S2a)
     print((S2-S2a)/S2a)
-    width = math.sqrt(x*math.sqrt((1+z)/2))
+    """
+    #width = math.sqrt(x*math.sqrt((1+z)/2))
     print("width", width)
     print("6*width", 6*width)
     #jit()(S1S2).inspect_types()
