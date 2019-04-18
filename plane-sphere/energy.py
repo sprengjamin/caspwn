@@ -454,7 +454,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     return logdet
 
 
-def energy_zero(R, L, materials, N, M, nproc):
+def energy_zero(R, L, materials, N, M, nproc, X=None):
     r"""
     Computes the Casimir at zero temperature.
 
@@ -485,8 +485,17 @@ def energy_zero(R, L, materials, N, M, nproc):
 
     """
     pts, wts = quadrature(N)
-    logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
-    energy = auto_integration(logdet)
+    if X == None:
+        logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
+        energy = auto_integration(logdet)
+    else:
+        K_pts, K_wts = quadrature(X)
+        
+        energy = 0.
+        for i in range(X):
+            result = LogDet(R, L, materials, K_pts[i], N, M, pts, wts, nproc)
+            print("K=", K_pts[i], ", val=", result)
+            energy += K_wts[i]*result
     return energy/(2*np.pi)
 
 
