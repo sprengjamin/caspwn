@@ -226,7 +226,6 @@ def S1S2(x, z, mie, use_asymptotics=True):
     # estimated l with main contribution to the sum
     lest = x*math.sqrt(math.fabs(z-1)/2)
     lest_int = int(lest)+1
-    print("lest_int", lest_int)
 
     lmax = lest_int+dl
     pe, te = pte_array(lest_int, lmax, acoshz)
