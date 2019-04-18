@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append(".")
 import os
-from angular import pte_asymptotics
+from angular import pte_asymptotics, pte_low, pte_next, pte_array
 from angular import _c1, _c2, _c3, _c4, _c5
 
 from mpmath import *
@@ -16,7 +16,8 @@ def mp_pte(l, x):
 
 rtol=1.0e-15
 
-def test_pte_low():
+def test_pte_lowx():
+    # test pte for high l, but low x values
     lValues = np.floor(np.logspace(3.003, 9.08, 11))
     for l in lValues:
         xmax = np.arcsinh(25/(l+1))
@@ -37,7 +38,8 @@ def test_pte_low():
             np.testing.assert_allclose(num_te, float(mp_te), rtol=rtol)
 
 rtol = 1e-15
-def test_pte_high():
+def test_pte_highx():
+    # test pte for high l and high x values
     InuKnue_data = np.loadtxt("tests/testdata/pte_high.dat")
     for data in InuKnue_data:
         num_pe, num_te = pte_asymptotics(data[0], data[1])
@@ -46,6 +48,28 @@ def test_pte_high():
         print(np.abs(num_te/data[3]-1.))
         np.testing.assert_allclose(num_pe, data[2], rtol=rtol)
         np.testing.assert_allclose(num_te, data[3], rtol=rtol)
+
+
+def test_pte_lowl():
+    # test pte for low l values
+    X = np.logspace(-3, 1, 10)
+    for x in X:
+        pe, te = pte_low(1000, x)
+        L = [1, 10, 100, 1000]
+        for l in L:
+            rtol = 1e-13*l
+            mp_pe, mp_te = mp_pte(mpf(l), mpf(x))
+            num_pe, num_te = pe[l-1], te[l-1]
+            print("l", l, "x", x)
+            print("pe prec","%.16e"%(num_pe/mp_pe-1.))
+            print("pe","%.16e"%num_pe)
+            print("mp","%.16e"%mp_pe)
+            print("te prec","%.16e"%(num_te/mp_te-1.))
+            print("te","%.16e"%num_te)
+            print("mp","%.16e"%mp_te)
+            np.testing.assert_allclose(num_pe, float(mp_pe), rtol=rtol)
+            np.testing.assert_allclose(num_te, float(mp_te), rtol=rtol)
+
 
 def mp_c1(x):
     return (1 - x*coth(x))/(8.*x**2)
@@ -76,11 +100,48 @@ def test_c_coefficients():
         np.testing.assert_allclose(_c4(x), float(mp_c4(mpf(x))), rtol=1.e-9)
         np.testing.assert_allclose(_c5(x), float(mp_c5(mpf(x))), rtol=1.e-7)
 
+def test_recurrence():
+    rtol = 1.e-12
+    L = [10, 100, 1000, 10000]#, 100000, 1000000]
+    X = np.logspace(-3, 2, 20)
+    for l in L:
+        for x in X:
+            mp_pe1, mp_te1 = mp_pte(mpf(l), mpf(x))
+            mp_pe2, mp_te2 = mp_pte(mpf(l+1), mpf(x))
+            mp_pe3, mp_te3 = mp_pte(mpf(l+2), mpf(x))
+            z = np.cosh(x)
+            emx = np.exp(-x)
+            em2x = np.exp(-2*x)
+            my_pe3, my_te3 = pte_next(l+1, x, z, emx, em2x, float(mp_pe2), float(mp_pe1))
+            print("l:", l, "x:", x)
+            print("pe prec:", np.abs(my_pe3/float(mp_pe3)-1.))
+            print("te prec:", np.abs(my_te3/float(mp_te3)-1.))
+            np.testing.assert_allclose(my_pe3, float(mp_pe3), rtol=rtol)
+            np.testing.assert_allclose(my_te3, float(mp_te3), rtol=rtol)
+    
+def test_pte_array():
+    rtol = 1.e-14
+    Lmin = [10, 100, 989, 5679, 10000, 887766]
+    dL = [1000, 1459, 2397]
+    X = np.logspace(-3, 2, 5)
+    for lmin in Lmin:
+        for x in X:
+            for dl in dL:
+                pe, te = pte_array(lmin, lmin+dl, x)
+                pe_a, te_a = pte_asymptotics(lmin+dl, x)
+                print("lmin:", lmin, "dl:", dl, "x:", x)
+                print("pe prec:", np.abs(pe[-1]/pe_a-1.))
+                print("te prec:", np.abs(te[-1]/te_a-1.))
+                np.testing.assert_allclose(pe[-1], pe_a, rtol = rtol, atol=1.)
+                np.testing.assert_allclose(te[-1], te_a, rtol = rtol, atol=1.)
+
 
 if __name__ == "__main__":
-    #test_pte_low()
-    #test_pte_high()
-    test_c_coefficients()
+    #test_pte_lowx()
+    #test_pte_highx()
+    #test_c_coefficients()
+    #test_pte_lowl()
+    test_pte_array()
     """
     #print(mp_c1(mpf(0.001)))
     import matplotlib.pyplot as plt

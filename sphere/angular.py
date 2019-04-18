@@ -209,6 +209,40 @@ def pte_high(l, x):
     te = -math.cosh(x)*pe + (2*l+1)*Ple_asymptotics(l, x)
     return pe, te
 
+@njit("UniTuple(float64, 2)(int64, float64, float64, float64, float64, float64, float64)", cache=True)
+def pte_next(l, x, z, emx, em2x, pe_new, pe_old):
+    """Compute pe_l+1 and te_l+1 by means of the recurrence relation
+    """
+    pe_next = (2*l+3)/(l+2)*(z*emx*pe_new - (l-1)/(2*l-1)*em2x*pe_old)
+    te_next = (l+1)*z*pe_next - (2*l+3)*l/(2*l+1)*emx*pe_new
+    return pe_next, te_next
+
+@njit("UniTuple(float64[:], 2)(int64, int64, float64)", cache=True)
+def pte_array(lmin, lmax, x):
+    """Compute array for pe, te from lmin to lmax
+    """
+    assert(lmax > lmin+1)
+    z = math.cosh(x)
+    emx = math.exp(-x)
+    em2x = emx*emx
+    if lmin < 1000:
+        p = np.empty(lmax)
+        t = np.empty(lmax)
+        p[-1] = 0.
+        p[0] = 3/2*math.exp(-1.5*x)
+        t[0] = z*p[0]
+    
+        for l in range(1, lmax+1):
+            p[l], t[l] = pte_next(l, x, z, emx, em2x, p[l-1], p[l-2])
+    else:
+        p = np.empty(lmax-lmin+1)
+        t = np.empty(lmax-lmin+1)
+        p[0], t[0] = pte_high(lmin, x)
+        p[1], t[1] = pte_high(lmin+1, x)
+        for l in range(lmin+2, lmax+1):
+            p[l-lmin], t[l-lmin] = pte_next(l-1, x, z, emx, em2x, p[l-lmin-1], p[l-lmin-2])
+    return p, t
+
 @njit("UniTuple(float64[:], 2)(int64, float64)", cache=True)
 def pte_low(l, x):
     r"""Exponentially scaled angular function :math:`\tilde p_\ell\left(\cosh(x)\right)`
@@ -250,8 +284,7 @@ def pte_low(l, x):
     t[0] = z*p[0]
     
     for i in range(1, l):
-        p[i] = (2*i+3)/(i+2)*(z*emz*p[i-1] - (i-1)/(2*i-1)*em2z*p[i-2])
-        t[i] = (i+1)*z*p[i] - (2*i+3)*i/(2*i+1)*emz*p[i-1]
+        p[i], t[i] = pte_next(i, x, z, emz, em2z, p[i-1], p[i-2])
     return p, t
 
 @njit("UniTuple(float64, 2)(int64, float64, float64[:,:])", cache=True)
@@ -268,3 +301,31 @@ def pte_asymptotics(l, x):
         return pe[-1], te[-1]
     else:
         return pte_high(l, x)
+
+if __name__ == "__main__":
+    import time
+    lmin = 100000
+    lmax = 101000
+    x = 1.
+    a1, a2 = (pte_array(lmin, lmax, x))
+    start = time.time()
+    a1, a2 = (pte_array(lmin, lmax, x))
+    end = time.time()
+    print(a1)
+    print(a2)
+    print("time", end-start)
+    @njit
+    def foo(lmin, lmax, x):
+        pe = np.empty(lmax-lmin+1)
+        te = np.empty(lmax-lmin+1)
+        for l in range(lmin, lmax+1):
+            pe[l-lmin], te[l-lmin] = pte_asymptotics(l, x)
+        return pe, te
+    b1, b2 = foo(lmin, lmax, x)
+    start = time.time()
+    b1, b2 = foo(lmin, lmax, x)
+    end = time.time()
+    print(b1)
+    print(b2)
+    print("time", end-start)
+
