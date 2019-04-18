@@ -103,10 +103,11 @@ R = 1.
 Lvals = np.logspace(-1, -4, 61)
 materials = ("PR", "Vacuum", "PR")
 
-eta = 20.
+eta = 12.5
 nproc = 4
+X = 200
 
-filename = "approx_energy_sameplanes_eta20.dat"
+filename = "approx_energy_sameplanes_eta12.5_X200.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
@@ -116,7 +117,7 @@ if not os.path.isfile(filename):
         N = int(eta*np.sqrt(rho))
         M = N
         start = time.time()
-        en = energy_zero(R, L, materials, N, M, nproc)
+        en = energy_zero(R, L, materials, N, M, nproc, X)
         end = time.time()
         t = end-start
         f=open(filename, "ab")
