@@ -13,6 +13,7 @@ from numba.types import UniTuple
 from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
 from scipy.integrate import quad
+from scipy.constants import Boltzmann, hbar, c
 
 from index import itt
 import sys, os
@@ -533,6 +534,49 @@ def energy_quad(R, L, materials, N, M, nproc):
     logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
     energy = quad(logdet, 0, np.inf)[0]
     return energy/(2*np.pi)
+
+
+def energy_finite_nozero(R, L, T, materials, N, M, nproc):
+    """
+    Computes the energy. (add formula?)
+
+    Parameters
+    ----------
+    eps: float
+        positive, ratio L/R
+    N: int
+        positive, quadrature order of k-integration
+    M: int
+        positive, quadrature order of phi-integration
+    X: int
+        positive, quadrature order of K-integration
+    nproc: int
+        number of processes spawned by multiprocessing module
+
+    Returns
+    -------
+    energy: float
+        Casimir energy
+
+    
+    Dependencies
+    ------------
+    quadrature, get_mie, LogDet_sparse_mp
+
+    """
+    pts, wts = quadrature(N)
+    
+    K_matsubara = Boltzmann*T*L/(hbar*c)
+
+    energy = 0.
+    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+    order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
+    xi, eta = psd(order)
+    for n in range(order):
+        term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+        energy += term
+    
+    return 0.5*T*Boltzmann*energy
 
 if __name__ == "__main__":
     np.random.seed(0)
