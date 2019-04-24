@@ -573,7 +573,7 @@ def energy_finite_nozero(R, L, T, materials, N, M, nproc):
     order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
-        term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+        term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n]*L, N, M, pts, wts, nproc)
         energy += term
     
     return 0.5*T*Boltzmann*energy
