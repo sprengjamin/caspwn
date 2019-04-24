@@ -2,7 +2,7 @@ import numpy as np
 import time
 from scipy.constants import hbar, c, k
 import sys
-sys.path.append("/home/benjamin/wd/nystrom/plane-sphere")
+sys.path.append("../../plane-sphere")
 from energy import energy_finite_nozero
 
 L = 1.e-3
@@ -16,7 +16,7 @@ Tvals = hbar*c/k/lambda_T
 eta = 10.
 nproc = 4
 
-filename = "energy_lowT_eta10.dat"
+filename = "energy_lowT_eta10_v2.dat"
 
 # read number of lines
 f=open(filename, "r+")
