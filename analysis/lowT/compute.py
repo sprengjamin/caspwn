@@ -9,14 +9,14 @@ L = 1.e-3
 R = 1.
 materials = ("PR", "Vacuum", "PR")
 
-lambda_T = np.logspace(-2.,-1.,10)
+lambda_T = np.logspace(-2.,-1.,30)
 
 Tvals = hbar*c/k/lambda_T
 
 eta = 10.
 nproc = 4
 
-filename = "energy_lowT_eta10_v2.dat"
+filename = "energy_lowT_eta12.dat"
 
 # read number of lines
 f=open(filename, "r+")
