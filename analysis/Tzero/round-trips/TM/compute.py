@@ -133,11 +133,11 @@ def xi_integration(R, L, N, M, X, nproc):
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 
-eta = 12.
+eta = 15.
 nproc = 4
 X = 300
 
-filename = "TMroundtrips_eta12_X300.dat"
+filename = "TMroundtrips_eta15_X300.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
