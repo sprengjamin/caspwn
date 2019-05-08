@@ -74,7 +74,7 @@ def Roundtrips(R, L, materials, Kvac, N, M, pts, wts, nproc):
     x = n_medium*Kvac*rho
     
     # precompute mie coefficients
-    if x > 5e3:
+    if x > 5e5:
         mie = mie_cache(1, x, n)
     else:
         mie = mie_cache(int(2*x)+1000, x, n)    # initial lmax arbitrary
@@ -83,20 +83,20 @@ def Roundtrips(R, L, materials, Kvac, N, M, pts, wts, nproc):
     
     # m=0
     sprsmat = coo_matrix((data[:, 0], (row, col)), shape=(2*N,2*N)).tocsc()
-    ev = eigvalsh(sprsmat.todense())
+    ev = eigvalsh(sprsmat.todense()[N:,N:])
     for i in range(rmax):
         traces[i] = np.sum(ev**(i+1))
     
     # m>0    
     for m in range(1, M//2):
         sprsmat = coo_matrix((data[:, m], (row, col)), shape=(2*N,2*N)).tocsc()
-        ev = eigvalsh(sprsmat.todense())
+        ev = eigvalsh(sprsmat.todense()[N:,N:])
         for i in range(rmax):
             traces[i] += 2*np.sum(ev**(i+1))
 
     # last m
     sprsmat = coo_matrix((data[:, M//2], (row, col)), shape=(2*N,2*N)).tocsc()
-    ev = eigvalsh(sprsmat.todense())
+    ev = eigvalsh(sprsmat.todense()[N:,N:])
     for i in range(rmax):
         if M%2==0:
             traces[i] += np.sum(ev**(i+1))
@@ -107,7 +107,7 @@ def Roundtrips(R, L, materials, Kvac, N, M, pts, wts, nproc):
 
 @njit
 def S1S2_TE_only(x, z, mie):
-    S1, S2 = S1S2(x, z, mie)
+    S1, S2 = S1S2(x, z, mie, False)
     return S1, 0.
 
 @njit
@@ -133,11 +133,11 @@ def xi_integration(R, L, N, M, X, nproc):
 R = 1.
 Lvals = np.logspace(-1, -4, 61)
 
-eta = 15.
+eta = 12.
 nproc = 4
-X = 300
+X = 250
 
-filename = "TEroundtrips_eta15_X300.dat"
+filename = "TEroundtrips_eta12_X250.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
