@@ -13,10 +13,11 @@ lambda_T = np.logspace(-2.,-1.,60)
 
 Tvals = hbar*c/k/lambda_T
 
-eta = 14.
+eta = 12.
 nproc = 4
+epsrel_T = 1.e-08
 
-filename = "energy_lowT_R10000_eta14.dat"
+filename = "energy_lowT_R10000_eta12_epsrelT8.dat"
 
 # read number of lines
 f=open(filename, "r+")
@@ -34,7 +35,7 @@ for i, T in enumerate(Tvals):
         N = int(eta*np.sqrt(rho))
         M = N
         start = time.time()
-        en = energy_finite_nozero(R, L, T, materials, N, M, nproc)
+        en = energy_finite_nozero(R, L, T, materials, N, M, epsrel_T, nproc)
         end = time.time()
         t = end-start
         f=open(filename, "ab")
