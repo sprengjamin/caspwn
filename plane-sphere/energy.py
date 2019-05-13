@@ -536,7 +536,7 @@ def energy_quad(R, L, materials, N, M, nproc):
     return energy/(2*np.pi)
 
 
-def energy_finite_nozero(R, L, T, materials, N, M, nproc):
+def energy_finite_nozero(R, L, T, materials, N, M, epsrel, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -570,7 +570,7 @@ def energy_finite_nozero(R, L, T, materials, N, M, nproc):
 
     energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-    order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
+    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
         term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)

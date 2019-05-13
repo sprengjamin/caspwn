@@ -40,7 +40,7 @@ def energy_finite(L, T, materials):
         if abs(term/energy) < 1.e-12:
             break
         n += 1
-    return 0.5*T*(energy0+energy), 0.5*T*energy
+    return 0.5*T*Boltzmann(energy0+energy), 0.5*T*Boltzmann*energy
 
 
 def energy_faster(L, T, materials):
@@ -51,8 +51,9 @@ def energy_faster(L, T, materials):
     eps1 = eps_plane1/eps_medium
     eps2 = eps_plane2/eps_medium
     f = lambda k: integrand(0., k, eps1, eps2)
-    energy0 = quad(f, 0, np.inf)[0]
-    N = int(10/np.sqrt(4*np.pi*Boltzmann*T*L/(hbar*c)))
+    energy0 = quad(f, 0, np.inf)[0]/L**2
+    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+    N = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
     xi, eta = psd(N)    
     energy = 0.
     for n in range(N):
@@ -62,9 +63,9 @@ def energy_faster(L, T, materials):
         eps1 = eps_plane1/eps_medium
         eps2 = eps_plane2/eps_medium
         f = lambda k: integrand(K_matsubara*xi[n]*L*np.sqrt(eps_medium), k, eps1, eps2)
-        term = quad(f, 0, np.inf)[0]
+        term = quad(f, 0, np.inf)[0]/L**2
         energy += 2*eta[n]*term
-    return 0.5*T*(energy0+energy), 0.5*T*energy
+    return 0.5*T*Boltzmann*(energy0+energy), 0.5*T*Boltzmann*energy
     
 
 

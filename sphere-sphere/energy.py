@@ -595,7 +595,7 @@ def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
 
     energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-    order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
+    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
         term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
