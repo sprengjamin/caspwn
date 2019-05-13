@@ -74,7 +74,7 @@ def Roundtrips(R, L, materials, Kvac, N, M, pts, wts, nproc):
     x = n_medium*Kvac*rho
     
     # precompute mie coefficients
-    if x > 5e5:
+    if x > 5e3:
         mie = mie_cache(1, x, n)
     else:
         mie = mie_cache(int(2*x)+1000, x, n)    # initial lmax arbitrary
@@ -107,7 +107,7 @@ def Roundtrips(R, L, materials, Kvac, N, M, pts, wts, nproc):
 
 @njit
 def S1S2_TE_only(x, z, mie):
-    S1, S2 = S1S2(x, z, mie, False)
+    S1, S2 = S1S2(x, z, mie)
     return S1, 0.
 
 @njit
@@ -135,9 +135,9 @@ Lvals = np.logspace(-1, -4, 61)
 
 eta = 12.
 nproc = 4
-X = 250
+X = 350
 
-filename = "TEroundtrips_eta12_X250.dat"
+filename = "TEroundtrips_eta12_X350.dat"
 
 if not os.path.isfile(filename):
     f=open(filename, "a")
