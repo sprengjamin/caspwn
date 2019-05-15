@@ -6,7 +6,7 @@ from force import force_faster
 
 R1 = 2.e-06
 R2 = 2e-06
-Lvals = np.arange(0.002, 0.2, 0.001)[::-1]*1.e-06
+Lvals = np.logspace(np.log10(0.002), np.log10(0.2), 30)[::-1]*1.e-06
 T = 293.015
 materials = ("Silica1", "Water", "Silica1")
 
