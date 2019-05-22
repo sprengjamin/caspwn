@@ -80,9 +80,9 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
             return 0., 0., 0., 0.
         e = math.exp(exponent)
         norm = rho/(2*math.pi)
-        S = zero_frequency(x, mie)
-        TMTM = norm*S*e
-        TETE = 0.
+        S1, S2 = zero_frequency(x, mie)
+        TMTM = norm*S2*e
+        TETE = norm*S1*e
         TMTE = 0.
         TETM = 0.
         return TMTM, TETE, TMTE, TETM
