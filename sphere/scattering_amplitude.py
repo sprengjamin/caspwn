@@ -96,12 +96,12 @@ def zero_frequency(x, mie):
 
     elif mie.materialclass == "drude":
         S1 = 0.
-        S2 = 0.5*(1+np.exp(-2*x)-np.exp(-x))
+        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
         return S1, S2
 
     elif mie.materialclass == "PR":
-        S1 = -((x**2+2)*0.5*(1+np.exp(-2*x)+x*np.expm1(-2*x)-2*np.exp(-x))/x**2 
-        S2 = 0.5*(1+np.exp(-2*x)-np.exp(-x))
+        S1 = -((x**2+2)*0.5*(1+math.exp(-2*x))+x*math.expm1(-2*x)-2*math.exp(-x))/x**2 
+        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
         return S1, S2
 
     else:
