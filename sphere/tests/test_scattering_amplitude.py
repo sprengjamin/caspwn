@@ -109,8 +109,8 @@ def test_scattering_amplitude():
         mpS2 = data[3]
         lmax = data[4]
         mie = mie_cache(lmax, x, np.inf)
-        S1, S2 = S1S2(x, z, mie, False)
         print(x, z)
+        S1, S2 = S1S2(x, z, mie, False)
         print(abs(-S1/mpS1-1.))
         print(abs(S2/mpS2-1.))
         np.testing.assert_allclose(mpS1, -S1, rtol=rtol)
