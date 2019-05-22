@@ -43,7 +43,7 @@ def energy_finite(L, T, materials):
     return 0.5*T*Boltzmann(energy0+energy), 0.5*T*Boltzmann*energy
 
 
-def energy_faster(L, T, materials):
+def energy_faster(L, T, materials, epsrel=1.e-08):
     K_matsubara = Boltzmann*T/(hbar*c)
     eps_plane1 = eval("material."+materials[0]+".epsilon(0.)")
     eps_medium = eval("material."+materials[1]+".epsilon(0.)")
