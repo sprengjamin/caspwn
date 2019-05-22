@@ -43,46 +43,69 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 from angular import pte, pte_low, pte_asymptotics, pte_array
 from mie import mie_cache
 
-"""
-def make_mat_coeff(e):
-    @njit
-    def mat_coeff(l):
-        return l/(l+1)*(e-1)/(e+(l+1)/l)
-    return mat_coeff
-"""
 
 @njit(float64(float64, mie_cache.class_type.instance_type))
 def zero_frequency(x, mie):
-    err = 1.e-16
-    l_init = int(0.5*x)+1
-    logx = math.log(x)
-    e = mie.n**2
-    S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+    r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
+    The implementation depends on the material class. The information about
+    that is encoded in the mie-cache.
+
+    Parameters
+    ----------
+    x : float
+        positive, parameter
+    mie: mie_cache class instance
+        contains information about the material class and the refractive index 
+
+    Returns
+    -------
+    (float, float)
+        (:math:`\tilde S_1`, :math:`\tilde S_2`)
     
-    # upward summation
-    l = l_init + 1
-    while True:
-        term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
-        S += term
-        if term/S < err:
-            break
-        l += 1
+    """
+    if mie.materialclass == "dielectric":
+        err = 1.e-16
+        l_init = int(0.5*x)+1
+        logx = math.log(x)
+        e = mie.n**2
+        S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+        
+        # upward summation
+        l = l_init + 1
+        while True:
+            term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+            S += term
+            if term/S < err:
+                break
+            l += 1
 
-    if l_init == 1:
-        return S
+        if l_init == 1:
+            return S
 
-    # downward summation
-    l = l_init - 1
-    while True:
-        term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
-        S += term
-        if term/S < err:
-            break
-        l -= 1
-        if l == 0:
-            break
+        # downward summation
+        l = l_init - 1
+        while True:
+            term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+            S += term
+            if term/S < err:
+                break
+            l -= 1
+            if l == 0:
+                break
+        return 0, S
 
-    return S
+    elif mie.materialclass == "drude":
+        S1 = 0.
+        S2 = 0.5*(1+np.exp(-2*x)-np.exp(-x))
+        return S1, S2
+
+    elif mie.materialclass == "PR":
+        S1 = -((x**2+2)*0.5*(1+np.exp(-2*x)+x*np.expm1(-2*x)-2*np.exp(-x))/x**2 
+        S2 = 0.5*(1+np.exp(-2*x)-np.exp(-x))
+        return S1, S2
+
+    else:
+        assert(False)
 
 
 @njit("float64(float64, float64)", cache=True)
