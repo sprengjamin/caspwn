@@ -155,54 +155,7 @@ def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out,
     return dL_logdet
 
 
-def force_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
-    """
-    Computes the energy. (add formula?)
-
-    Parameters
-    ----------
-    eps: float
-        positive, ratio L/R
-    N: int
-        positive, quadrature order of k-integration
-    M: int
-        positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of K-integration
-    nproc: int
-        number of processes spawned by multiprocessing module
-
-    Returns
-    -------
-    energy: float
-        Casimir energy
-
-    
-    Dependencies
-    ------------
-    quadrature, get_mie, LogDet_sparse_mp
-
-    """
-    p_in, w_in = quadrature(Nin)
-    p_out, w_out = quadrature(Nout)
-    
-    K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)*L
-    n = 0
-    force0 = dL_LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-    force = 0.
-    n += 1
-    while(True):
-        term = 2*dL_LogDet(R1, R2, L, materials, K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-        force += term
-        print(K_matsubara*n, term)
-        if abs(term/force) < 1.e-12:
-            break
-        n += 1
-        
-    return 0.5*T*(force+force0)/L, 0.5*T*force/L
-    #return energy
-
-def force_faster(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
+def force_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
     """
     Computes the energy. (add formula?)
 
