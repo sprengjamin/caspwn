@@ -245,7 +245,7 @@ def force_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
         print(K_matsubara*xi[n], term)
         force += term
     
-    return 0.5*T*(force+force0)/L, 0.5*T*force/L
+    return -0.5*T*Boltzmann*(force+force0)/L, -0.5*T*Boltzmann*force/L
 
 
 if __name__ == "__main__":
