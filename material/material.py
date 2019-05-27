@@ -46,7 +46,7 @@ class lorentz_oscillator(material):
         Parameters
         ----------
         K : flaot
-            vacuum wavenumber in :math:`1/m`
+            vacuum wavenumber rad/m
 
         Returns
         -------
@@ -63,15 +63,15 @@ class lorentz_oscillator(material):
                 eps += K_P**2/(K_R**2 + K**2 + gamma*K)
             return eps
     
-    def n(self, xi):
+    def n(self, K):
         r"""Refractive index.
 
         Note that the implementation assumes non-magnetic materials.
 
         Parameters
         ----------
-        xi : flaot
-            frequency in rad/s
+        K : flaot
+            vacuum wavenumber in rad/m
 
         Returns
         -------
@@ -79,8 +79,88 @@ class lorentz_oscillator(material):
             refractive index, dimensionless number
 
         """
-        return np.sqrt(self.epsilon(xi))
+        return np.sqrt(self.epsilon(K))
+ 
         
+class optical_data(material):
+    def __init__(self, name, data, materialclass, f_extra=None):
+        r"""Permittivity is given by inter- and extrapolating optical data.
+        
+        Parameters
+        ----------
+        name : string
+            name of material
+        data : numpy.ndarray
+            optical data in the format (K [rad/m], eps(i K))
+        materialclass : string
+            material class, e.g. "drude", "dielectric", "PR"
+        f_extra : function
+            (optional) function defining the extrapolation towards :math:`K=0`.
+            Default is constant extrapolation.
+
+        Returns
+        -------
+        instance of optical_data class
+
+        """
+        self.name = name
+        self.data = data
+        self.materialclass = materialclass
+        self.f_extra = f_extra
+
+    def epsilon(self, K):
+        r"""Dielectric function.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber rad/m
+
+        Returns
+        -------
+        eps : flaot
+            permittivity, dimensionless number
+
+        """
+        if K == 0.:
+            if self.f_extra == None:
+                return data[0][1]
+            else:
+                raise NotImplementedError
+        else:
+            xi = K*c
+            i = np.searchsorted(self.data[:,0], xi)
+            if i == 0:
+                # for too small xi extrapolate with the first point
+                return self.data[0][1]
+            elif i >= len(self.data):
+                # for too large xi extrapolate with the last point
+                return self.data[-1][1]
+            else:
+                xi1 = self.data[i-1, 0]
+                eps1 = self.data[i-1,1]
+                xi2 = self.data[i, 0]
+                eps2 = self.data[i,1]
+                return eps1 + (eps2-eps1)*(xi-xi1)/(xi2-xi1)
+
+    def n(self, K):
+        r"""Refractive index.
+
+        Note that the implementation assumes non-magnetic materials.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber in rad/m
+
+        Returns
+        -------
+        n : flaot
+            refractive index, dimensionless number
+
+        """
+        return np.sqrt(self.epsilon(K))
+
 
 class perfect_reflector(material):
     def __init__(self):
@@ -110,6 +190,8 @@ def convert_zwol_to_lorentz(data):
     xiP = np.sqrt(np.array(data[0]))*xiR
     gamma = np.zeros(len(data[0]))
     return np.vstack((xiP, xiR, gamma)).T/c
+
+fused_silica = optical_data("Fused Silica", np.loadtxt("./optical_data/FUSED_SILICA_EPS-iw.dat"), "dielectric")
 
 PR = perfect_reflector() 
            
@@ -144,6 +226,7 @@ if __name__ == "__main__":
     X = np.logspace(2,10,100)
     n = [Silica1.n(x) for x in X]
     eps = [Silica1.epsilon(x) for x in X]
-    plt.semilogx(X, n)
+    eps2 = [fused_silica.epsilon(x) for x in X]
     plt.semilogx(X, eps)
+    plt.semilogx(X, eps2)
     plt.show()
