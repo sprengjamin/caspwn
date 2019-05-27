@@ -1,8 +1,7 @@
 r""" Casimir energy for the plane-sphere geometry.
 
 .. todo::
-    * implement for finite temperature
-    * restructure folders into sphere and ufuncs
+    * implementation of force
 
 """
 import numpy as np
@@ -524,7 +523,7 @@ def energy_quad(R, L, materials, N, M, nproc):
     Returns
     -------
     energy: float
-        Casimir energy in units of :math:`\hbar c/L`.
+        Casimir energy in Joule
 
     
     Dependencies
@@ -563,7 +562,7 @@ def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
     Returns
     -------
     energy: float
-        Casimir free energy
+        Casimir free energy in Joule
     
     Dependencies
     ------------

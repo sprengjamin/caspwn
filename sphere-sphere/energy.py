@@ -1,3 +1,6 @@
+r""" Casimir energy for the sphere-sphere geometry.
+
+"""
 import numpy as np
 
 from numba import njit
@@ -343,7 +346,7 @@ def isFinite(rho, r, K, k1, k2):
 
 def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
     """
-    Computes the sum of the logdets the m-matrices.
+    Computes the sum of the logdets of the m-matrices.
 
     Parameters
     ----------
@@ -440,14 +443,19 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     
 def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     """
-    Computes the energy. (add formula?)
+    Computes the Casimir energy at zero temperature.
 
     Parameters
     ----------
-    eps: float
-        positive, ratio L/R
-    N: int
-        positive, quadrature order of k-integration
+    R1, R2: float
+        positive, radii of the spheres
+    L: float
+        positive, surface-to-surface distance
+    materials: tuple
+        contains the materials in the form (material of sphere1, medium,
+        material of sphere2)
+    Nin, Nout: int
+        positive, quadrature order of inner and outer k-integration, respectively
     M: int
         positive, quadrature order of phi-integration
     X: int
@@ -458,12 +466,7 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     Returns
     -------
     energy: float
-        Casimir energy
-
-    
-    Dependencies
-    ------------
-    quadrature, get_mie, LogDet_sparse_mp
+        Casimir energy in Joule
 
     """
     p_in, w_in = quadrature(Nin)
@@ -480,31 +483,31 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
 
 def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-08, nproc):
     """
-    Computes the energy. (add formula?)
+    Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
     Parameters
     ----------
-    eps: float
-        positive, ratio L/R
-    N: int
-        positive, quadrature order of k-integration
+    R1, R2: float
+        positive, radii of the spheres
+    L: float
+        positive, surface-to-surface distance
+    materials: tuple
+        contains the materials in the form (material of sphere1, medium,
+        material of sphere2)
+    Nin, Nout: int
+        positive, quadrature order of inner and outer k-integration, respectively
     M: int
         positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of K-integration
+    epsrel: float
+        (optional) positive, desired relative error for the Matsubara sum
     nproc: int
         number of processes spawned by multiprocessing module
 
     Returns
     -------
     energy: float
-        Casimir energy
-
+        Casimir free energy in Joule
     
-    Dependencies
-    ------------
-    quadrature, get_mie, LogDet_sparse_mp
-
     """
     p_in, w_in = quadrature(Nin)
     p_out, w_out = quadrature(Nout)

@@ -1,3 +1,10 @@
+r""" Casimir force for the sphere-sphere geometry.
+
+.. todo::
+    * implementation for zero temperature
+
+"""
+
 import numpy as np
 from numba import jit
 from numba import float64, int64
@@ -51,7 +58,7 @@ def dL_logdet_sparse(M1, M2, M1p, M2p):
 
 def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
     """
-    Computes the sum of the logdets the m-matrices.
+    Computes the sum of the derivative of logdet over all m.
 
     Parameters
     ----------
@@ -157,30 +164,38 @@ def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out,
 
 def force_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
     """
-    Computes the energy. (add formula?)
+    Computes the Casimir force for two spheres.
 
     Parameters
     ----------
-    eps: float
-        positive, ratio L/R
-    N: int
-        positive, quadrature order of k-integration
+    R1, R2: float
+        positive, radii of spheres
+    L: float
+        positive, surface-to-surface distance
+    T: float
+        positve, temperature in Kelvin
+    materials: tuple
+        contains the materials in the form (material of sphere 1, medium,
+        material of sphere 2)
+    Nin, Nout: int
+        positive, quadrature orders of inner and outer k-integration,
+        respectively
     M: int
         positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of K-integration
+    epsrel: float
+        (optional) positive, relative error in evaluation of the Matsubara sum
     nproc: int
         number of processes spawned by multiprocessing module
 
     Returns
     -------
-    energy: float
-        Casimir energy
+    energy: (float, float)
+        (full Casimir force, Casimir force without :math:`n=0`)
 
     
     Dependencies
     ------------
-    quadrature, get_mie, LogDet_sparse_mp
+    quadrature, dL_LogDet
 
     """
     p_in, w_in = quadrature(Nin)
