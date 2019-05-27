@@ -74,6 +74,8 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
 
     """
     if K == 0:
+        if phi == np.pi:
+            return 0., 0., 0., 0.
         x = 2*rho*math.sqrt(k1*k2)*math.cos(phi/2)
         exponent = x - (k1+k2)*(rho+r)
         if exponent < -37:
