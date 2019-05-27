@@ -101,10 +101,10 @@ def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out,
     
     # precompute mie coefficients
     if Kvac == 0.:
-        mie = mie_cache(3, 1., n1)              # dummy cache
+        mie = mie_cache(3, 1., n1, eval("material."+materials[0]+".materialclass"))              # dummy cache
     else:
         x1 = n_medium*Kvac*rho1                 # size parameter
-        mie = mie_cache(int(2*x1)+1, x1, n1)    # initial lmax arbitrary
+        mie = mie_cache(int(2*x1)+1, x1, n1, eval("material."+materials[0]+".materialclass"))    # initial lmax arbitrary
     
     row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, mie)
     
@@ -116,10 +116,10 @@ def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out,
     
     # precompute mie coefficients
     if Kvac == 0.:
-        mie = mie_cache(3, 1., n2)              # dummy cache
+        mie = mie_cache(3, 1., n2, eval("material."+materials[2]+".materialclass"))              # dummy cache
     else:
         x2 = n_medium*Kvac*rho2                 # size parameter
-        mie = mie_cache(int(2*x2)+1, x2, n2)    # initial lmax arbitrary
+        mie = mie_cache(int(2*x2)+1, x2, n2, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
     
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
@@ -162,7 +162,7 @@ def dL_LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out,
     return dL_logdet
 
 
-def force_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
+def force_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
     """
     Computes the Casimir force for two spheres.
 
@@ -183,7 +183,7 @@ def force_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
     M: int
         positive, quadrature order of phi-integration
     epsrel: float
-        (optional) positive, relative error in evaluation of the Matsubara sum
+        positive, relative error in evaluation of the Matsubara sum
     nproc: int
         number of processes spawned by multiprocessing module
 

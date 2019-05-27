@@ -389,13 +389,13 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     
     # precompute mie coefficients
     if Kvac == 0.:
-        mie = mie_cache(3, 1., n1)              # dummy cache
+        mie = mie_cache(3, 1., n1, eval("material."+materials[0]+".materialclass"))              # dummy cache
     else:
         x1 = n_medium*Kvac*rho1               # size parameter
         if x1 > 5e3:
-            mie = mie_cache(1, x1, n1)
+            mie = mie_cache(1, x1, n1, eval("material."+materials[0]+".materialclass"))
         else:
-            mie = mie_cache(int(20*x1)+1, x1, n1)    # initial lmax arbitrary
+            mie = mie_cache(int(20*x1)+1, x1, n1, eval("material."+materials[0]+".materialclass"))    # initial lmax arbitrary
     
     row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, mie)
     
@@ -407,13 +407,13 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     
     # precompute mie coefficients
     if Kvac == 0.:
-        mie = mie_cache(3, 1., n2)              # dummy cache
+        mie = mie_cache(3, 1., n2, eval("material."+materials[2]+".materialclass"))              # dummy cache
     else:
         x2 = n_medium*Kvac*rho2                 # size parameter
         if x2 > 5e3:
-            mie = mie_cache(1, x2, n2)
+            mie = mie_cache(1, x2, n2, eval("material."+materials[2]+".materialclass"))
         else:
-            mie = mie_cache(int(20*x2)+1, x2, n2)    # initial lmax arbitrary
+            mie = mie_cache(int(20*x2)+1, x2, n2, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
     
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
@@ -481,7 +481,7 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     return energy/(2*np.pi)*hbar*c/L
 
 
-def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-08, nproc):
+def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
     """
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -499,7 +499,7 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-08, nproc):
     M: int
         positive, quadrature order of phi-integration
     epsrel: float
-        (optional) positive, desired relative error for the Matsubara sum
+        positive, desired relative error for the Matsubara sum
     nproc: int
         number of processes spawned by multiprocessing module
 

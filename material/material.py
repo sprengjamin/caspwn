@@ -126,7 +126,7 @@ class optical_data(material):
         """
         if K == 0.:
             if self.f_extra == None:
-                return data[0][1]
+                return self.data[0][1]
             else:
                 raise NotImplementedError
         else:
