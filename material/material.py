@@ -38,6 +38,7 @@ class lorentz_oscillator(material):
         else:
             raise ValueError("Data format unknown!")
         self.static_value = static_value
+        self.materialclass = "dielectric"
 
     def epsilon(self, K):
         r"""Dielectric function.
@@ -84,6 +85,7 @@ class lorentz_oscillator(material):
 class perfect_reflector(material):
     def __init__(self):
         self.name = "PR"
+        self.materialclass = "PR"
     
     def epsilon(self, xi):
         return np.inf        
