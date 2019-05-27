@@ -35,6 +35,7 @@ import numpy as np
 import math
 from numba import njit, jitclass
 from numba import int64, float64
+from numba.types import string
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from bessel import InuKnu_e
@@ -205,17 +206,19 @@ spec = [
     ("lmax", int64),
     ("x", float64),
     ("n", float64),
+    ("materialclass", string),
     ("ale", float64[:]),
     ("ble", float64[:]),
 ]
 
 @jitclass(spec)
 class mie_cache(object):
-    def __init__(self, lmax, x, n):
+    def __init__(self, lmax, x, n, materialclass):
         assert(lmax > 0)
         self.lmax = lmax
         self.x = x
         self.n = n
+        self.materialclass = materialclass
         self._make_mie_array()
     
     def _make_mie_array(self):
@@ -241,7 +244,7 @@ if __name__ == "__main__":
     lmax = 1e4
     x = 200.3
     n = 100.
-    cache = mie_cache(lmax, x, n)
+    cache = mie_cache(lmax, x, n, "dielectric")
     print(cache.read(int(1e4)+1))
     print(len(cache.ale))
     print(len(cache.ble))
