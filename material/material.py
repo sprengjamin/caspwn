@@ -2,6 +2,8 @@
 """
 import numpy as np
 from scipy.constants import c, e, hbar
+import os
+dirname = os.path.dirname(os.path.abspath(__file__))
 
 class material:
     def __init__(self, name):
@@ -191,7 +193,8 @@ def convert_zwol_to_lorentz(data):
     gamma = np.zeros(len(data[0]))
     return np.vstack((xiP, xiR, gamma)).T/c
 
-fused_silica = optical_data("Fused Silica", np.loadtxt("./optical_data/FUSED_SILICA_EPS-iw.dat"), "dielectric")
+filename = os.path.join(os.path.dirname(__file__), "./optical_data/FUSED_SILICA_EPS-iw.dat")
+fused_silica = optical_data("Fused Silica", np.loadtxt(filename), "dielectric")
 
 PR = perfect_reflector() 
            
