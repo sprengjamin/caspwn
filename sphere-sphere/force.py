@@ -202,7 +202,7 @@ def force_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc):
     return 0.5*T*(force+force0)/L, 0.5*T*force/L
     #return energy
 
-def force_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
+def force_faster(R1, R2, L, T, materials, Nin, Nout, M, epsrel=1.e-06, nproc):
     """
     Computes the energy. (add formula?)
 
@@ -238,7 +238,7 @@ def force_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
 
     force = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-    order = int(max(np.ceil(10/np.sqrt(Teff)), 5))
+    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
     xi, eta = psd(order)
     for n in range(order):
         term = 2*eta[n]*dL_LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
