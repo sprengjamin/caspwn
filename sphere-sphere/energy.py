@@ -475,7 +475,8 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
         result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
         print("K=", K_pts[i], ", val=", result)
         energy += K_wts[i]*result
-    return energy/(2*np.pi)
+    return energy/(2*np.pi)*hbar*c/L
+
 
 def energy_quad(R1, R2, L, materials, Nin, Nout, M, nproc):
     """
@@ -602,7 +603,7 @@ def energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc):
         print(K_matsubara*xi[n], term)
         energy += term
     
-    return 0.5*T*(energy+energy0), 0.5*T*energy
+    return 0.5*T*Boltzmann*(energy+energy0), 0.5*T*Boltzmann*energy
 
 
 if __name__ == "__main__":

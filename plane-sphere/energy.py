@@ -535,7 +535,7 @@ def energy_quad(R, L, materials, N, M, nproc):
     pts, wts = quadrature(N)
     logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
     energy = quad(logdet, 0, np.inf)[0]
-    return energy/(2*np.pi)
+    return energy/(2*np.pi)*hbar*c/L
 
 
 def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
