@@ -44,7 +44,7 @@ from angular import pte, pte_low, pte_asymptotics, pte_array
 from mie import mie_cache
 
 
-@njit(float64(float64, mie_cache.class_type.instance_type))
+@njit(UniTuple(float64, 2)(float64, mie_cache.class_type.instance_type))
 def zero_frequency(x, mie):
     r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
     The implementation depends on the material class. The information about
@@ -80,7 +80,7 @@ def zero_frequency(x, mie):
             l += 1
 
         if l_init == 1:
-            return S
+            return 0, S
 
         # downward summation
         l = l_init - 1
@@ -95,17 +95,24 @@ def zero_frequency(x, mie):
         return 0, S
 
     elif mie.materialclass == "drude":
-        S1 = 0.
-        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
-        return S1, S2
+        if x == 0.:
+            return 0., 0.
+        else:
+            S1 = 0.
+            S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+            return S1, S2
 
     elif mie.materialclass == "PR":
-        S1 = -((x**2+2)*0.5*(1+math.exp(-2*x))+x*math.expm1(-2*x)-2*math.exp(-x))/x**2 
-        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
-        return S1, S2
+        if x == 0.:
+            return 0., 0.
+        else:
+            S1 = -((x**2+2)*0.5*(1+math.exp(-2*x))-x*(1-math.exp(-2*x))-2*math.exp(-x))/x**2 
+            S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+            return S1, S2
 
     else:
         assert(False)
+        return 0., 0.
 
 
 @njit("float64(float64, float64)", cache=True)
