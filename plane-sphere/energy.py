@@ -371,7 +371,7 @@ def isFinite(rho, K, k1, k2):
 
     """
     if K == 0.:
-        exponent = 2*np.sqrt(k1*k2) - (k1+k2)*(1+eps)
+        exponent = 2*rho*np.sqrt(k1*k2) - (k1+k2)*(rho+1)
     else:
         kappa1 = np.sqrt(k1*k1+K*K)
         kappa2 = np.sqrt(k2*k2+K*K)
@@ -426,10 +426,12 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     # size parameter
     x = n_medium*Kvac*rho
     # precompute mie coefficients
-    if x > 5e3:
-        mie = mie_cache(1, x, n)
+    if x == 0.:
+        mie = mie_cache(1, 1., n, eval("material."+materials[2]+".materialclass"))
+    elif x > 5e3:
+        mie = mie_cache(1, x, n, eval("material."+materials[2]+".materialclass"))
     else:
-        mie = mie_cache(int(2*x)+1000, x, n)    # initial lmax arbitrary
+        mie = mie_cache(int(2*x)+1000, x, n, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
 
     row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
     
@@ -536,28 +538,32 @@ def energy_quad(R, L, materials, N, M, nproc):
     return energy/(2*np.pi)
 
 
-def energy_finite_nozero(R, L, T, materials, N, M, epsrel, nproc):
+def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
     """
-    Computes the energy. (add formula?)
+    Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
     Parameters
     ----------
-    eps: float
-        positive, ratio L/R
+    R: float
+        positive, radius of the sphere
+    L: float
+        positive, surface-to-surface distance between plane and sphere
+    materials: tuple
+        contains the materials in the form (material of plane, medium, material
+        of sphere)
     N: int
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
-    X: int
-        positive, quadrature order of K-integration
+    epsrel: float
+        positive, desired relative error for the matsubara sum
     nproc: int
         number of processes spawned by multiprocessing module
 
     Returns
     -------
     energy: float
-        Casimir energy
-
+        Casimir free energy
     
     Dependencies
     ------------
@@ -568,6 +574,7 @@ def energy_finite_nozero(R, L, T, materials, N, M, epsrel, nproc):
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
 
+    energy0 = LogDet(R, L, materials, 0., N, M, pts, wts, nproc)
     energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
     order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
@@ -575,15 +582,18 @@ def energy_finite_nozero(R, L, T, materials, N, M, epsrel, nproc):
     for n in range(order):
         term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
         energy += term
-    
-    return 0.5*T*Boltzmann*energy
+    return 0.5*T*Boltzmann*(energy+energy0), 0.5*T*Boltzmann*energy
+
 
 if __name__ == "__main__":
     np.random.seed(0)
-    R = 100.
-    L = 1.
+    R = 1.
+    L = 1.e-3
+    T = 2.289885278703585880e-01
+    #T = 1.e-03
+    #T = 293.15
     rho = R/L
-    N = int(5*np.sqrt(rho))*2+1
+    N = int(10*np.sqrt(rho))
     print("N", N)
     M = N
     nproc = 4
@@ -593,7 +603,7 @@ if __name__ == "__main__":
     mat = ("PR", "Vacuum", "PR") 
     import time
     start = time.time()
-    en = energy_zero(R, L, mat, N, M, nproc) 
+    en = energy_finite(R, L, T, mat, N, M, 1e-8, nproc) 
     end = time.time()
     print("energy")
     print(en)
