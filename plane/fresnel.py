@@ -2,6 +2,9 @@ r"""Fresnel reflection coefficients.
 
 They describe the reflection amplitudes of plane waves for a given polarization.
 
+.. todo::
+    * implement different material classes like drude, plasma
+
 """
 from numba import njit
 import math
@@ -56,8 +59,8 @@ def rTM(K, k, epsilon):
 
     Returns
     -------
-    rTE : float
-        TE fresnel reflection coefficient :math:`\in[-1,0]`
+    rTM : float
+        TM fresnel reflection coefficient :math:`\in[0, 1]`
 
     """
     if epsilon == math.inf:
@@ -68,4 +71,3 @@ def rTM(K, k, epsilon):
     num = k**2*(epsilon**2 - 1.) + K**2*(epsilon-1)*epsilon
     den = (epsilon*kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
     return num/den
-    
