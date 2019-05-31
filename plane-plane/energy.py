@@ -17,33 +17,8 @@ def integrand(K, k, eps1, eps2):
     ans += np.log1p(-rTM(K, k, eps1)*rTM(K, k, eps2)*np.exp(-2*kappa))
     return k/(2*np.pi)*ans
      
-def energy_finite(L, T, materials):
-    K_matsubara = 2*np.pi*Boltzmann*T/(hbar*c)
-    eps_plane1 = eval("material."+materials[0]+".epsilon(0.)")
-    eps_medium = eval("material."+materials[1]+".epsilon(0.)")
-    eps_plane2 = eval("material."+materials[2]+".epsilon(0.)")
-    eps1 = eps_plane1/eps_medium
-    eps2 = eps_plane2/eps_medium
-    f = lambda k: integrand(0., k, eps1, eps2)
-    energy0 = quad(f, 0, np.inf)[0]
-    energy = 0.
-    n = 1
-    while(True):    
-        eps_plane1 = eval("material."+materials[0]+".epsilon(K_matsubara*n)")
-        eps_medium = eval("material."+materials[1]+".epsilon(K_matsubara*n)")
-        eps_plane2 = eval("material."+materials[2]+".epsilon(K_matsubara*n)")
-        eps1 = eps_plane1/eps_medium
-        eps2 = eps_plane2/eps_medium
-        f = lambda k: integrand(K_matsubara*n*L*np.sqrt(eps_medium), k, eps1, eps2)
-        term = 2*quad(f, 0, np.inf)[0]
-        energy += term
-        if abs(term/energy) < 1.e-12:
-            break
-        n += 1
-    return 0.5*T*Boltzmann(energy0+energy), 0.5*T*Boltzmann*energy
 
-
-def energy_faster(L, T, materials, epsrel=1.e-08):
+def energy_finite(L, T, materials, epsrel=1.e-08):
     K_matsubara = Boltzmann*T/(hbar*c)
     eps_plane1 = eval("material."+materials[0]+".epsilon(0.)")
     eps_medium = eval("material."+materials[1]+".epsilon(0.)")
