@@ -3,13 +3,14 @@ r"""Fresnel reflection coefficients.
 They describe the reflection amplitudes of plane waves for a given polarization.
 
 .. todo::
-    * implement different material classes like drude, plasma
+    * implement plasma model
+    * cache=True throws LLVM ERROR! why?
 
 """
 from numba import njit
 import math
 
-@njit("float64(float64, float64, float64, string)", cache=True)
+@njit("float64(float64, float64, float64, string)")
 def rTE(K, k, epsilon, materialclass):
     r"""Fresnel reflection coefficients for TE-polarized modes.
 
@@ -52,7 +53,7 @@ def rTE(K, k, epsilon, materialclass):
         den = (kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
         return num/den
 
-@njit("float64(float64, float64, float64, string)", cache=True)
+@njit("float64(float64, float64, float64, string)")
 def rTM(K, k, epsilon, materialclass):
     r"""Fresnel reflection coefficients for TM-polarized modes.
 
