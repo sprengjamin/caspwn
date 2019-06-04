@@ -514,6 +514,7 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
     energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+    print(0., energy0)
 
     energy = 0.
     Teff = 4*np.pi*Boltzmann/hbar/c*T*L
@@ -529,11 +530,11 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
 
 if __name__ == "__main__":
     np.random.seed(0)
-    R1 = 1
-    R2 = 1
-    L = 0.01
+    R1 = 2.5e-06
+    R2 = 12.7e-06
+    L = 0.5e-06
     T = 293.015
-    materials = ("PR", "Vacuum", "PR")
+    materials = ("fused_silica", "Water", "fused_silica")
     
     rho1 = R1/L
     rho2 = R2/L
@@ -544,17 +545,5 @@ if __name__ == "__main__":
     Nin = int(eta*np.sqrt(rho1+rho2))
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
-    X = 20
     
-    import time
-    start = time.time()
-    #print(energy_zero(R1, R2, L, materials, N, M, X, nproc))
-    print(energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc))
-    end = time.time()
-    print("time", end-start)
-    #print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, nproc))
-    start = time.time()
-    #print(energy_faster(R1, R2, L, T, materials, Nin, Nout, M, nproc))
-    print(energy_quad(R1, R2, L, materials, Nin, Nout, M, nproc))
-    end = time.time()
-    print("time", end-start)
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, 1.e-08, nproc))
