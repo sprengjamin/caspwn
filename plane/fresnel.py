@@ -9,8 +9,8 @@ They describe the reflection amplitudes of plane waves for a given polarization.
 from numba import njit
 import math
 
-@njit("float64(float64, float64, float64)", cache=True)
-def rTE(K, k, epsilon):
+@njit("float64(float64, float64, float64, string)", cache=True)
+def rTE(K, k, epsilon, materialclass):
     r"""Fresnel reflection coefficients for TE-polarized modes.
 
     .. math::
@@ -24,6 +24,8 @@ def rTE(K, k, epsilon):
         positive, parallel wavenumber
     epsilon : float
         positive, relative permittivity
+    materialclass: string
+        name of materialclass
 
     Returns
     -------
@@ -31,18 +33,27 @@ def rTE(K, k, epsilon):
         TE fresnel reflection coefficient :math:`\in[-1,0]`
 
     """
-    if epsilon == math.inf:
-        return -1.
-    kappa = math.sqrt(k**2 + K**2)
-    #num = kappa - math.sqrt(kappa**2 + K**2*(epsilon-1))
-    #den = kappa + math.sqrt(kappa**2 + K**2*(epsilon-1))
+    if K == 0.:
+        if materialclass == "drude":
+            return 0.
+        elif materialclass == "PR":
+            return -1.
+        elif materialclass == "dielectric":
+            return 0.
+        else:
+            # throw assert if materialclass is not supported
+            assert(False)
+            return 0.
+    else:
+        if epsilon == math.inf:
+            return -1.
+        kappa = math.sqrt(k**2 + K**2)
+        num = -K**2*(epsilon - 1.)
+        den = (kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
+        return num/den
 
-    num = -K**2*(epsilon - 1.)
-    den = (kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
-    return num/den
-
-@njit("float64(float64, float64, float64)", cache=True)
-def rTM(K, k, epsilon):
+@njit("float64(float64, float64, float64, string)", cache=True)
+def rTM(K, k, epsilon, materialclass):
     r"""Fresnel reflection coefficients for TM-polarized modes.
 
     .. math::
@@ -56,6 +67,8 @@ def rTM(K, k, epsilon):
         positive, parallel wavenumber
     epsilon : float
         positive, relative permittivity
+    materialclass: string
+        name of materialclass
 
     Returns
     -------
@@ -63,11 +76,29 @@ def rTM(K, k, epsilon):
         TM fresnel reflection coefficient :math:`\in[0, 1]`
 
     """
-    if epsilon == math.inf:
-        return 1.
-    kappa = math.sqrt(k**2 + K**2)
-    #num = epsilon*kappa - math.sqrt(kappa**2 + K**2*(epsilon-1))
-    #den = epsilon*kappa + math.sqrt(kappa**2 + K**2*(epsilon-1))
-    num = k**2*(epsilon**2 - 1.) + K**2*(epsilon-1)*epsilon
-    den = (epsilon*kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
-    return num/den
+    if K == 0.:
+        if materialclass == "drude":
+            return 1.
+        elif materialclass == "PR":
+            return 1.
+        elif materialclass == "dielectric":
+            return (epsilon-1.)/(epsilon+1.)
+        else:
+            # throw assert if materialclass is not supported
+            assert(False)
+            return 0.
+    else:
+        if epsilon == math.inf:
+            return 1.
+        kappa = math.sqrt(k**2 + K**2)
+        num = k**2*(epsilon**2 - 1.) + K**2*(epsilon-1)*epsilon
+        den = (epsilon*kappa + math.sqrt(kappa**2 + K**2*(epsilon - 1.)))**2
+        return num/den
+
+if __name__ == "__main__":
+    K = 0.
+    k = 1.
+    eps = 2.
+    materialclass = "dielectric"
+    print(rTE(K, k, eps, materialclass))
+    print(rTM(K, k, eps, materialclass))

@@ -26,9 +26,9 @@ def mp_fresnel(K, k, eps):
        e=floats(min_value=1.e-02, max_value=1.0e8))
 def test_fresnel(K, k, e):
     rtol = 1.e-12
-    my_TE = rTE(K, k, e)
+    my_TE = rTE(K, k, e, "dielectric")
     print(my_TE)
-    my_TM = rTM(K, k, e)
+    my_TM = rTM(K, k, e, "dielectric")
     mp_TE, mp_TM = mp_fresnel(K, k, e)
     print(mp_TE)
     np.testing.assert_allclose(my_TE, mp_TE, rtol=rtol)
@@ -41,8 +41,8 @@ def test_fresnel_zero():
     ee = np.logspace(-2,8,10)+1.
     for k in kk:
         for e in ee:
-            my_TE = rTE(0., k, e)
-            my_TM = rTM(0., k, e)
+            my_TE = rTE(0., k, e, "dielectric")
+            my_TM = rTM(0., k, e, "dielectric")
             exact_TE = 0.
             exact_TM = (e-1)/(e+1)
             np.testing.assert_allclose(my_TE, exact_TE, rtol=rtol)
