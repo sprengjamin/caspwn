@@ -163,6 +163,31 @@ class optical_data(material):
         """
         return np.sqrt(self.epsilon(K))
 
+class drude(material):
+    def __init__(self, name, plasma, gamma):
+        """ plasma in eV
+            gamma in eV
+        """
+        self.name = name
+        self.materialclass = "drude"
+        self.K_plasma = plasma*e/hbar/c
+        self.K_gamma = gamma*e/hbar/c
+    
+    def epsilon(self, K):
+        if K == 0.:
+            # dummy number to avoid crash
+            return 1.
+        else:
+            return 1 + self.K_plasma**2/K/(K+self.K_gamma)
+
+    def n(self, K):
+        if K == 0.:
+            # dummy number to avoid crash
+            return 1.
+        else:
+            return np.sqrt(self.epsilon(K))
+        
+
 
 class perfect_reflector(material):
     def __init__(self):
@@ -192,6 +217,8 @@ def convert_zwol_to_lorentz(data):
     xiP = np.sqrt(np.array(data[0]))*xiR
     gamma = np.zeros(len(data[0]))
     return np.vstack((xiP, xiR, gamma)).T/c
+
+Gold = drude("Gold", 9., 0.035)
 
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/FUSED_SILICA_EPS-iw.dat")
 fused_silica = optical_data("Fused Silica", np.loadtxt(filename), "dielectric")
