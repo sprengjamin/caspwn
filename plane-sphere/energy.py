@@ -79,10 +79,11 @@ def phi_array(rho, K, M, k1, k2, w1, w2, mie):
         phiarr[2, M-i] = -phiarr[2, i]
         phiarr[3, M-i] = -phiarr[3, i]
 
-    rTE1 = rTE(K, k1, np.inf)
-    rTM1 = rTM(K, k1, np.inf)
-    rTE2 = rTE(K, k2, np.inf)
-    rTM2 = rTM(K, k2, np.inf)
+    # for now support only perfect reflectors
+    rTE1 = -1.#rTE(K, k1, np.inf)
+    rTM1 = +1.#rTM(K, k1, np.inf)
+    rTE2 = -1.#rTE(K, k2, np.inf)
+    rTM2 = +1.#rTM(K, k2, np.inf)
 
     phiarr[0, :] = w1*w2*np.sqrt(rTM1*rTM2)*phiarr[0, :]
     phiarr[1, :] = -w1*w2*np.sqrt(rTE1*rTE2)*phiarr[1, :]
