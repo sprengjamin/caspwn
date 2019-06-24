@@ -312,7 +312,7 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
         out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
 mie))
 
-    b = 0.5 # kinda arbitrary
+    b = 1 # has best convergence rate
     k = b*pts
     w = np.sqrt(b*wts*2*np.pi/M)
     
