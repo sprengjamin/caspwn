@@ -534,8 +534,9 @@ def energy_quad(R, L, materials, N, M, nproc):
     """
     pts, wts = quadrature(N)
     logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
-    energy = quad(logdet, 0, np.inf)[0]
-    return energy/(2*np.pi)*hbar*c/L
+    out = quad(logdet, 0, np.inf)
+    print("quad", out)
+    return out[0]/(2*np.pi)
 
 
 def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
@@ -603,7 +604,8 @@ if __name__ == "__main__":
     mat = ("PR", "Vacuum", "PR") 
     import time
     start = time.time()
-    en = energy_finite(R, L, T, mat, N, M, 1e-8, nproc) 
+    #en = energy_finite(R, L, T, mat, N, M, 1e-8, nproc) 
+    en = energy_quad(R, L, mat, N, M, nproc) 
     end = time.time()
     print("energy")
     print(en)
