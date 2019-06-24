@@ -220,6 +220,8 @@ def convert_zwol_to_lorentz(data):
 
 Gold = drude("Gold", 9., 0.035)
 
+Electrolyte = lorentz_oscillator("Electrolyte", [[],[]], static_value = 0)
+
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/FUSED_SILICA_EPS-iw.dat")
 fused_silica = optical_data("Fused Silica", np.loadtxt(filename), "dielectric")
 
