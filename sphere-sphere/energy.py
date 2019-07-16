@@ -273,7 +273,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
         out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
 
-    b = 0.5 ### for now
+    b = 1. ### for now
     krow = b*pts_row
     kcol = b*pts_col
     wrow = np.sqrt(b*wts_row*2*np.pi/M)
