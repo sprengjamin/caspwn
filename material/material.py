@@ -252,7 +252,10 @@ Water_data = [[1.43e+0, 9.74e+0, 2.16e+0, 5.32e-1, 3.89e-1, 2.65e-1, 1.36e-1],
 Water_static = 78.7
 Water = lorentz_oscillator("Water", Water_data, static_value = Water_static)
 
+modifiedWater = lorentz_oscillator("modifiedWater", Water_data, static_value = 0.)
+
 Vacuum = vacuum()
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     X = np.logspace(2,10,100)
