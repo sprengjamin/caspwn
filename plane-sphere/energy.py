@@ -539,7 +539,7 @@ def energy_quad(R, L, materials, N, M, nproc):
     return out[0]/(2*np.pi)
 
 
-def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
+def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
     """
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -556,6 +556,8 @@ def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
+    mode: str
+        Matsubara spectrum decompostion (msd) or Padé spectrum decomposition (psd)
     epsrel: float
         positive, desired relative error for the matsubara sum
     nproc: int
@@ -574,25 +576,40 @@ def energy_finite(R, L, T, materials, N, M, epsrel, nproc):
     pts, wts = quadrature(N)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-
     energy0 = LogDet(R, L, materials, 0., N, M, pts, wts, nproc)
-    energy = 0.
-    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
-    xi, eta = psd(order)
-    for n in range(order):
-        term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
-        energy += term
+    print(0., energy0)
+
+    if mode == "psd":
+        energy = 0.
+        Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+        order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
+        xi, eta = psd(order)
+        for n in range(order):
+            term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+            print(K_matsubara*xi[n], term)
+            energy += term
+    elif mode == "msd":
+        energy = 0.
+        n = 1
+        while(True):
+            term = LogDet(R, L, materials, 2*np.pi*K_matsubara*n, N, M, pts, wts, nproc)
+            print(K_matsubara*n, term)
+            energy += 2*term
+            if abs(term/energy0) < epsrel:
+                break
+            n += 1
+    else:
+        raise ValueError("mode can either be 'psd' or 'msd'")
+     
     return 0.5*T*Boltzmann*(energy+energy0), 0.5*T*Boltzmann*energy
 
 
 if __name__ == "__main__":
     np.random.seed(0)
-    R = 1.
-    L = 1.e-3
-    T = 2.289885278703585880e-01
+    R = 50e-6
+    L = 50e-6/100
+    T = 300
     #T = 1.e-03
-    #T = 293.15
     rho = R/L
     N = int(10*np.sqrt(rho))
     print("N", N)
@@ -604,8 +621,11 @@ if __name__ == "__main__":
     mat = ("PR", "Vacuum", "PR") 
     import time
     start = time.time()
-    #en = energy_finite(R, L, T, mat, N, M, 1e-8, nproc) 
-    en = energy_quad(R, L, mat, N, M, nproc) 
+    en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
+    print("msd", en)
+    en = energy_finite(R, L, T, mat, N, M, "psd", 1e-8, nproc) 
+    print("psd", en)
+    #en = energy_quad(R, L, mat, N, M, nproc) 
     end = time.time()
     print("energy")
     print(en)

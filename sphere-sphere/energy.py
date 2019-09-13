@@ -481,7 +481,7 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     return energy/(2*np.pi)*hbar*c/L
 
 
-def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
+def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
     """
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -498,6 +498,8 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
         positive, quadrature order of inner and outer k-integration, respectively
     M: int
         positive, quadrature order of phi-integration
+    mode: str
+        Matsubara spectrum decompostion (msd) or Padé spectrum decomposition (psd)
     epsrel: float
         positive, desired relative error for the Matsubara sum
     nproc: int
@@ -516,15 +518,28 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, epsrel, nproc):
     energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
     print(0., energy0)
 
-    energy = 0.
-    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
-    xi, eta = psd(order)
-    for n in range(order):
-        term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-        print(K_matsubara*xi[n], term)
-        energy += term
-    
+    if mode == "psd":
+        energy = 0.
+        Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+        order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
+        xi, eta = psd(order)
+        for n in range(order):
+            term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+            print(K_matsubara*xi[n], term)
+            energy += term
+    elif mode == "msd":
+        energy = 0.
+        n = 1
+        while(True):
+            term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+            print(K_matsubara*n, term)
+            energy += 2*term
+            if abs(term/energy0) < epsrel:
+                break
+            n += 1
+    else:
+        raise ValueError("mode can either be 'psd' or 'msd'")
+     
     return 0.5*T*Boltzmann*(energy+energy0), 0.5*T*Boltzmann*energy
 
 
@@ -535,6 +550,7 @@ if __name__ == "__main__":
     L = 0.5e-06
     T = 293.015
     materials = ("fused_silica", "Water", "fused_silica")
+    materials = ("PR", "Vacuum", "PR")
     
     rho1 = R1/L
     rho2 = R2/L
@@ -545,5 +561,8 @@ if __name__ == "__main__":
     Nin = int(eta*np.sqrt(rho1+rho2))
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
-    
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, 1.e-08, nproc))
+    print("psd")
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, "pd", 1.e-08, nproc))
+    print()
+    print("msd")
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, "msd", 1.e-08, nproc))
