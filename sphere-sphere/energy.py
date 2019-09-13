@@ -499,7 +499,7 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
     M: int
         positive, quadrature order of phi-integration
     mode: str
-        Matsubara spectrum decompostion (msd) or Padé spectrum decomposition (psd)
+        Matsubara spectrum decompostion (msd) or Pade spectrum decomposition (psd)
     epsrel: float
         positive, desired relative error for the Matsubara sum
     nproc: int

@@ -540,7 +540,7 @@ def energy_quad(R, L, materials, N, M, nproc):
 
 
 def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
-    """
+    r"""
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
     Parameters
@@ -557,7 +557,7 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
     M: int
         positive, quadrature order of phi-integration
     mode: str
-        Matsubara spectrum decompostion (msd) or Padé spectrum decomposition (psd)
+        Matsubara spectrum decompostion (msd) or Pade spectrum decomposition (psd)
     epsrel: float
         positive, desired relative error for the matsubara sum
     nproc: int
