@@ -77,10 +77,7 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
         if phi == np.pi:
             return 0., 0., 0., 0.
         x = 2*rho*math.sqrt(k1*k2)*math.cos(phi/2)
-        exponent = x - (k1+k2)*(rho+r)
-        if exponent < -37:
-            return 0., 0., 0., 0.
-        e = math.exp(exponent)
+        e = math.exp(x - (k1+k2)*(rho+r))
         norm = rho/(2*math.pi)
         S1, S2 = zero_frequency(x, mie)
         TMTM = norm*S2*e
@@ -92,10 +89,7 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, mie):
         kappa1 = math.sqrt(k1*k1+K*K)
         kappa2 = math.sqrt(k2*k2+K*K)
         z = (kappa1*kappa2+k1*k2*math.cos(phi))/K**2
-        exponent = phase(rho, r, K, k1, k2, phi)
-        if exponent < -37:
-            return 0., 0., 0., 0.
-        e = math.exp(exponent)
+        e = math.exp(phase(rho, r, K, k1, k2, phi))
         A, B, C, D = ABCD(K, k1, k2, phi)
         norm = math.sqrt(k1*k2)/(2*math.pi*K*math.sqrt(kappa1*kappa2))
         S1, S2 = S1S2(K*rho, z, mie)
