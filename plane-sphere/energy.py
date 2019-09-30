@@ -349,7 +349,7 @@ out))
         
     return row, col, data
 
-
+@njit("boolean(float64, float64, float64, float64)", cache=True)
 def isFinite(rho, K, k1, k2):
     r"""
     Estimates by means of the asymptotics of the scattering amplitudes if the given
@@ -621,15 +621,14 @@ if __name__ == "__main__":
     mat = ("PR", "Vacuum", "PR") 
     import time
     start = time.time()
-    en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
-    print("msd", en)
+    #en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
+    #print("msd", en)
     en = energy_finite(R, L, T, mat, N, M, "psd", 1e-8, nproc) 
-    print("psd", en)
     #en = energy_quad(R, L, mat, N, M, nproc) 
     end = time.time()
+    print("time")
+    print(end-start)
     print("energy")
     print(en)
     print("PFA")
     print(-np.pi**3*rho/720)
-    print("time")
-    print(end-start)
