@@ -64,35 +64,42 @@ def zero_frequency(x, mie):
     
     """
     if mie.materialclass == "dielectric":
-        err = 1.e-16
-        l_init = int(0.5*x)+1
-        logx = math.log(x)
         e = mie.n**2
-        S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
-        
-        # upward summation
-        l = l_init + 1
-        while True:
-            term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
-            S += term
-            if term/S < err:
-                break
-            l += 1
+        if x > 500.:
+            PFA = 0.5*(e-1)/(e+1)
+            correction1 = -2/(e+1)/x
+            correction2 = -2*(e-1)/(e+1)**2/x**2
+            S = PFA*(1+correction1+correction2)
+            return 0., S
+        else:
+            err = 1.e-16
+            l_init = int(0.5*x)+1
+            logx = math.log(x)
+            S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+            
+            # upward summation
+            l = l_init + 1
+            while True:
+                term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+                S += term
+                if term/S < err:
+                    break
+                l += 1
 
-        if l_init == 1:
+            if l_init == 1:
+                return 0, S
+
+            # downward summation
+            l = l_init - 1
+            while True:
+                term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+                S += term
+                if term/S < err:
+                    break
+                l -= 1
+                if l == 0:
+                    break
             return 0, S
-
-        # downward summation
-        l = l_init - 1
-        while True:
-            term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
-            S += term
-            if term/S < err:
-                break
-            l -= 1
-            if l == 0:
-                break
-        return 0, S
 
     elif mie.materialclass == "drude":
         if x == 0.:
