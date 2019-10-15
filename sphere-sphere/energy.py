@@ -2,6 +2,7 @@ r""" Casimir energy for the sphere-sphere geometry.
 
 """
 import numpy as np
+import time
 
 from numba import njit
 from numba import float64, int64
@@ -377,6 +378,7 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     mArray_sparse_mp
 
     """
+    start_matrix = time.time()
     n_sphere1 = eval("material."+materials[0]+".n(Kvac/L)")
     n_medium = eval("material."+materials[1]+".n(Kvac/L)")
     n_sphere2 = eval("material."+materials[2]+".n(Kvac/L)")
@@ -417,6 +419,10 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     
     row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
     
+    end_matrix = time.time()
+    timing_matrix = end_matrix-start_matrix
+    start_logdet = end_matrix
+    
     # m=0
     sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
     sprsmat2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
@@ -438,6 +444,10 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
         logdet += logdet_sparse(mat)
     else:
         logdet += 2*logdet_sparse(mat)
+    end_logdet = time.time()
+    timing_logdet = end_logdet-start_logdet
+    print("# ", end="")
+    print(Kvac, logdet, timing_matrix, timing_logdet, sep=", ")
     return logdet
 
     
@@ -476,7 +486,6 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     energy = 0.
     for i in range(X):
         result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-        print("K=", K_pts[i], ", val=", result)
         energy += K_wts[i]*result
     return energy/(2*np.pi)*hbar*c/L
 
@@ -516,7 +525,6 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
     energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-    print(0., energy0)
 
     if mode == "psd":
         energy = 0.
@@ -525,14 +533,12 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
         xi, eta = psd(order)
         for n in range(order):
             term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-            print(K_matsubara*xi[n], term)
             energy += term
     elif mode == "msd":
         energy = 0.
         n = 1
         while(True):
             term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
-            print(K_matsubara*n, term)
             energy += 2*term
             if abs(term/energy0) < epsrel:
                 break
