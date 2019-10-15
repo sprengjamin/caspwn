@@ -13,6 +13,7 @@ from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
 from scipy.integrate import quad
 from scipy.constants import Boltzmann, hbar, c
+import time
 
 from index import itt
 import sys, os
@@ -416,6 +417,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     mArray_sparse_mp
 
     """
+    start_matrix = time.time()
     n_plane = eval("material."+materials[0]+".n(Kvac/L)")
     n_medium = eval("material."+materials[1]+".n(Kvac/L)")
     n_sphere = eval("material."+materials[2]+".n(Kvac/L)")
@@ -434,6 +436,9 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
         mie = mie_cache(int(2*x)+1000, x, n, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
 
     row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
+    end_matrix = time.time()
+    timing_matrix = end_matrix-start_matrix
+    start_logdet = end_matrix
     
     # m=0
     sprsmat = coo_matrix((data[:, 0], (row, col)), shape=(2*N,2*N))
@@ -453,7 +458,10 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
         logdet += factor.logdet()
     else:
         logdet += 2*factor.logdet()
-    print("#", Kvac, logdet)
+    end_logdet = time.time()
+    timing_logdet = end_logdet-start_logdet
+    print("# ", end="")
+    print(Kvac, logdet, timing_matrix, timing_logdet, sep=", ")
     return logdet
 
 
