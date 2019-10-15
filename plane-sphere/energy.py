@@ -453,7 +453,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
         logdet += factor.logdet()
     else:
         logdet += 2*factor.logdet()
-    print(Kvac, logdet)
+    print("#", Kvac, logdet)
     return logdet
 
 
@@ -497,7 +497,6 @@ def energy_zero(R, L, materials, N, M, nproc, X=None):
         energy = 0.
         for i in range(X):
             result = LogDet(R, L, materials, K_pts[i], N, M, pts, wts, nproc)
-            print("K=", K_pts[i], ", val=", result)
             energy += K_wts[i]*result
     return energy/(2*np.pi)
 
@@ -535,7 +534,6 @@ def energy_quad(R, L, materials, N, M, nproc):
     pts, wts = quadrature(N)
     logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
     out = quad(logdet, 0, np.inf)
-    print("quad", out)
     return out[0]/(2*np.pi)
 
 
@@ -577,7 +575,6 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
     energy0 = LogDet(R, L, materials, 0., N, M, pts, wts, nproc)
-    print(0., energy0)
 
     if mode == "psd":
         energy = 0.
@@ -586,14 +583,12 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
         xi, eta = psd(order)
         for n in range(order):
             term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
-            print(K_matsubara*xi[n], term)
             energy += term
     elif mode == "msd":
         energy = 0.
         n = 1
         while(True):
             term = LogDet(R, L, materials, 2*np.pi*K_matsubara*n, N, M, pts, wts, nproc)
-            print(K_matsubara*n, term)
             energy += 2*term
             if abs(term/energy0) < epsrel:
                 break
