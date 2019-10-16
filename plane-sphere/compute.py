@@ -42,7 +42,10 @@ else:
 NYSTROM_PATH = os.path.expanduser("~/wd/nystrom")
 sys.path.insert(0, os.path.join(NYSTROM_PATH, "plane-sphere"))
 import datetime
-print("# Start time:", datetime.datetime.now().replace(microsecond=0))
+print("# start time:", datetime.datetime.now().replace(microsecond=0))
+import os
+uname = os.uname()
+print("# computed on:", uname.sysname, uname.nodename, uname.release, uname.machine)
 import subprocess
 HEAD_id = subprocess.check_output("git rev-parse --short HEAD", shell=True).strip().decode("utf-8")
 print("# git HEAD:", HEAD_id)
@@ -50,7 +53,7 @@ branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD", shell=True).
 print("# git branch:", branch)
 
 print("#  ")
-print("# Geometry: plane-sphere")
+print("# geometry: plane-sphere")
 print("# R [m]:", args.R)
 print("# L [m]:", args.L)
 print("# T [K]:", args.T)
@@ -81,7 +84,7 @@ if args.T == 0.:
         from energy import energy_quad
         en = energy_quad(args.R, args.L, (args.sphere, args.medium, args.plane), N, M, args.cores)
     print("#")
-    print("# Finish time:", datetime.datetime.now().replace(microsecond=0))
+    print("# finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
     print("# energy [J]")
     print(en)

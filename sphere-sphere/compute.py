@@ -47,7 +47,10 @@ NYSTROM_PATH = os.path.expanduser("~/wd/nystrom")
 sys.path.insert(0, os.path.join(NYSTROM_PATH, "sphere-sphere"))
 
 import datetime
-print("# Start time:", datetime.datetime.now().replace(microsecond=0))
+print("# start time:", datetime.datetime.now().replace(microsecond=0))
+import os
+uname = os.uname()
+print("# computed on:", uname.sysname, uname.nodename, uname.release, uname.machine)
 import subprocess
 HEAD_id = subprocess.check_output("git rev-parse --short HEAD", shell=True).strip().decode("utf-8")
 print("# git HEAD:", HEAD_id)
@@ -55,7 +58,7 @@ branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD", shell=True).
 print("# git branch:", branch)
 
 print("#  ")
-print("# Geometry: sphere-sphere")
+print("# geometry: sphere-sphere")
 print("# R1 [m]:", args.R1)
 print("# R2 [m]:", args.R2)
 print("# L [m]:", args.L)
@@ -82,7 +85,7 @@ if args.T == 0.:
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_zero
-        en = energy_zero(args.R, args.L, (args.sphere, args.medium, args.plane), N, M, args.cores, args.X)
+        en = energy_zero(args.R1, args.R2, args.L, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, args.X, args.cores)
     else:
         print("# integration method: quad")
         print("# epsrel:", args.epsrel)
@@ -107,10 +110,7 @@ else:
     from energy import energy_finite
     en = energy_finite(args.R1, args.R2, args.L, args.T, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, mode, args.epsrel, args.cores)
     print("#")
-    print("# Finish time:", datetime.datetime.now().replace(microsecond=0))
-    #print("# total elapsed time:")
-    #print("# constructing matrices:")
-    #print("# computing logdet:")
+    print("# finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
     print("# energy [J] (n>=0, n>0)")
     print(en[0], en[1])
