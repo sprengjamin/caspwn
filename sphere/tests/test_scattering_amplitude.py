@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append(".")
 from scattering_amplitude import S1S2, S1S2_asymptotics
-from mie import mie_cache
+from mie import mie_e_array
 from mpmath import *
 mpf.dps = 80
 maxterms = 1e6
@@ -108,9 +108,9 @@ def test_scattering_amplitude():
         mpS1 = data[2]
         mpS2 = data[3]
         lmax = data[4]
-        mie = mie_cache(lmax, x, np.inf)
+        mie_a, mie_b = mie_e_array(lmax, x, np.inf)
         print(x, z)
-        S1, S2 = S1S2(x, z, mie, False)
+        S1, S2 = S1S2(x, z, np.inf, mie_a, mie_b, False)
         print(abs(-S1/mpS1-1.))
         print(abs(S2/mpS2-1.))
         np.testing.assert_allclose(mpS1, -S1, rtol=rtol)
@@ -122,10 +122,10 @@ def test_asymptotics_low():
     for n in N:
         x = 5.e3
         Z = 1. + np.logspace(-3, 3, 5)
-        mie = mie_cache(1e4, x, n)
+        mie_a, mie_b = mie_e_array(1e4, x, n)
         for z in Z:
             S1a, S2a = S1S2_asymptotics(x, z, n)
-            S1, S2 = S1S2(x, z, mie, False)
+            S1, S2 = S1S2(x, z, n, mie_a, mie_b, False)
             np.testing.assert_allclose(S1a, S1, rtol=rtol)
             np.testing.assert_allclose(S2a, S2, rtol=rtol)
 
@@ -135,10 +135,10 @@ def test_asymptotics_high():
     for n in N:
         x = 6.e4
         Z = 1. + np.logspace(-3, 3, 5)
-        mie = mie_cache(1e4, x, n)
+        mie_a, mie_b = mie_e_array(1e4, x, n)
         for z in Z:
             S1a, S2a = S1S2_asymptotics(x, z, n)
-            S1, S2 = S1S2(x, z, mie, False)
+            S1, S2 = S1S2(x, z, b, mie_a, mie_b, False)
             print(x, z, n)
             print(np.fabs(S1/S1a-1.))
             print(np.fabs(S2/S2a-1.))

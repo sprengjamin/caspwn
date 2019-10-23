@@ -25,9 +25,9 @@ For perfectly reflecting spheres the mie coefficients are
     So far only limited to perfect reflecting spheres.
 
 .. todo::
-    * Extend to arbitrary materials.
-    
     * Test for low :math:`\ell`.
+
+    * Improve documentation for array functions
 
 """
 
@@ -202,42 +202,12 @@ def mie_e_array_PR(lmax, x):
     return ale, ble
 
 
-spec = [
-    ("lmax", int64),
-    ("x", float64),
-    ("n", float64),
-    ("materialclass", string),
-    ("ale", float64[:]),
-    ("ble", float64[:]),
-]
-
-@jitclass(spec)
-class mie_cache(object):
-    def __init__(self, lmax, x, n, materialclass):
-        assert(lmax > 0)
-        self.lmax = lmax
-        self.x = x
-        self.n = n
-        self.materialclass = materialclass
-        self._make_mie_array()
-    
-    def _make_mie_array(self):
-        if self.n == math.inf:
-            self.ale, self.ble = mie_e_array_PR(self.lmax, self.x)
-        else:
-            self.ale, self.ble = mie_e_array_mat(self.lmax, self.x, self.n)
-
-    def read(self, l):
-        assert(l > 0)
-        if l <= self.lmax:
-            return self.ale[l-1], self.ble[l-1]
-        else:
-            # ensure that new array will be large enough
-            # and mie_e_array will not be called to often
-            # during upward summation in S1S2
-            self.lmax = self.lmax + l
-            self._make_mie_array()
-            return self.ale[l-1], self.ble[l-1]
+@njit("UniTuple(float64[:], 2)(int64, float64, float64)", cache=True)
+def mie_e_array(lmax, x, n):
+    if n == np.inf:
+        return mie_e_array_PR(lmax, x)
+    else:
+        return mie_e_array_mat(lmax, x, n)
 
 
 if __name__ == "__main__":

@@ -23,29 +23,26 @@ with
     \chi(\ell,x,z) = (\ell+1/2)\mathrm{arccosh}z + \sqrt{(2\ell+1)^2 + (2 x)^2} + (2\ell+1) \log\frac{2x}{2\ell+1+\sqrt{(2\ell+1)^2+(2x)^2}}-2x\sqrt{(1+z)/2}\,.
 
 .. todo::
-    * Write tests (mpmath for low l, perhaps also for higher ones; test vs asymptotics). 
+    * Write tests for real materials(mpmath for low l, perhaps also for higher ones; test vs asymptotics). 
     
     * Understand behavior close to z=1. for large x,
       see analysis/scattering-amplitude/S1S2/plot_high.py
 
-    * figure out when to use chi and chi_old: chi_old seems better on testdata
+    * see if implementation using logarithms runs faster
 
 """
 import numpy as np
 import math
-from math import sqrt
 from numba import njit
-from numba import float64, boolean
-from numba.types import UniTuple, Omitted
+from math import sqrt
 from math import lgamma
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
-from angular import pte, pte_low, pte_asymptotics, pte_array
-from mie import mie_cache
+from angular import pte_array
 
 
-@njit(UniTuple(float64, 2)(float64, mie_cache.class_type.instance_type))
-def zero_frequency(x, mie):
+@njit("UniTuple(float64, 2)(float64, float64, int64, string)", cache=True)
+def zero_frequency(x, n, lmax, materialclass):
     r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
     The implementation depends on the material class. The information about
     that is encoded in the mie-cache.
@@ -54,8 +51,12 @@ def zero_frequency(x, mie):
     ----------
     x : float
         positive, parameter
-    mie: mie_cache class instance
-        contains information about the material class and the refractive index 
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
 
     Returns
     -------
@@ -63,8 +64,8 @@ def zero_frequency(x, mie):
         (:math:`\tilde S_1`, :math:`\tilde S_2`)
     
     """
-    if mie.materialclass == "dielectric":
-        e = mie.n**2
+    if materialclass == "dielectric":
+        e = n**2
         if x > 500.:
             PFA = 0.5*(e-1)/(e+1)
             correction1 = -2/(e+1)/x
@@ -74,12 +75,14 @@ def zero_frequency(x, mie):
         else:
             err = 1.e-16
             l_init = int(0.5*x)+1
+            if l_init > lmax:
+                l_init = lmax
             logx = math.log(x)
             S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
             
             # upward summation
             l = l_init + 1
-            while True:
+            while l <= lmax:
                 term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
                 S += term
                 if term/S < err:
@@ -101,7 +104,7 @@ def zero_frequency(x, mie):
                     break
             return 0, S
 
-    elif mie.materialclass == "drude":
+    elif materialclass == "drude":
         if x == 0.:
             return 0., 0.
         else:
@@ -109,7 +112,7 @@ def zero_frequency(x, mie):
             S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
             return S1, S2
 
-    elif mie.materialclass == "PR":
+    elif materialclass == "PR":
         if x == 0.:
             return 0., 0.
         else:
@@ -127,8 +130,8 @@ def chi_back(nu, x):
     return nu**2/(math.sqrt(nu**2 + x**2) + x) + nu*math.log(x/(nu + math.sqrt(nu**2 + x**2)))
 
 
-@njit(float64(float64, mie_cache.class_type.instance_type))
-def S_back(x, mie):
+@njit("float64(float64, float64[:], float64[:])", cache=True)
+def S_back(x, mie_a, mie_b):
     r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
 
     Parameters
@@ -146,23 +149,23 @@ def S_back(x, mie):
         (:math:`\tilde S`)
     """
     err = 1.0e-16
+    lmax = len(mie_a)
 
     l = 1
     exp = math.exp(2*chi_back(l+0.5, x))
-    ale, ble = mie.read(l)
-    S = (l+0.5)*(ale + ble)*exp
+    S = (l+0.5)*(mie_a[l-1] + mie_b[l-1])*exp
     
     l += 1
-    while(True):
+    while(l <= lmax):
         exp = math.exp(2*chi_back(l+0.5, x))
-        ale, ble = mie.read(l)
-        Sterm = (l+0.5)*(ale + ble)*exp
+        Sterm = (l+0.5)*(mie_a[l-1] + mie_b[l-1])*exp
         if Sterm/S < err:
             S += Sterm
             break
         S += Sterm
         l += 1
     return S
+
 
 @njit("UniTuple(float64, 2)(float64, float64, float64)", cache=True)
 def S1S2_asymptotics(x, z, n):
@@ -225,9 +228,8 @@ def chi(l, x, z, acoshz):
     return nu*acoshz + 2*(math.sqrt(nu*nu + x*x) - nu*math.asinh(nu/x) - x*math.sqrt((1+z)/2))
 
 
-#@njit(UniTuple(float64, 2)(float64, float64, mie_cache.class_type.instance_type, Omitted(True)))
-@njit
-def S1S2(x, z, mie, use_asymptotics=True):
+@njit("UniTuple(float64, 2)(float64, float64, float64, float64[:], float64[:], boolean)", cache=True)
+def S1S2(x, z, n, mie_a, mie_b, use_asymptotics):
     r"""Mie scattering amplitudes for plane waves.
 
     Parameters
@@ -236,8 +238,15 @@ def S1S2(x, z, mie, use_asymptotics=True):
         positive, imaginary frequency
     z : float
         positive, :math:`z=-\cos \Theta`
-    mie: mie_cache class instance
-        contains the mie coefficients 
+    n : float
+        positive, refractive index
+    mie_a : nd_array
+        contains the mie coefficients for electric polarizations 
+    mie_b : nd_array
+        contains the mie coefficients for magnetic polarizations
+    use_asymptotics : boolean
+        when True asymptotics are used for the
+        scattering amplitude when x > 5000
 
     Returns
     -------
@@ -246,89 +255,112 @@ def S1S2(x, z, mie, use_asymptotics=True):
     
     """
     if x > 5.e3 and use_asymptotics:
-        return S1S2_asymptotics(x, z, mie.n)
+        return S1S2_asymptotics(x, z, n)
 
     if z <= 1.:
-        S = S_back(x, mie)
+        S = S_back(x, mie_a, mie_b)
         return -S, S
     
-    err = 1.0e-16   # convergence
-    dl = 1000       # chunks-size for pte
+    err = 1.0e-16       # convergence
+    dl = 1000           # chunks-size for pte
+    lmax = len(mie_a)   # largest l contributing
     
     # precompute frequently used values
     acoshz = math.acosh(z)
-    #em = math.exp(-acoshz)
-    #em2 = math.exp(-2*acoshz)
     
     # estimated l with main contribution to the sum
-    lest = x*math.sqrt(math.fabs(z-1)/2)
-    lest_int = int(lest)+1
+    l_est = int(math.ceil(x*math.sqrt(math.fabs(z-1)/2)))
+    if l_est > lmax:
+        l_init = lmax
+    else:
+        l_init = l_est
+    
+    if l_init < 1000:
+        # only upward summation starting from l=1
+        pe, te = pte_array(1, l_init+dl, acoshz)
+        exp = math.exp(chi(1, x, z, acoshz))
+        S1 = (mie_a[0]*pe[0] + mie_b[0]*te[0])*exp
+        S2 = (mie_a[0]*te[0] + mie_b[0]*pe[0])*exp
+    
+        # upwards summation
+        l = 2
+        i = 1
+        while l <= lmax:
+            if i >= len(pe):
+                pe, te = pte_array(l, l+dl, acoshz)
+                i = 0
+            exp = math.exp(chi(l, x, z, acoshz))
+            S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
+            S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
+            if S1 > 0.:
+                if S1term/S1 < err:
+                    S1 += S1term
+                    S2 += S2term
+                    break
+            S1 += S1term
+            S2 += S2term
+            l += 1
+            i += 1
 
-    lmax = lest_int+dl
-    pe, te = pte_array(lest_int, lmax, acoshz)
-    lmin = min(lmax-len(pe)+1, lest_int)
-    
-    
-    ale, ble = mie.read(lmin)
-    exp = math.exp(chi(lmin, x, z, acoshz))
-    S1 = (ale*pe[0] + ble*te[0])*exp
-    S2 = (ale*te[0] + ble*pe[0])*exp
-    
-    # upwards summation
-    l = lmin+1
-    i = 1
-    while(True):
-        if i >= len(pe):
-            pe, te = pte_array(l, l+dl, acoshz)
-            i = 0
-        ale, ble = mie.read(l)
-        exp = math.exp(chi(l, x, z, acoshz))
-        S1term = (ale*pe[i] + ble*te[i])*exp
-        S2term = (ale*te[i] + ble*pe[i])*exp
-        if S1 > 0.:
+        return -S1, S2
+    else:
+        # upward and downward summation starting at l_init_int
+        pe, te = pte_array(l_init, l_init+dl, acoshz)
+        exp = math.exp(chi(l_init, x, z, acoshz))
+        S1 = (mie_a[l_init-1]*pe[0] + mie_b[l_init-1]*te[0])*exp
+        S2 = (mie_a[l_init-1]*te[0] + mie_b[l_init-1]*pe[0])*exp
+
+        # upwards summation
+        l = l_init+1
+        i = 1
+        while l <= lmax:
+            if i >= len(pe):
+                pe, te = pte_array(l, l+dl, acoshz)
+                i = 0
+            exp = math.exp(chi(l, x, z, acoshz))
+            S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
+            S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
+            if S1 > 0.:
+                if S1term/S1 < err:
+                    S1 += S1term
+                    S2 += S2term
+                    break
+            S1 += S1term
+            S2 += S2term
+            l += 1
+            i += 1
+        
+        # downwards summation
+        l = l_init-1
+        i = -1
+        while(True):
+            if i < 0:
+                pe, te = pte_array(max(l-dl, 1), l, acoshz)
+                i = len(pe)-1
+            exp = math.exp(chi(l, x, z, acoshz))
+            S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
+            S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
             if S1term/S1 < err:
                 S1 += S1term
                 S2 += S2term
                 break
-        S1 += S1term
-        S2 += S2term
-        l += 1
-        i += 1
-    #print("dl+", l-lest_int)
-    
-    if lest_int < 1000:
-        return -S1, S2 
-    
-    # downwards summation
-    l = lest_int-1
-    i = -1
-    while(True):
-        if i < 0:
-            pe, te = pte_array(max(l-dl, 1), l, acoshz)
-            i = len(pe)-1
-        ale, ble = mie.read(l)
-        exp = math.exp(chi(l, x, z, acoshz))
-        S1term = (ale*pe[i] + ble*te[i])*exp
-        S2term = (ale*te[i] + ble*pe[i])*exp
-        if S1term/S1 < err:
             S1 += S1term
             S2 += S2term
-            break
-        S1 += S1term
-        S2 += S2term
-        l -= 1
-        i -= 1
-        if l == 0:
-            break
-    return -S1, S2
+            l -= 1
+            i -= 1
+            if l == 0:
+                break
+        return -S1, S2
 
 
 if __name__ == "__main__":
-    x = 3.593813663804626
-    z = 100001.0
+    x = 10000.
+    z = 2.0
     n = np.inf
-    mie = mie_cache(1e1, x, n)
-    S1, S2 = S1S2(x, z, mie, False)
+    lmax = 7500
+    from mie import mie_e_array_PR
+    mie_a, mie_b = mie_e_array_PR(lmax, x)
+    S1, S2 = S1S2(x, z, n, mie_a, mie_b, False)
     sigma = math.sqrt((1+z)/2)
     S1a = -0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
     S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)

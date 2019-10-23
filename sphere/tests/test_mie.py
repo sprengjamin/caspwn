@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 sys.path.append(".")
-from mie import mie_e, mie_cache
+from mie import mie_e
 from bessel import InuKnu_e_asymptotics
 from mpmath import *
 mp.dps = 80
@@ -71,18 +71,6 @@ def test_mie_e():
         np.testing.assert_allclose(num_ale, data[2], rtol=rtol)
         np.testing.assert_allclose(num_ble, data[3], rtol=rtol)
 
-def test_mie_cache():
-    mp_data = np.loadtxt("tests/testdata/mie_e.dat")
-    for data in mp_data:
-        l = int(data[0])
-        x = data[1]
-        mie = mie_cache(l, x, np.inf)
-        num_ale, num_ble = mie.read(l)
-        #print("l", data[0], "x","%.16e"% data[1])
-        #print(np.abs(num_ale/data[2]-1.))
-        #print(np.abs(num_ble/data[3]-1.))
-        np.testing.assert_allclose(num_ale, data[2], rtol=rtol)
-        np.testing.assert_allclose(num_ble, data[3], rtol=rtol)
 
 if __name__ == "__main__":
     test_mie_cache()
