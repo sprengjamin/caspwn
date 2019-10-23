@@ -1,14 +1,15 @@
 r""" Casimir energy for the plane-sphere geometry.
 
 .. todo::
-    * implementation of force
+    * implementation of force and pressure
+    * add support for different material on plane (add n_plane, matclass_plane as arguments)
+    * replace marray by just fft at the appropriate place
+    * make dense implementation?
 
 """
 import numpy as np
 import multiprocessing as mp
 from numba import njit
-from numba import float64, int64
-from numba.types import UniTuple
 from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
 from scipy.integrate import quad
@@ -18,8 +19,7 @@ import time
 from index import itt
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
-from mie import mie_cache
-import scattering_amplitude
+from mie import mie_e_array
 from kernel import kernel_polar as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
 from fresnel import rTM, rTE
@@ -30,8 +30,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
 
-@njit(float64[:,:](float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
-def phi_array(rho, K, M, k1, k2, w1, w2, mie):
+@njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])", cache=True)
+def phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Returns the phi array for the kernel function for each polarization block.
 
@@ -47,8 +47,16 @@ def phi_array(rho, K, M, k1, k2, w1, w2, mie):
         positive, rescaled wave numbers
     w1, w2: float
         positive, quadrature weights corresponding to k1 and k2, respectively.
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -60,11 +68,11 @@ def phi_array(rho, K, M, k1, k2, w1, w2, mie):
     phiarr = np.empty((4, M))
 
     # phi = 0.
-    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] =  kernel(rho, 1., 1., K, k1, k2, 0., mie)
+    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] = kernel(rho, 1., 1., K, k1, k2, 0., n, lmax, materialclass, mie_a, mie_b)
     
     if M%2==0:
         # phi = np.pi is assumed
-        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] =  kernel(rho, 1., 1., K, k1, k2, np.pi, mie)
+        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n, lmax, materialclass, mie_a, mie_b)
         imax = M//2-1
         phi = 2*np.pi*np.arange(M//2)/M
     else:
@@ -74,7 +82,7 @@ def phi_array(rho, K, M, k1, k2, w1, w2, mie):
    
     # 0 < phi < np.pi
     for i in range(1, imax+1):
-        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] =  kernel(rho, 1., 1., K, k1, k2, phi[i], mie)
+        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n, lmax, materialclass, mie_a, mie_b)
         phiarr[0, M-i] = phiarr[0, i]
         phiarr[1, M-i] = phiarr[1, i]
         phiarr[2, M-i] = -phiarr[2, i]
@@ -93,7 +101,7 @@ def phi_array(rho, K, M, k1, k2, w1, w2, mie):
     return phiarr
         
 
-def m_array(rho, K, M, k1, k2, w1, w2, mie):
+def m_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Computes the m array by means of a FFT of the computed phi array.
 
@@ -109,20 +117,28 @@ def m_array(rho, K, M, k1, k2, w1, w2, mie):
         positive, rescaled wave numbers
     w1, w2: float
         positive, quadrature weights corresponding to k1 and k2, respectively.
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Dependencies
     ------------
     phi_array
 
     """
-    phiarr = phi_array(rho, K, M, k1, k2, w1, w2, mie)
+    phiarr = phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, marr[2,:].imag, marr[3,:].imag])
 
 
-def compute_mElement_diag(i, rho, K, N, M, k, w, mie):
+def compute_mElement_diag(i, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Computes the m-sequence of diagonal elements.
 
@@ -140,8 +156,16 @@ def compute_mElement_diag(i, rho, K, N, M, k, w, mie):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -159,11 +183,11 @@ def compute_mElement_diag(i, rho, K, N, M, k, w, mie):
     """
     row = [i, N+i, N+i]
     col = [i, N+i, i]
-    data = (m_array(rho, K, M, k[i], k[i], w[i], w[i], mie))[:-1,:]
+    data = (m_array(rho, K, M, k[i], k[i], w[i], w[i], n, lmax, materialclass, mie_a, mie_b))[:-1,:]
     return row, col, data
    
     
-def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, mie):
+def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Computes the m-sequence of off-diagonal elements.
 
@@ -183,8 +207,16 @@ def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, mie):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -202,11 +234,11 @@ def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, mie):
     """
     row = [i, N+i, N+j, N+i] 
     col = [j, N+j, i, j] 
-    data = m_array(rho, K, M, k[i], k[j], w[i], w[j], mie)
+    data = m_array(rho, K, M, k[i], k[j], w[i], w[j], n, lmax, materialclass, mie_a, mie_b)
     return row, col, data
 
 
-def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, mie):
+def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Computes the m-array.
 
@@ -226,8 +258,16 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, mie):
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -252,7 +292,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, mie):
     ind = 0
     for i in dindices:
         if isFinite(rho, K, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, K, N, M, k, w, mie)
+            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
             ind += 3
 
     for oindex in oindices:
@@ -262,7 +302,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, mie):
                 row = np.hstack((row, np.empty(len(row))))
                 col = np.hstack((col, np.empty(len(row))))
                 data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, K, N, M, k, w, mie)
+            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
             ind += 4
                 
     row = row[:ind] 
@@ -271,7 +311,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, mie):
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
+def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -289,8 +329,16 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -309,9 +357,9 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, mie):
     if type(nproc) != int:
         raise TypeError("nproc must be an integer!")
 
-    def worker(dindices, oindices, rho, K, N, M, k, w, mie, out):
+    def worker(dindices, oindices, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b, out):
         out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
-mie))
+n, lmax, materialclass, mie_a, mie_b))
 
     b = 1 # has best convergence rate
     k = b*pts
@@ -327,7 +375,7 @@ mie))
     for i in range(nproc):
         p = mp.Process(
                 target = worker,
-                args = (dindices[i], oindices[i], rho, K, N, M, k, w, mie, 
+                args = (dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b,
 out))
         procs.append(p)
         p.start()
@@ -384,7 +432,7 @@ def isFinite(rho, K, k1, k2):
         return True
             
 
-def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
+def LogDet(R, L, materials, Kvac, N, M, pts, wts, lmax, nproc):
     r"""
     Computes the sum of the logdets the m-matrices.
 
@@ -404,6 +452,8 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
+    lmax : int
+        positive, cut-off angular momentum
     nproc: int
         number of processes
 
@@ -421,6 +471,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     n_plane = eval("material."+materials[0]+".n(Kvac/L)")
     n_medium = eval("material."+materials[1]+".n(Kvac/L)")
     n_sphere = eval("material."+materials[2]+".n(Kvac/L)")
+    materialclass_sphere = eval("material." + materials[2] + ".materialclass")
     
     n = n_sphere/n_medium
     # aspect ratio
@@ -429,13 +480,13 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     x = n_medium*Kvac*rho
     # precompute mie coefficients
     if x == 0.:
-        mie = mie_cache(1, 1., n, eval("material."+materials[2]+".materialclass"))
+        mie_a, mie_b = mie_e_array(2, 1., n)
     elif x > 5e3:
-        mie = mie_cache(1, x, n, eval("material."+materials[2]+".materialclass"))
+        mie_a, mie_b = mie_e_array(2, x, n)
     else:
-        mie = mie_cache(int(2*x)+1000, x, n, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
+        mie_a, mie_b = mie_e_array(lmax, x, n)    # initial lmax arbitrary
 
-    row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, mie)
+    row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, n, lmax, materialclass_sphere, mie_a, mie_b)
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
     start_logdet = end_matrix
@@ -465,7 +516,7 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc):
     return logdet
 
 
-def energy_zero(R, L, materials, N, M, nproc, X=None):
+def energy_zero(R, L, materials, N, M, lmax, nproc, X=None):
     r"""
     Computes the Casimir at zero temperature.
 
@@ -481,6 +532,8 @@ def energy_zero(R, L, materials, N, M, nproc, X=None):
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
+    lmax : int
+        positive, cut-off angular momentum
     nproc: int
         number of processes spawned by multiprocessing module
 
@@ -497,19 +550,19 @@ def energy_zero(R, L, materials, N, M, nproc, X=None):
     """
     pts, wts = quadrature(N)
     if X == None:
-        logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
+        logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, lmax, nproc)
         energy = auto_integration(logdet)
     else:
         K_pts, K_wts = quadrature(X)
         
         energy = 0.
         for i in range(X):
-            result = LogDet(R, L, materials, K_pts[i], N, M, pts, wts, nproc)
+            result = LogDet(R, L, materials, K_pts[i], N, M, pts, wts, lmax, nproc)
             energy += K_wts[i]*result
     return energy/(2*np.pi)
 
 
-def energy_quad(R, L, materials, N, M, nproc):
+def energy_quad(R, L, materials, N, M, lmax, nproc):
     r"""
     Computes the Casimir at zero temperature.
 
@@ -525,6 +578,8 @@ def energy_quad(R, L, materials, N, M, nproc):
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
+    lmax : int
+        positive, cut-off angular momentum
     nproc: int
         number of processes spawned by multiprocessing module
 
@@ -540,12 +595,12 @@ def energy_quad(R, L, materials, N, M, nproc):
 
     """
     pts, wts = quadrature(N)
-    logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, nproc)
+    logdet = lambda Kvac : LogDet(R, L, materials, Kvac, N, M, pts, wts, lmax, nproc)
     out = quad(logdet, 0, np.inf)
     return out[0]/(2*np.pi)
 
 
-def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
+def energy_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc):
     r"""
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -562,6 +617,8 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
         positive, quadrature order of k-integration
     M: int
         positive, quadrature order of phi-integration
+    lmax : int
+        positive, cut-off angular momentum
     mode: str
         Matsubara spectrum decompostion (msd) or Pade spectrum decomposition (psd)
     epsrel: float
@@ -582,7 +639,7 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
     pts, wts = quadrature(N)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy0 = LogDet(R, L, materials, 0., N, M, pts, wts, nproc)
+    energy0 = LogDet(R, L, materials, 0., N, M, pts, wts, lmax, nproc)
 
     if mode == "psd":
         energy = 0.
@@ -590,13 +647,13 @@ def energy_finite(R, L, T, materials, N, M, mode, epsrel, nproc):
         order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
         xi, eta = psd(order)
         for n in range(order):
-            term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, nproc)
+            term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, lmax, nproc)
             energy += term
     elif mode == "msd":
         energy = 0.
         n = 1
         while(True):
-            term = LogDet(R, L, materials, 2*np.pi*K_matsubara*n, N, M, pts, wts, nproc)
+            term = LogDet(R, L, materials, 2*np.pi*K_matsubara*n, N, M, pts, wts, lmax, nproc)
             energy += 2*term
             if abs(term/energy0) < epsrel:
                 break
@@ -612,6 +669,7 @@ if __name__ == "__main__":
     R = 50e-6
     L = 50e-6/100
     T = 300
+    lmax = 1000
     #T = 1.e-03
     rho = R/L
     N = int(10*np.sqrt(rho))
@@ -621,12 +679,11 @@ if __name__ == "__main__":
     
     #mie = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., mie))
-    mat = ("PR", "Vacuum", "PR") 
-    import time
+    mat = ("PR", "Vacuum", "PR")
     start = time.time()
     #en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
     #print("msd", en)
-    en = energy_finite(R, L, T, mat, N, M, "psd", 1e-8, nproc) 
+    en = energy_finite(R, L, T, mat, N, M, lmax, "psd", 1e-8, nproc)
     #en = energy_quad(R, L, mat, N, M, nproc) 
     end = time.time()
     print("time")

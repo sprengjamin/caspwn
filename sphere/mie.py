@@ -214,14 +214,9 @@ if __name__ == "__main__":
     lmax = 1e4
     x = 200.3
     n = 100.
-    cache = mie_cache(lmax, x, n, "dielectric")
-    print(cache.read(int(1e4)+1))
-    print(len(cache.ale))
-    print(len(cache.ble))
-    ale = cache.ale
-    ble = cache.ble
-    l = np.arange(1,len(cache.ale)+1)
+    ale, ble = mie_e_array(lmax, x, n)
     import matplotlib.pyplot as plt
+    l = np.arange(1, lmax+1)
     plt.loglog(l, ale, label="a")
     plt.loglog(l, ble, label="b")
     plt.loglog(l, l**(-2.), "k-")

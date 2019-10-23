@@ -18,6 +18,8 @@ and to prevent under/overflow it is important to consider the exponentially scal
     \tilde t_\ell(x) &= t_\ell(x) e^{-(\ell+1/2)\mathrm{arccosh}\vert x\vert}\,.
     \end{aligned}
 
+.. todo::
+    * l237, pte_array, it seems that lmin<1000 is almost never used. Test this!
 
 """
 import numpy as np
@@ -232,7 +234,7 @@ def pte_array(lmin, lmax, x):
         p[0] = 3/2*math.exp(-1.5*x)
         t[0] = z*p[0]
     
-        for l in range(1, lmax+1):
+        for l in range(1, lmax):
             p[l], t[l] = pte_next(l, x, z, emx, em2x, p[l-1], p[l-2])
     else:
         p = np.empty(lmax-lmin+1)
@@ -304,8 +306,8 @@ def pte_asymptotics(l, x):
 
 if __name__ == "__main__":
     import time
-    lmin = 100000
-    lmax = 101000
+    lmin = 1200
+    lmax = 3000
     x = 1.
     a1, a2 = (pte_array(lmin, lmax, x))
     start = time.time()

@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 from angular import pte_array
 
 
-@njit("UniTuple(float64, 2)(float64, float64, int64, string)", cache=True)
+@njit("UniTuple(float64, 2)(float64, float64, int64, unicode_type)", cache=True)
 def zero_frequency(x, n, lmax, materialclass):
     r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
     The implementation depends on the material class. The information about
@@ -130,18 +130,20 @@ def chi_back(nu, x):
     return nu**2/(math.sqrt(nu**2 + x**2) + x) + nu*math.log(x/(nu + math.sqrt(nu**2 + x**2)))
 
 
-@njit("float64(float64, float64[:], float64[:])", cache=True)
-def S_back(x, mie_a, mie_b):
+@njit("float64(float64, int64, float64[:], float64[:])", cache=True)
+def S_back(x, lmax, mie_a, mie_b):
     r"""Mie scattering amplitudes for plane waves in the backward scattering limit.
 
     Parameters
     ----------
     x : float
         positive, imaginary frequency
-    ale : nd.array
-        Mie coefficient cache
-    ble : nd.array
-        Mie coefficient cache
+    lmax : int
+        positive, cut-off angular momentum
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
     
     Returns
     -------
@@ -149,7 +151,6 @@ def S_back(x, mie_a, mie_b):
         (:math:`\tilde S`)
     """
     err = 1.0e-16
-    lmax = len(mie_a)
 
     l = 1
     exp = math.exp(2*chi_back(l+0.5, x))
@@ -228,8 +229,8 @@ def chi(l, x, z, acoshz):
     return nu*acoshz + 2*(math.sqrt(nu*nu + x*x) - nu*math.asinh(nu/x) - x*math.sqrt((1+z)/2))
 
 
-@njit("UniTuple(float64, 2)(float64, float64, float64, float64[:], float64[:], boolean)", cache=True)
-def S1S2(x, z, n, mie_a, mie_b, use_asymptotics):
+@njit("UniTuple(float64, 2)(float64, float64, float64, int64, float64[:], float64[:], boolean)", cache=True)
+def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
     r"""Mie scattering amplitudes for plane waves.
 
     Parameters
@@ -240,10 +241,12 @@ def S1S2(x, z, n, mie_a, mie_b, use_asymptotics):
         positive, :math:`z=-\cos \Theta`
     n : float
         positive, refractive index
-    mie_a : nd_array
-        contains the mie coefficients for electric polarizations 
-    mie_b : nd_array
-        contains the mie coefficients for magnetic polarizations
+    lmax : int
+        positive, cut-off angular momentum
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
     use_asymptotics : boolean
         when True asymptotics are used for the
         scattering amplitude when x > 5000
@@ -258,12 +261,11 @@ def S1S2(x, z, n, mie_a, mie_b, use_asymptotics):
         return S1S2_asymptotics(x, z, n)
 
     if z <= 1.:
-        S = S_back(x, mie_a, mie_b)
+        S = S_back(x, lmax, mie_a, mie_b)
         return -S, S
     
     err = 1.0e-16       # convergence
     dl = 1000           # chunks-size for pte
-    lmax = len(mie_a)   # largest l contributing
     
     # precompute frequently used values
     acoshz = math.acosh(z)
@@ -354,16 +356,15 @@ def S1S2(x, z, n, mie_a, mie_b, use_asymptotics):
 
 
 if __name__ == "__main__":
-    x = 10000.
-    z = 2.0
-    n = np.inf
-    lmax = 7500
-    from mie import mie_e_array_PR
-    mie_a, mie_b = mie_e_array_PR(lmax, x)
-    S1, S2 = S1S2(x, z, n, mie_a, mie_b, False)
+    x = 5000
+    z = 32.622776601683796
+    n = 1.1
+    lmax = 10000
+    from mie import mie_e_array
+    mie_a, mie_b = mie_e_array(lmax, x, n)
+    S1, S2 = S1S2(x, z, n, lmax, mie_a, mie_b, False)
     sigma = math.sqrt((1+z)/2)
-    S1a = -0.5*x*(1+((1-2*sigma**2)/(2*sigma**3))/x)
-    S2a = 0.5*x*(1+(-1/(2*sigma**3))/x)
+    S1a, S2a = S1S2_asymptotics(x, z, n)
     print("compare to asymptotics")
     print(S1)
     print(S1a)
@@ -377,3 +378,5 @@ if __name__ == "__main__":
     print("6*width", 6*width)
     #jit()(S1S2).inspect_types()
     """
+    print(zero_frequency(x, n, lmax, "PR"))
+    print(zero_frequency(x, n, lmax, "drude"))

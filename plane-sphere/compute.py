@@ -75,14 +75,14 @@ if args.T == 0.:
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_zero
-        en = energy_zero(args.R, args.L, (args.sphere, args.medium, args.plane), N, M, args.cores, args.X)
+        en = energy_zero(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, args.cores, args.X)
     else:
         print("# integration method: quad")
         print("# epsrel:", args.epsrel)
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_quad
-        en = energy_quad(args.R, args.L, (args.sphere, args.medium, args.plane), N, M, args.cores)
+        en = energy_quad(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, args.cores)
     print("#")
     print("# finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
@@ -98,7 +98,7 @@ else:
     print("#")
     print("# xi, logdet, timing: matrix construction, timing: logdet computation")
     from energy import energy_finite
-    en = energy_finite(args.R, args.L, args.T, (args.sphere, args.medium, args.plane), N, M, mode, args.epsrel, args.cores)
+    en = energy_finite(args.R, args.L, args.T, (args.plane, args.medium, args.sphere), N, M, mode, args.epsrel, args.cores)
     print("#")
     print("# Finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
