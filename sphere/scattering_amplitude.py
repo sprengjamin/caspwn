@@ -155,7 +155,6 @@ def S_back(x, lmax, mie_a, mie_b):
     l = 1
     exp = math.exp(2*chi_back(l+0.5, x))
     S = (l+0.5)*(mie_a[l-1] + mie_b[l-1])*exp
-    
     l += 1
     while(l <= lmax):
         exp = math.exp(2*chi_back(l+0.5, x))
@@ -283,7 +282,7 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
         exp = math.exp(chi(1, x, z, acoshz))
         S1 = (mie_a[0]*pe[0] + mie_b[0]*te[0])*exp
         S2 = (mie_a[0]*te[0] + mie_b[0]*pe[0])*exp
-    
+
         # upwards summation
         l = 2
         i = 1
@@ -311,6 +310,8 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
         exp = math.exp(chi(l_init, x, z, acoshz))
         S1 = (mie_a[l_init-1]*pe[0] + mie_b[l_init-1]*te[0])*exp
         S2 = (mie_a[l_init-1]*te[0] + mie_b[l_init-1]*pe[0])*exp
+        if S1 == 0.:
+            return 0., 0.
 
         # upwards summation
         l = l_init+1
@@ -322,11 +323,10 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
             exp = math.exp(chi(l, x, z, acoshz))
             S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
             S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
-            if S1 > 0.:
-                if S1term/S1 < err:
-                    S1 += S1term
-                    S2 += S2term
-                    break
+            if S1term/S1 < err:
+                S1 += S1term
+                S2 += S2term
+                break
             S1 += S1term
             S2 += S2term
             l += 1

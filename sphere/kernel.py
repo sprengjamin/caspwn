@@ -44,9 +44,7 @@ def phase(rho, r, K, k1, k2, phi):
                        kappa1 + kappa2)
 
 
-@njit(
-    "UniTuple(float64, 4)(float64, float64, float64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])",
-    cache=True)
+@njit("UniTuple(float64, 4)(float64, float64, float64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])", cache=True)
 def kernel_polar(rho, r, sign, K, k1, k2, phi, n, lmax, materialclass, mie_a, mie_b):
     r"""
     Returns the kernel of the reflection operator on a sphere in polar
