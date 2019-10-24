@@ -8,6 +8,7 @@ r""" Casimir energy for the plane-sphere geometry.
 
 """
 import numpy as np
+import concurrent.futures as futures
 import multiprocessing as mp
 from numba import njit
 from sksparse.cholmod import cholesky
@@ -354,49 +355,32 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_
     get_b, mArray_sparse_part
 
     """
-    if type(nproc) != int:
-        raise TypeError("nproc must be an integer!")
+    os.environ["MKL_NUM_THREADS"] = "1" 
 
-    def worker(dindices, oindices, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b, out):
-        out.put(mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, 
-n, lmax, materialclass, mie_a, mie_b))
+    b = 1. # has best convergence rate
+    k = b * pts
+    w = np.sqrt(b * wts * 2 * np.pi / M)
+    
+    ndiv = nproc*4 # factor is arbitrary, but can be chosen optimally
 
-    b = 1 # has best convergence rate
-    k = b*pts
-    w = np.sqrt(b*wts*2*np.pi/M)
-    
-    dindices = np.array_split(np.random.permutation(N), nproc)
-    oindices = np.array_split(np.random.permutation(N*(N-1)//2), nproc)
-   
-    
-    os.environ["OMP_NUM_THREADS"] = "1" 
-    out = mp.Queue()
-    procs = []
-    for i in range(nproc):
-        p = mp.Process(
-                target = worker,
-                args = (dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b,
-out))
-        procs.append(p)
-        p.start()
-    
-    results = np.empty(nproc, dtype=object)
-    for i in range(nproc):
-        results[i] = out.get()
-    
-    for p in procs:
-        p.join()
-    
-    os.environ["OMP_NUM_THREADS"] = str(nproc) 
+    dindices = np.array_split(np.random.permutation(N), ndiv)
+    oindices = np.array_split(np.random.permutation(N * (N - 1) // 2), ndiv)
+
+    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
+        wait_for = [executors.submit(mArray_sparse_part, dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
+                    for i in range(ndiv)]
+        results = [f.result() for f in futures.as_completed(wait_for)]
+
     row = results[0][0]
     col = results[0][1]
     data = results[0][2]
-    for i in range(1, nproc):
-        row = np.hstack((row, results[i][0]))
-        col = np.hstack((col, results[i][1]))
-        data = np.vstack((data, results[i][2]))
-        
+    for i in range(1, ndiv):
+       row = np.hstack((row, results[i][0]))
+       col = np.hstack((col, results[i][1]))
+       data = np.vstack((data, results[i][2]))
+    del os.environ["MKL_NUM_THREADS"]     
     return row, col, data
+
 
 @njit("boolean(float64, float64, float64, float64)", cache=True)
 def isFinite(rho, K, k1, k2):
@@ -667,9 +651,9 @@ def energy_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc):
 if __name__ == "__main__":
     np.random.seed(0)
     R = 50e-6
-    L = 50e-6/100
+    L = 50e-6/300
     T = 300
-    lmax = 1000
+    lmax = int(1*R/L)
     #T = 1.e-03
     rho = R/L
     N = int(10*np.sqrt(rho))
