@@ -49,7 +49,8 @@ NYSTROM_PATH = os.path.expanduser("~/wd/nystrom")
 sys.path.insert(0, os.path.join(NYSTROM_PATH, "sphere-sphere"))
 
 import datetime
-print("# start time:", datetime.datetime.now().replace(microsecond=0))
+starttime = datetime.datetime.now()
+print("# start time:", starttime.replace(microsecond=0))
 import os
 uname = os.uname()
 print("# computed on:", uname.sysname, uname.nodename, uname.release, uname.machine)
@@ -102,7 +103,10 @@ if args.T == 0.:
         from energy import energy_quad
         en = energy_quad(args.R, args.L, (args.sphere, args.medium, args.plane), N, M, args.cores)
     print("#")
-    print("# Finish time:", datetime.datetime.now().replace(microsecond=0))
+    finishtime = datetime.datetime.now()
+    print("# finish time:", finishtime.replace(microsecond=0))
+    totaltime = finishtime-starttime
+    print("# total elapsed time:", totaltime)
     print("#")
     print("# energy [J]")
     print(en)
@@ -118,7 +122,10 @@ else:
     from energy import energy_finite
     en = energy_finite(args.R1, args.R2, args.L, args.T, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, lmax1, lmax2, mode, args.epsrel, args.cores)
     print("#")
-    print("# finish time:", datetime.datetime.now().replace(microsecond=0))
+    finishtime = datetime.datetime.now()
+    print("# finish time:", finishtime.replace(microsecond=0))
+    totaltime = finishtime - starttime
+    print("# total elapsed time:", totaltime)
     print("#")
     print("# energy [J] (n>=0, n>0)")
     print(en[0], en[1])
