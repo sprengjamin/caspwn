@@ -14,6 +14,8 @@ parser.add_argument("--sphere2", help="material of sphere 2", default="PR", type
 parser.add_argument("--etaNin", help="inner radial discretization parameter", default=8.4, type=float, metavar="")
 parser.add_argument("--etaNout", help="out radial discretization parameter", default=5.3, type=float, metavar="")
 parser.add_argument("--etaM", help="angular discretization parameter", default=6.2, type=float, metavar="")
+parser.add_argument("--etalmax1", help="cut-off parameter for l-sum at sphere 1", default=10., type=float, metavar="")
+parser.add_argument("--etalmax2", help="cut-off parameter for l-sum at sphere 2", default=10., type=float, metavar="")
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--psd", help="use Pade-spectrum-decoposition for frequency summation (default for T>0)", action="store_true")#, metavar="")
 group.add_argument("--msd", help="use Matsubara-spectrum-decoposition for frequency summation", action="store_true")#, metavar="")
@@ -77,6 +79,12 @@ print("# Nout:", Nout)
 print("# etaM:", args.etaM)
 M = int(args.etaM*sqrt((args.R1+args.R2)/args.L))
 print("# M:", M)
+print("# etalmax1:", args.etalmax1)
+lmax1 = int(args.etalmax1*args.R1/args.L)
+print("# lmax1:", lmax1)
+print("# etalmax2:", args.etalmax2)
+lmax2 = int(args.etalmax2*args.R2/args.L)
+print("# lmax2:", lmax2)
 
 if args.T == 0.:
     if args.fcqs:
@@ -85,7 +93,7 @@ if args.T == 0.:
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_zero
-        en = energy_zero(args.R1, args.R2, args.L, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, args.X, args.cores)
+        en = energy_zero(args.R1, args.R2, args.L, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, args.X, lmax1, lmax2, args.cores)
     else:
         print("# integration method: quad")
         print("# epsrel:", args.epsrel)
@@ -108,7 +116,7 @@ else:
     print("#")
     print("# xi, logdet, timing: matrix construction, timing: logdet computation")
     from energy import energy_finite
-    en = energy_finite(args.R1, args.R2, args.L, args.T, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, mode, args.epsrel, args.cores)
+    en = energy_finite(args.R1, args.R2, args.L, args.T, (args.sphere1, args.medium, args.sphere2), Nin, Nout, M, lmax1, lmax2, mode, args.epsrel, args.cores)
     print("#")
     print("# finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
