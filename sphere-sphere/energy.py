@@ -3,12 +3,9 @@ r""" Casimir energy for the sphere-sphere geometry.
 """
 import numpy as np
 import time
-
+import mkl
+import concurrent.futures as futures
 from numba import njit
-from numba import float64, int64
-from numba.types import UniTuple
-
-import multiprocessing as mp
 
 from scipy.sparse.linalg import splu
 from scipy.sparse import eye
@@ -21,8 +18,7 @@ from scipy.integrate import quad
 from index import itt, itt_nosquare
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
-from mie import mie_cache
-import scattering_amplitude
+from mie import mie_e_array
 from kernel import kernel_polar as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature
@@ -54,8 +50,8 @@ def logdet_sparse(mat):
     return np.sum(np.log(lu.U.diagonal()))
 
 
-@njit(float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, mie_cache.class_type.instance_type))
-def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
+@njit("float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])", cache=True)
+def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     """
     Returns the a phi sqeuence for the kernel function for each polarization block.
 
@@ -75,8 +71,16 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
         positive, rescaled wave numbers
     w1, w2: float
         positive, quadrature weights corresponding to k1 and k2, respectively.
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -88,7 +92,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     phiarr = np.empty((4, M))
 
     # phi = 0.
-    kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., mie)
+    kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., n, lmax, materialclass, mie_a, mie_b)
     phiarr[0, 0] = w1*w2*kernelTMTM
     phiarr[1, 0] = w1*w2*kernelTETE
     phiarr[2, 0] = w1*w2*kernelTMTE
@@ -96,7 +100,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     
     if M%2==0:
         # phi = np.pi
-        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, mie)
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, n, lmax, materialclass, mie_a, mie_b)
         phiarr[0, M//2] = w1*w2*kernelTMTM
         phiarr[1, M//2] = w1*w2*kernelTETE
         phiarr[2, M//2] = w1*w2*kernelTMTE
@@ -108,7 +112,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
         phi = 2*np.pi*np.arange(M//2+1)/M
     
     for i in range(1, imax+1):
-        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], mie)
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], n, lmax, materialclass, mie_a, mie_b)
         phiarr[0, i] = w1*w2*kernelTMTM
         phiarr[1, i] = w1*w2*kernelTETE
         phiarr[2, i] = w1*w2*kernelTMTE
@@ -120,7 +124,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     return phiarr
 
 
-def m_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
+def m_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     """
     Computes the m_array by means of a FFT of the computed phi_array.
 
@@ -138,8 +142,16 @@ def m_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
         positive, rescaled wave numbers
     w1, w2: float
         positive, quadrature weights corresponding to k1 and k2, respectively.
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -152,12 +164,12 @@ def m_array(rho, r, sign, K, M, k1, k2, w1, w2, mie):
     phi_array
 
     """
-    phiarr = phi_array(rho, r, sign, K, M, k1, k2, w1, w2, mie)
+    phiarr = phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
 
 
-def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie):
+def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, lmax, materialclass, mie_a, mie_b):
     """
     Computes the m-array.
 
@@ -181,8 +193,16 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
         positive, quadrature order of phi-integration
     k, w: np.ndarray
         quadrature points and weights of the k-integration after rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -216,7 +236,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
             col[ind+2] = j+Ncol
             row[ind+3] = i+Nrow
             col[ind+3] = j
-            data[ind:ind+4, :] = m_array(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], mie)
+            data[ind:ind+4, :] = m_array(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], n, lmax, materialclass, mie_a, mie_b)
             ind += 4
             if ind >= len(row):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
@@ -229,7 +249,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, mie):
+def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, n, lmax, materialclass, mie_a, mie_b):
     """
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -251,8 +271,16 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
         positive, quadrature order of phi-integration
     pts, wts: np.ndarray
         quadrature points and weights of the k-integration before rescaling
-    mie: class instance
-        cache for the exponentially scaled mie coefficients
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
 
     Returns
     -------
@@ -268,46 +296,37 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     get_b, mArray_sparse_part
 
     """
-    if type(nproc) != int:
-        raise TypeError("nproc must be an integer!")
-    
-    def worker(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out):
-        out.put(mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie))
+    b = 1.
+    krow = b * pts_row
+    kcol = b * pts_col
+    wrow = np.sqrt(b * wts_row * 2 * np.pi / M)
+    wcol = np.sqrt(b * wts_col * 2 * np.pi / M)
 
-    b = 1. ### for now
-    krow = b*pts_row
-    kcol = b*pts_col
-    wrow = np.sqrt(b*wts_row*2*np.pi/M)
-    wcol = np.sqrt(b*wts_col*2*np.pi/M)
-    
-    indices = np.array_split(np.random.permutation(Nrow*Ncol), nproc)
-    
-    os.environ["OMP_NUM_THREADS"] = "1" 
-    out = mp.Queue()
-    procs = []
-    for i in range(nproc):
-        p = mp.Process(
-                target = worker,
-                args = (indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, mie, out))
-        procs.append(p)
-        p.start()
-    
-    results = np.empty(nproc, dtype=object)
-    for i in range(nproc):
-        results[i] = out.get()
-    
-    for p in procs:
-        p.join()
-    
-    os.environ["OMP_NUM_THREADS"] = str(nproc)
-    
-    row = results[0][0]
-    col = results[0][1]
-    data = results[0][2]
-    for i in range(1, nproc):
-        row = np.hstack((row, results[i][0]))
-        col = np.hstack((col, results[i][1]))
-        data = np.vstack((data, results[i][2]))
+    ndiv = nproc * 8  # factor is arbitrary, but can be chosen optimally
+
+    indices = np.array_split(np.random.permutation(Nrow*Ncol), ndiv)
+
+    mkl.set_num_threads(1)
+    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
+        wait_for = [
+            executors.submit(mArray_sparse_part, indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, lmax, materialclass, mie_a, mie_b)
+            for i in range(ndiv)]
+        results = [f.result() for f in futures.as_completed(wait_for)]
+
+    # gather results into 3 arrays
+    length = 0
+    for i in range(ndiv):
+        length += len(results[i][0])
+    row = np.empty(length)
+    col = np.empty(length)
+    data = np.empty((length, results[0][2].shape[1]))
+    ini = 0
+    for i in range(ndiv):
+        fin = ini + len(results[i][0])
+        row[ini:fin] = results[i][0]
+        col[ini:fin] = results[i][1]
+        data[ini:fin] = results[i][2]
+        ini = fin
     return row, col, data
 
 
@@ -345,7 +364,7 @@ def isFinite(rho, r, K, k1, k2):
         return True
             
 
-def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, nproc): 
+def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, lmax1, lmax2, nproc):
     """
     Computes the sum of the logdets of the m-matrices.
 
@@ -382,6 +401,8 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     n_sphere1 = eval("material."+materials[0]+".n(Kvac/L)")
     n_medium = eval("material."+materials[1]+".n(Kvac/L)")
     n_sphere2 = eval("material."+materials[2]+".n(Kvac/L)")
+    materialclass_sphere1 = eval("material."+materials[0]+".materialclass")
+    materialclass_sphere2 = eval("material." + materials[2] + ".materialclass")
     
     #r1 = 1/(1+rho1/rho2)
     r1 = 0.5
@@ -389,35 +410,33 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     # aspect ratio
     rho1 = R1/L
     
-    # precompute mie coefficients
-    if Kvac == 0.:
-        mie = mie_cache(3, 1., n1, eval("material."+materials[0]+".materialclass"))              # dummy cache
+    # precompute mie coefficients for sphere 1
+    x1 = n_medium * Kvac * rho1
+    if x1 == 0.:
+        mie_a, mie_b = mie_e_array(2, 1., n1)
+    elif x1 > 5e3:
+        mie_a, mie_b = mie_e_array(2, x1, n1)
     else:
-        x1 = n_medium*Kvac*rho1               # size parameter
-        if x1 > 5e3:
-            mie = mie_cache(1, x1, n1, eval("material."+materials[0]+".materialclass"))
-        else:
-            mie = mie_cache(int(20*x1)+1, x1, n1, eval("material."+materials[0]+".materialclass"))    # initial lmax arbitrary
-    
-    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, mie)
-    
+        mie_a, mie_b = mie_e_array(lmax1, x1, n1)
+
+    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, n1, lmax1, materialclass_sphere1, mie_a, mie_b)
+
     #r2 = 1/(1+rho2/rho1)
     r2 = 0.5
     n2 = n_sphere2/n_medium
     # aspect ratio
     rho2 = R2/L
     
-    # precompute mie coefficients
-    if Kvac == 0.:
-        mie = mie_cache(3, 1., n2, eval("material."+materials[2]+".materialclass"))              # dummy cache
+    # precompute mie coefficients for sphere 2
+    x2 = n_medium * Kvac * rho2
+    if x2 == 0.:
+        mie_a, mie_b = mie_e_array(2, 1., n2)
+    elif x2 > 5e3:
+        mie_a, mie_b = mie_e_array(2, x2, n2)
     else:
-        x2 = n_medium*Kvac*rho2                 # size parameter
-        if x2 > 5e3:
-            mie = mie_cache(1, x2, n2, eval("material."+materials[2]+".materialclass"))
-        else:
-            mie = mie_cache(int(20*x2)+1, x2, n2, eval("material."+materials[2]+".materialclass"))    # initial lmax arbitrary
-    
-    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, mie)
+        mie_a, mie_b = mie_e_array(lmax2, x2, n2)
+
+    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, n2, lmax2, materialclass_sphere2, mie_a, mie_b)
     
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
@@ -451,7 +470,7 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     return logdet
 
     
-def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
+def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, lmax1, lmax2, nproc):
     """
     Computes the Casimir energy at zero temperature.
 
@@ -485,12 +504,12 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, nproc):
     
     energy = 0.
     for i in range(X):
-        result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+        result = LogDet(R1, R2, L, materials, K_pts[i], Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
         energy += K_wts[i]*result
     return energy/(2*np.pi)*hbar*c/L
 
 
-def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
+def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, epsrel, nproc):
     """
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -524,7 +543,7 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
     p_out, w_out = quadrature(Nout)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
 
     if mode == "psd":
         energy = 0.
@@ -532,13 +551,13 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, mode, epsrel, nproc):
         order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
         xi, eta = psd(order)
         for n in range(order):
-            term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+            term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
             energy += term
     elif mode == "msd":
         energy = 0.
         n = 1
         while(True):
-            term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, nproc)
+            term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
             energy += 2*term
             if abs(term/energy0) < epsrel:
                 break
@@ -557,7 +576,9 @@ if __name__ == "__main__":
     T = 293.015
     materials = ("fused_silica", "Water", "fused_silica")
     materials = ("PR", "Vacuum", "PR")
-    
+    lmax1 = int(10*R1/L)
+    lmax2 = int(10 * R2 / L)
+
     rho1 = R1/L
     rho2 = R2/L
     rhoeff = rho1*rho2/(rho1+rho2)
@@ -568,7 +589,7 @@ if __name__ == "__main__":
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
     print("psd")
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, "pd", 1.e-08, nproc))
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc))
     print()
     print("msd")
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, "msd", 1.e-08, nproc))
+    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "msd", 1.e-08, nproc))
