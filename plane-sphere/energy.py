@@ -8,8 +8,8 @@ r""" Casimir energy for the plane-sphere geometry.
 
 """
 import numpy as np
+import mkl
 import concurrent.futures as futures
-import multiprocessing as mp
 from numba import njit
 from sksparse.cholmod import cholesky
 from scipy.sparse import coo_matrix
@@ -284,7 +284,6 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, material
     isFinite, compute_mElement_diag, itt, compute_mElement_offdiag
 
     """
-    ###
     # 16 is just arbitrary here
     row = np.empty(16*N)
     col = np.empty(16*N)
@@ -359,17 +358,18 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_
     k = b * pts
     w = np.sqrt(b * wts * 2 * np.pi / M)
     
-    ndiv = nproc*4 # factor is arbitrary, but can be chosen optimally
+    ndiv = nproc*8 # factor is arbitrary, but can be chosen optimally
 
     dindices = np.array_split(np.random.permutation(N), ndiv)
     oindices = np.array_split(np.random.permutation(N * (N - 1) // 2), ndiv)
-    os.environ["MKL_NUM_THREADS"] = "1"
+    
+    mkl.set_num_threads(1)
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
         wait_for = [executors.submit(mArray_sparse_part, dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
                     for i in range(ndiv)]
         results = [f.result() for f in futures.as_completed(wait_for)]
-    del os.environ["MKL_NUM_THREADS"]
-    # get total length of arrays
+    
+    # gather results into 3 arrays
     length = 0
     for i in range(ndiv):
         length += len(results[i][0])
@@ -655,10 +655,10 @@ def energy_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc):
 if __name__ == "__main__":
     np.random.seed(0)
     R = 50e-6
-    L = 50e-6/100
+    L = 50e-6/200
     T = 300
     lmax = int(10*R/L)
-    lmax = 1000
+    lmax = 2000
     #T = 1.e-03
     rho = R/L
     N = int(10*np.sqrt(rho))
