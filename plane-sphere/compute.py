@@ -6,12 +6,13 @@ from math import sqrt
 parser = argparse.ArgumentParser(description="Computation of the Casimir energy in the plane-sphere geometry.")
 parser.add_argument("R", help="radius of the sphere [m]", type=float)
 parser.add_argument("L", help="surface-to-surface distance [m]", type=float)
-parser.add_argument("T", help="temperatue [K]", type=float, metavar="")
+parser.add_argument("T", help="temperatue [K]", type=float)
 parser.add_argument("--sphere", help="material of sphere", default="PR", type=str, metavar="")
 parser.add_argument("--medium", help="material of medium", default="Vacuum", type=str, metavar="")
 parser.add_argument("--plane", help="material of plane", default="PR", type=str, metavar="")
 parser.add_argument("--etaN", help="radial discretization parameter", default=5.6, type=float, metavar="")
 parser.add_argument("--etaM", help="angular discretization parameter", default=5.1, type=float, metavar="")
+parser.add_argument("--etalmax", help="cut-off parameter", default=10., type=float, metavar="")
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--psd", help="use Pade-spectrum-decoposition for frequency summation (default for T>0)", action="store_true")#, metavar="")
 group.add_argument("--msd", help="use Matsubara-spectrum-decoposition for frequency summation", action="store_true")#, metavar="")
@@ -67,6 +68,9 @@ print("# N:", N)
 print("# etaM:", args.etaM)
 M = int(args.etaM*sqrt(args.R/args.L))
 print("# M:", M)
+print("# etalmax:", args.etalmax)
+lmax = int(args.etalmax*args.R/args.L)
+print("# lmax:", lmax)
 
 if args.T == 0.:
     if args.fcqs:
@@ -75,14 +79,14 @@ if args.T == 0.:
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_zero
-        en = energy_zero(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, args.cores, args.X)
+        en = energy_zero(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, lmax, args.cores, args.X)
     else:
         print("# integration method: quad")
         print("# epsrel:", args.epsrel)
         print("#")
         print("# xi, logdet, timing: matrix construction, timing: logdet computation")
         from energy import energy_quad
-        en = energy_quad(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, args.cores)
+        en = energy_quad(args.R, args.L, (args.plane, args.medium, args.sphere), N, M, lmax, args.cores)
     print("#")
     print("# finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
@@ -98,7 +102,7 @@ else:
     print("#")
     print("# xi, logdet, timing: matrix construction, timing: logdet computation")
     from energy import energy_finite
-    en = energy_finite(args.R, args.L, args.T, (args.plane, args.medium, args.sphere), N, M, mode, args.epsrel, args.cores)
+    en = energy_finite(args.R, args.L, args.T, (args.plane, args.medium, args.sphere), N, M, lmax, mode, args.epsrel, args.cores)
     print("#")
     print("# Finish time:", datetime.datetime.now().replace(microsecond=0))
     print("#")
