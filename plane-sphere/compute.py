@@ -12,7 +12,7 @@ parser.add_argument("--medium", help="material of medium", default="Vacuum", typ
 parser.add_argument("--plane", help="material of plane", default="PR", type=str, metavar="")
 parser.add_argument("--etaN", help="radial discretization parameter", default=5.6, type=float, metavar="")
 parser.add_argument("--etaM", help="angular discretization parameter", default=5.1, type=float, metavar="")
-parser.add_argument("--etalmax", help="cut-off parameter", default=10., type=float, metavar="")
+parser.add_argument("--etalmax", help="cut-off parameter", default=12., type=float, metavar="")
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--psd", help="use Pade-spectrum-decomposition for frequency summation (default for T>0)", action="store_true")#, metavar="")
 group.add_argument("--msd", help="use Matsubara-spectrum-decomposition for frequency summation", action="store_true")#, metavar="")
