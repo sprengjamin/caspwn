@@ -271,10 +271,7 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
     
     # estimated l with main contribution to the sum
     l_est = int(math.ceil(x*math.sqrt(math.fabs(z-1)/2)))
-    if l_est > lmax:
-        l_init = lmax
-    else:
-        l_init = l_est
+    l_init = min(lmax, l_est)
     
     if l_init < 1000:
         # only upward summation starting from l=1
