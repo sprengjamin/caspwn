@@ -7,8 +7,11 @@ r""" Casimir energy for the plane-sphere geometry.
     * make dense implementation?
 
 """
-import numpy as np
+
 import mkl
+mkl.domain_set_num_threads(1, "fft")
+import numpy as np
+
 import concurrent.futures as futures
 from numba import njit
 from sksparse.cholmod import cholesky
@@ -362,8 +365,7 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_
 
     dindices = np.array_split(np.random.permutation(N), ndiv)
     oindices = np.array_split(np.random.permutation(N * (N - 1) // 2), ndiv)
-    
-    mkl.set_num_threads(1)
+
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
         wait_for = [executors.submit(mArray_sparse_part, dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
                     for i in range(ndiv)]

@@ -1,9 +1,10 @@
 r""" Casimir energy for the sphere-sphere geometry.
 
 """
+import mkl
+mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 import time
-import mkl
 import concurrent.futures as futures
 from numba import njit
 
@@ -306,7 +307,6 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
 
     indices = np.array_split(np.random.permutation(Nrow*Ncol), ndiv)
 
-    mkl.set_num_threads(1)
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
         wait_for = [
             executors.submit(mArray_sparse_part, indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, lmax, materialclass, mie_a, mie_b)
