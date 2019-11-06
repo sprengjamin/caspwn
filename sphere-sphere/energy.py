@@ -51,8 +51,8 @@ def logdet_sparse(mat):
     return np.sum(np.log(lu.U.diagonal()))
 
 
-@njit("float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])", cache=True)
-def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
+@njit("float64[:,:](float64, float64, float64, float64, int64, float64, float64, float64, float64, float64, string, int64, float64[:], float64[:])", cache=True)
+def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, materialclass, lmax, mie_a, mie_b):
     """
     Returns the a phi sqeuence for the kernel function for each polarization block.
 
@@ -93,7 +93,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a,
     phiarr = np.empty((4, M))
 
     # phi = 0.
-    kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., n, lmax, materialclass, mie_a, mie_b)
+    kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, 0., n, materialclass, lmax, mie_a, mie_b)
     phiarr[0, 0] = w1*w2*kernelTMTM
     phiarr[1, 0] = w1*w2*kernelTETE
     phiarr[2, 0] = w1*w2*kernelTMTE
@@ -101,7 +101,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a,
     
     if M%2==0:
         # phi = np.pi
-        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, n, lmax, materialclass, mie_a, mie_b)
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, np.pi, n, materialclass, lmax, mie_a, mie_b)
         phiarr[0, M//2] = w1*w2*kernelTMTM
         phiarr[1, M//2] = w1*w2*kernelTETE
         phiarr[2, M//2] = w1*w2*kernelTMTE
@@ -113,7 +113,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a,
         phi = 2*np.pi*np.arange(M//2+1)/M
     
     for i in range(1, imax+1):
-        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], n, lmax, materialclass, mie_a, mie_b)
+        kernelTMTM, kernelTETE, kernelTMTE, kernelTETM =  kernel(rho, r, sign, K, k1, k2, phi[i], n, materialclass, lmax, mie_a, mie_b)
         phiarr[0, i] = w1*w2*kernelTMTM
         phiarr[1, i] = w1*w2*kernelTETE
         phiarr[2, i] = w1*w2*kernelTMTE
@@ -125,7 +125,7 @@ def phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a,
     return phiarr
 
 
-def m_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
+def m_array(rho, r, sign, K, M, k1, k2, w1, w2, n, materialclass, lmax, mie_a, mie_b):
     """
     Computes the m_array by means of a FFT of the computed phi_array.
 
@@ -165,12 +165,12 @@ def m_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, m
     phi_array
 
     """
-    phiarr = phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b)
+    phiarr = phi_array(rho, r, sign, K, M, k1, k2, w1, w2, n, materialclass, lmax, mie_a, mie_b)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, -marr[2,:].imag, marr[3,:].imag])
 
 
-def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, lmax, materialclass, mie_a, mie_b):
+def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, materialclass, lmax, mie_a, mie_b):
     """
     Computes the m-array.
 
@@ -237,7 +237,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
             col[ind+2] = j+Ncol
             row[ind+3] = i+Nrow
             col[ind+3] = j
-            data[ind:ind+4, :] = m_array(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], n, lmax, materialclass, mie_a, mie_b)
+            data[ind:ind+4, :] = m_array(rho, r, sign, K, M, krow[i], kcol[j], wrow[i], wcol[j], n, materialclass, lmax, mie_a, mie_b)
             ind += 4
             if ind >= len(row):
                 row = np.hstack((row, np.empty(len(row), dtype=np.int32)))
@@ -250,7 +250,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, n, lmax, materialclass, mie_a, mie_b):
+def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pts_col, wts_col, n, materialclass, lmax, mie_a, mie_b):
     """
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -309,7 +309,7 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
 
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
         wait_for = [
-            executors.submit(mArray_sparse_part, indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, lmax, materialclass, mie_a, mie_b)
+            executors.submit(mArray_sparse_part, indices[i], rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol, wcol, n, materialclass, lmax, mie_a, mie_b)
             for i in range(ndiv)]
         results = [f.result() for f in futures.as_completed(wait_for)]
 
@@ -419,7 +419,7 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     else:
         mie_a, mie_b = mie_e_array(lmax1, x1, n1)
 
-    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, n1, lmax1, materialclass_sphere1, mie_a, mie_b)
+    row1, col1, data1 = mArray_sparse_mp(nproc, rho1, r1, +1., Kvac*n_medium, Nout, Nin, M, pts_out, wts_out, pts_in, wts_in, n1, materialclass_sphere1, lmax1, mie_a, mie_b)
 
     #r2 = 1/(1+rho2/rho1)
     r2 = 0.5
@@ -436,7 +436,7 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     else:
         mie_a, mie_b = mie_e_array(lmax2, x2, n2)
 
-    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, n2, lmax2, materialclass_sphere2, mie_a, mie_b)
+    row2, col2, data2 = mArray_sparse_mp(nproc, rho2, r2, -1., Kvac*n_medium, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, n2, materialclass_sphere2, lmax2, mie_a, mie_b)
     
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix

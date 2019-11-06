@@ -37,4 +37,10 @@ python ../sphere-sphere/compute.py 12.5e-06 2.5e-06 1e-07 293 --sphere1 Silica1 
 python ../sphere-sphere/compute.py 40.e-06 20.e-06 1e-06 300 --sphere1 Gold --sphere2 PS1 --medium Vacuum >> test_data/data19.out
 python ../sphere-sphere/compute.py 40.e-06 50.e-06 1e-06 300 --sphere1 Gold --sphere2 Silica1 --medium Water >> test_data/data20.out
 
+# compare to caps
+# plane-sphere (gold-gold), T=300 in vacuum
+python ../plane-sphere/compute.py 50.e-06 5.e-06 300 --sphere Gold --plane Gold >> test_data/data21.out
+python ../plane-sphere/compute.py 100.e-06 2.e-06 300 --sphere Gold --plane Gold >> test_data/data22.out
+python ../plane-sphere/compute.py 150.e-06 6.e-06 300 --sphere Gold --plane Gold >> test_data/data23.out
+python ../plane-sphere/compute.py 100.e-06 1.e-06 300 --sphere Gold --plane Gold >> test_data/data24.out
 

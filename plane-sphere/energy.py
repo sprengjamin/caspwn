@@ -12,6 +12,7 @@ import mkl
 mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 
+from math import sqrt
 import concurrent.futures as futures
 from numba import njit
 from sksparse.cholmod import cholesky
@@ -34,8 +35,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
 
-@njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, int64, string, float64[:], float64[:])", cache=True)
-def phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
+@njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, string, float64, string, int64, float64[:], float64[:])", cache=True)
+def phi_array(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Returns the phi array for the kernel function for each polarization block.
 
@@ -72,11 +73,11 @@ def phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     phiarr = np.empty((4, M))
 
     # phi = 0.
-    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] = kernel(rho, 1., 1., K, k1, k2, 0., n, lmax, materialclass, mie_a, mie_b)
+    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] = kernel(rho, 1., 1., K, k1, k2, 0., n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
     
     if M%2==0:
         # phi = np.pi is assumed
-        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n, lmax, materialclass, mie_a, mie_b)
+        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
         imax = M//2-1
         phi = 2*np.pi*np.arange(M//2)/M
     else:
@@ -86,26 +87,25 @@ def phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
    
     # 0 < phi < np.pi
     for i in range(1, imax+1):
-        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n, lmax, materialclass, mie_a, mie_b)
+        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
         phiarr[0, M-i] = phiarr[0, i]
         phiarr[1, M-i] = phiarr[1, i]
         phiarr[2, M-i] = -phiarr[2, i]
         phiarr[3, M-i] = -phiarr[3, i]
 
-    # for now support only perfect reflectors
-    rTE1 = -1.#rTE(K, k1, np.inf)
-    rTM1 = +1.#rTM(K, k1, np.inf)
-    rTE2 = -1.#rTE(K, k2, np.inf)
-    rTM2 = +1.#rTM(K, k2, np.inf)
+    rTE1 = rTE(K, k1, n_plane**2, materialclass_plane)
+    rTM1 = rTM(K, k1, n_plane**2, materialclass_plane)
+    rTE2 = rTE(K, k2, n_plane**2, materialclass_plane)
+    rTM2 = rTM(K, k2, n_plane**2, materialclass_plane)
 
-    phiarr[0, :] = w1*w2*np.sqrt(rTM1*rTM2)*phiarr[0, :]
-    phiarr[1, :] = -w1*w2*np.sqrt(rTE1*rTE2)*phiarr[1, :]
-    phiarr[2, :] = w1*w2*np.sqrt(-rTM1*rTE2)*phiarr[2, :]
-    phiarr[3, :] = w1*w2*np.sqrt(-rTE1*rTM2)*phiarr[3, :]
+    phiarr[0, :] = w1*w2*sqrt(rTM1*rTM2)*phiarr[0, :]
+    phiarr[1, :] = -w1*w2*sqrt(rTE1*rTE2)*phiarr[1, :]
+    phiarr[2, :] = w1*w2*sqrt(-rTM1*rTE2)*phiarr[2, :]
+    phiarr[3, :] = w1*w2*sqrt(-rTE1*rTM2)*phiarr[3, :]
     return phiarr
         
 
-def m_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
+def m_array(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere,  materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the m array by means of a FFT of the computed phi array.
 
@@ -137,12 +137,12 @@ def m_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b):
     phi_array
 
     """
-    phiarr = phi_array(rho, K, M, k1, k2, w1, w2, n, lmax, materialclass, mie_a, mie_b)
+    phiarr = phi_array(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
     marr = np.fft.rfft(phiarr)
     return np.array([marr[0,:].real, marr[1,:].real, marr[2,:].imag, marr[3,:].imag])
 
 
-def compute_mElement_diag(i, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
+def compute_mElement_diag(i, rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the m-sequence of diagonal elements.
 
@@ -187,11 +187,11 @@ def compute_mElement_diag(i, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, 
     """
     row = [i, N+i, N+i]
     col = [i, N+i, i]
-    data = (m_array(rho, K, M, k[i], k[i], w[i], w[i], n, lmax, materialclass, mie_a, mie_b))[:-1,:]
+    data = (m_array(rho, K, M, k[i], k[i], w[i], w[i], n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b))[:-1,:]
     return row, col, data
-   
-    
-def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
+
+
+def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the m-sequence of off-diagonal elements.
 
@@ -238,11 +238,11 @@ def compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n, lmax, materialclass, m
     """
     row = [i, N+i, N+j, N+i] 
     col = [j, N+j, i, j] 
-    data = m_array(rho, K, M, k[i], k[j], w[i], w[j], n, lmax, materialclass, mie_a, mie_b)
+    data = m_array(rho, K, M, k[i], k[j], w[i], w[j], n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
     return row, col, data
 
 
-def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b):
+def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the m-array.
 
@@ -295,7 +295,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, material
     ind = 0
     for i in dindices:
         if isFinite(rho, K, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
+            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = compute_mElement_diag(i, rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
             ind += 3
 
     for oindex in oindices:
@@ -305,7 +305,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, material
                 row = np.hstack((row, np.empty(len(row))))
                 col = np.hstack((col, np.empty(len(row))))
                 data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
+            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = compute_mElement_offdiag(i, j, rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
             ind += 4
                 
     row = row[:ind] 
@@ -314,7 +314,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n, lmax, material
     return row, col, data
 
 
-def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_a, mie_b):
+def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the m-array in parallel using the multiprocessing module.
 
@@ -367,7 +367,7 @@ def mArray_sparse_mp(nproc, rho, K, N, M, pts, wts, n, lmax, materialclass, mie_
     oindices = np.array_split(np.random.permutation(N * (N - 1) // 2), ndiv)
 
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
-        wait_for = [executors.submit(mArray_sparse_part, dindices[i], oindices[i], rho, K, N, M, k, w, n, lmax, materialclass, mie_a, mie_b)
+        wait_for = [executors.submit(mArray_sparse_part, dindices[i], oindices[i], rho, K, N, M, k, w, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
                     for i in range(ndiv)]
         results = [f.result() for f in futures.as_completed(wait_for)]
     
@@ -420,7 +420,7 @@ def isFinite(rho, K, k1, k2):
         return False
     else:
         return True
-            
+
 
 def LogDet(R, L, materials, Kvac, N, M, pts, wts, lmax, nproc):
     r"""
@@ -459,24 +459,27 @@ def LogDet(R, L, materials, Kvac, N, M, pts, wts, lmax, nproc):
     """
     start_matrix = time.time()
     n_plane = eval("material."+materials[0]+".n(Kvac/L)")
+    materialclass_plane = eval("material." + materials[0] + ".materialclass")
     n_medium = eval("material."+materials[1]+".n(Kvac/L)")
     n_sphere = eval("material."+materials[2]+".n(Kvac/L)")
     materialclass_sphere = eval("material." + materials[2] + ".materialclass")
-    
-    n = n_sphere/n_medium
+
+    nr_plane = n_plane / n_medium
+    nr_sphere = n_sphere / n_medium
     # aspect ratio
     rho = R/L
     # size parameter
     x = n_medium*Kvac*rho
     # precompute mie coefficients
     if x == 0.:
-        mie_a, mie_b = mie_e_array(2, 1., n)
+        mie_a, mie_b = mie_e_array(2, 1., nr_sphere)
     elif x > 5e3:
-        mie_a, mie_b = mie_e_array(2, x, n)
+        mie_a, mie_b = mie_e_array(2, x, nr_sphere)
     else:
-        mie_a, mie_b = mie_e_array(lmax, x, n)    # initial lmax arbitrary
+        mie_a, mie_b = mie_e_array(lmax, x, nr_sphere)    # initial lmax arbitrary
 
-    row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, n, lmax, materialclass_sphere, mie_a, mie_b)
+    row, col, data = mArray_sparse_mp(nproc, rho, Kvac*n_medium, N, M, pts, wts, nr_plane, materialclass_plane, nr_sphere, materialclass_sphere, lmax, mie_a, mie_b)
+
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
     start_logdet = end_matrix
@@ -657,7 +660,7 @@ def energy_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc):
 if __name__ == "__main__":
     np.random.seed(0)
     R = 50e-6
-    L = 50e-6/200
+    L = 50e-6/100
     T = 300
     lmax = int(10*R/L)
     lmax = 2000
@@ -670,7 +673,7 @@ if __name__ == "__main__":
     
     #mie = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., mie))
-    mat = ("PR", "Vacuum", "PR")
+    mat = ("Gold", "Water", "Gold")
     start = time.time()
     #en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
     #print("msd", en)
