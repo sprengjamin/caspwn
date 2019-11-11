@@ -2,7 +2,7 @@ r""" Casimir energy for the sphere-sphere geometry.
 
 """
 import mkl
-mkl.domain_set_num_threads(1, "fft")
+#mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 import time
 import concurrent.futures as futures
@@ -221,6 +221,7 @@ def mArray_sparse_part(indices, rho, r, sign, K, Nrow, Ncol, M, krow, wrow, kcol
 
     """
     # 16 is just arbitrary here
+    mkl.set_num_threads(1)
     N = max(Nrow, Ncol)
     row = np.empty(16*N, dtype=np.int32)
     col = np.empty(16*N, dtype=np.int32)

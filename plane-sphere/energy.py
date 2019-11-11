@@ -9,7 +9,7 @@ r""" Casimir energy for the plane-sphere geometry.
 """
 
 import mkl
-mkl.domain_set_num_threads(1, "fft")
+#mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 
 from math import sqrt
@@ -287,6 +287,7 @@ def mArray_sparse_part(dindices, oindices, rho, K, N, M, k, w, n_plane, material
 
     """
     # 16 is just arbitrary here
+    mkl.set_num_threads(1)
     row = np.empty(16*N)
     col = np.empty(16*N)
     data = np.empty((16*N, M//2+1))
