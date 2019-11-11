@@ -14,6 +14,7 @@ from scipy.sparse import coo_matrix
 
 from scipy.constants import Boltzmann, hbar, c
 
+from scipy.linalg import lu_factor, lu_solve
 from scipy.integrate import quad
 
 from index import itt, itt_nosquare
@@ -317,8 +318,8 @@ def mArray_sparse_mp(nproc, rho, r, sign, K, Nrow, Ncol, M, pts_row, wts_row, pt
     length = 0
     for i in range(ndiv):
         length += len(results[i][0])
-    row = np.empty(length)
-    col = np.empty(length)
+    row = np.empty(length, dtype=np.int)
+    col = np.empty(length, dtype=np.int)
     data = np.empty((length, results[0][2].shape[1]))
     ini = 0
     for i in range(ndiv):
@@ -362,9 +363,99 @@ def isFinite(rho, r, K, k1, k2):
         return False
     else:
         return True
-            
 
-def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, lmax1, lmax2, nproc):
+@njit("UniTuple(float64[:,:,:], 3)(int64[:], int64[:], float64[:,:], int64, int64, float64[:], float64[:])", cache=True)
+def construct_matrices(row, col, data, Nrow, Ncol, kappa_row, kappa_col):
+    r"""Construct round-trip matrices and its first two derivatives for each m.
+
+        Parameters
+        ----------
+        row, col : ndarray
+            1D arrays of ints, row and column index of the matrix elements, respectively.
+        data : ndarray
+            2D arrays of floats, matrix elements for each :math:`m`
+        Nrow, Ncol : int
+            row and column dimension of each polarization block
+        kappa_row, kappa_col : ndarray
+            1D arrays of floats, imaginary z-component of the wave vectors corresponding to row and column discretization
+
+        Returns
+        -------
+        (ndarray, ndarray, ndarray)
+
+        """
+    data_len, m_len = data.shape
+    M = np.zeros((2*Nrow, 2*Ncol, m_len))
+    dL_M = np.zeros((2*Nrow, 2*Ncol, m_len))
+    d2L_M = np.zeros((2 * Nrow, 2 * Ncol, m_len))
+    for i in range(data_len):
+        M[row[i], col[i],:] = data[i,:]
+        dL_M[row[i], col[i],:] = -0.5 * (kappa_row[row[i] % Nrow] + kappa_col[col[i] % Ncol]) * data[i,:]
+        d2L_M[row[i], col[i],:] = 0.25 * (kappa_row[row[i] % Nrow] + kappa_col[col[i] % Ncol]) ** 2 * data[i,:]
+    return M, dL_M, d2L_M
+
+def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable):
+    r"""Computes a 3-tuple containing the quantities
+
+        .. math::
+            \begin{aligned}
+            \log\det(1-\mathcal{M})\,,\\
+            \mathrm{tr}\left[\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right]\,,\\
+            \mathrm{tr}\left[\frac{\partial_L^2\mathcal{M}}{1-\mathcal{M}} + \left(\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right)^2\right]\,.
+            \end{aligned}
+
+        where
+        .. math::
+            \begin{aligned}
+            \mathcal{M}&=\mathcal{M}_1\mathcal{M}_2\,,\\
+            \partial_L\mathcal{M}&= (\partial_L\mathcal{M}_1)\mathcal{M}_2 + \mathcal{M}_1(\partial_L\mathcal{M}_2)\,,\\
+            \partial^2_L\mathcal{M}&= (\partial^2_L\mathcal{M}_1)\mathcal{M}_2 + 2(\partial_L\mathcal{M}_1)(\partial_L\mathcal{M}_2) + \mathcal{M}_1(\partial^2_L\mathcal{M}_2)\,.
+            \end{aligned}
+
+        with :math:`\mathtt{mat1}=\mathcal{M}_2`, :math:`\mathtt{dL_mat1}=\partial_L\mathcal{M}_1` and :math:`\mathtt{d2L_mat1}=\partial^2_L\mathcal{M}_1` and the same for the index 2.
+
+        When observable="energy" only the first quantity is computed and the other two returned as zero.
+        For observable="force" only the first two quantities are computed and the last one returned as zero.
+        When observable="pressure" all quantities are computed.
+
+        Parameters
+        ----------
+        mat : ndarray
+            2D array, round-trip matrix
+        dL_mat : ndarray
+            2D array, first derivative of round-trip matrix
+        d2L_mat : ndarray
+            2D array, second derivative of round-trip matrix
+        observable : string
+            specification of which observables are to be computed, allowed values are "energy", "force", "pressure"
+
+        Returns
+        -------
+        (float, float, float)
+
+
+        """
+    mat = mat1.dot(mat2)
+    lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
+    logdet = np.sum(np.log(np.diag(lu)))
+    if observable == "energy":
+        return logdet, 0., 0.
+
+    dL_mat = dL_mat1.dot(mat2) + mat1.dot(dL_mat2)
+    matA = lu_solve((lu, piv), dL_mat)
+    dL_logdet = np.trace(matA)
+    if observable == "force":
+        return logdet, dL_logdet, 0.
+    d2L_mat = d2L_mat1.dot(mat2) + 2 * dL_mat1.dot(dL_mat2) + mat1.dot(d2L_mat2)
+    matB = lu_solve((lu, piv), d2L_mat)
+    d2L_logdet = np.trace(matB) + np.sum(matA**2)
+    if observable == "pressure":
+        return logdet, dL_logdet, d2L_logdet
+    else:
+        raise ValueError
+
+
+def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wts_out, lmax1, lmax2, nproc, observable):
     """
     Computes the sum of the logdets of the m-matrices.
 
@@ -441,36 +532,43 @@ def LogDet(R1, R2, L, materials, Kvac, Nin, Nout, M, pts_in, wts_in, pts_out, wt
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
     start_logdet = end_matrix
-    
+
+    kappa_in = np.sqrt((n_medium*Kvac)**2 + pts_in**2)
+    kappa_out = np.sqrt((n_medium*Kvac)**2 + pts_out**2)
+    M1, dL_M1, d2L_M1 = construct_matrices(row1, col1, data1, Nout, Nin, kappa_out, kappa_in)
+    M2, dL_M2, d2L_M2 = construct_matrices(row2, col2, data2, Nin, Nout, kappa_in, kappa_out)
+
     # m=0
-    sprsmat1 = coo_matrix((data1[:, 0], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, 0], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-    mat = sprsmat1.dot(sprsmat2)
-    logdet = logdet_sparse(mat) 
+    logdet, dL_logdet, d2L_logdet = compute_matrix_operations(M1[:,:,0], dL_M1[:,:,0], d2L_M1[:,:,0],
+                                                              M2[:,:,0], dL_M2[:,:,0], d2L_M2[:,:,0], observable)
     
     # m>0    
     for m in range(1, M//2):
-        sprsmat1 = coo_matrix((data1[:, m], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-        sprsmat2 = coo_matrix((data2[:, m], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-        mat = sprsmat1.dot(sprsmat2)
-        logdet += 2*logdet_sparse(mat) 
+        term1, term2, term3 = compute_matrix_operations(M1[:, :, m], dL_M1[:, :, m], d2L_M1[:, :, m],
+                                                        M2[:, :, m], dL_M2[:, :, m], d2L_M2[:, :, m], observable)
+        logdet += 2 * term1
+        dL_logdet += 2 * term2
+        d2L_logdet += 2 * term3
     
     # last m
-    sprsmat1 = coo_matrix((data1[:, M//2], (row1, col1)), shape=(2*Nout,2*Nin)).tocsc()
-    sprsmat2 = coo_matrix((data2[:, M//2], (row2, col2)), shape=(2*Nin,2*Nout)).tocsc()
-    mat = (sprsmat1).dot(sprsmat2)
+    term1, term2, term3 = compute_matrix_operations(M1[:, :, M//2], dL_M1[:, :, M//2], d2L_M1[:, :, M//2],
+                                                    M2[:, :, M//2], dL_M2[:, :, M//2], d2L_M2[:, :, M//2], observable)
     if M%2==0:
-        logdet += logdet_sparse(mat)
+        logdet += term1
+        dL_logdet += term2
+        d2L_logdet += term3
     else:
-        logdet += 2*logdet_sparse(mat)
+        logdet += 2 * term1
+        dL_logdet += 2 * term2
+        d2L_logdet += 2 * term3
     end_logdet = time.time()
     timing_logdet = end_logdet-start_logdet
     print("# ", end="")
     print(Kvac, logdet, timing_matrix, timing_logdet, sep=", ")
-    return logdet
+    return np.array([logdet, dL_logdet/L, d2L_logdet/L**2])
 
     
-def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, lmax1, lmax2, nproc):
+def casimir_zero(R1, R2, L, materials, Nin, Nout, M, X, lmax1, lmax2, nproc, observable):
     """
     Computes the Casimir energy at zero temperature.
 
@@ -509,7 +607,7 @@ def energy_zero(R1, R2, L, materials, Nin, Nout, M, X, lmax1, lmax2, nproc):
     return energy/(2*np.pi)*hbar*c/L
 
 
-def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, epsrel, nproc):
+def casimir_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, epsrel, nproc, observable):
     """
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -543,7 +641,7 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, eps
     p_out, w_out = quadrature(Nout)
     
     K_matsubara = Boltzmann*T*L/(hbar*c)
-    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
+    energy0 = LogDet(R1, R2, L, materials, 0., Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc, observable)
 
     if mode == "psd":
         energy = 0.
@@ -551,15 +649,15 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, eps
         order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
         xi, eta = psd(order)
         for n in range(order):
-            term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
+            term = 2*eta[n]*LogDet(R1, R2, L, materials, K_matsubara*xi[n], Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc, observable)
             energy += term
     elif mode == "msd":
-        energy = 0.
+        energy = np.zeros(3)
         n = 1
         while(True):
-            term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc)
+            term = LogDet(R1, R2, L, materials, 2*np.pi*K_matsubara*n, Nin, Nout, M, p_in, w_in, p_out, w_out, lmax1, lmax2, nproc, observable)
             energy += 2*term
-            if abs(term/energy0) < epsrel:
+            if abs(term[0]/energy0[0]) < epsrel:
                 break
             n += 1
     else:
@@ -571,11 +669,18 @@ def energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, eps
 if __name__ == "__main__":
     np.random.seed(0)
     R1 = 2.5e-06
+    R1 = 50e-06
     R2 = 12.7e-06
+    R2 = 50e-06
     L = 0.5e-06
+    L = 5.e-06
     T = 293.015
+    T = 300.
     materials = ("fused_silica", "Water", "fused_silica")
-    materials = ("PR", "Vacuum", "PR")
+    materials = ("PS1", "Water", "fused_silica")
+    materials = ("PS1", "Water", "PS1")
+    observable = "pressure"
+    #materials = ("PR", "Vacuum", "PR")
     lmax1 = int(10*R1/L)
     lmax2 = int(10 * R2 / L)
 
@@ -584,12 +689,33 @@ if __name__ == "__main__":
     rhoeff = rho1*rho2/(rho1+rho2)
     eta = 10
 
-    nproc = 4
+    nproc = 1
     Nin = int(eta*np.sqrt(rho1+rho2))
     Nout = int(eta*np.sqrt(rhoeff))
     M = Nin
-    print("psd")
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc))
+
+    n0, n1 = casimir_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
+    h = 0.001*L
+    lower0, lower1 = casimir_finite(R1, R2, L - h, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
+    higher0, higher1 = casimir_finite(R1, R2, L + h, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
+    print("energy")
+    print(n0)
+    print("force")
+    r = n0[1]
+    r1 = n1[1]
+    print("r", r, r1)
+    d = -(higher0[0]-lower0[0])/2/h
+    d1 = -(higher1[0]-lower1[0])/2/h
+    print("d", d, d1)
+    print("relerr", abs(d/r-1), abs(d1/r1-1))
     print()
-    print("msd")
-    print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "msd", 1.e-08, nproc))
+    print("pressure")
+    r = n0[2]
+    r1 = n1[2]
+    print("r", r, r1)
+    d = (higher0[1]-lower0[1])/2/h
+    d1 = (higher1[1]-lower1[1])/2/h
+    print("d", d, d1)
+    print("relerr", abs(d / r - 1), abs(d1 / r1 - 1))
+    #print("msd")
+    #print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "msd", 1.e-08, nproc))
