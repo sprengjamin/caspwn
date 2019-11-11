@@ -187,6 +187,75 @@ class drude(material):
         else:
             return np.sqrt(self.epsilon(K))
         
+class drude_smith(material):
+    def __init__(self, name, omega_p, gamma, c1):
+        r"""Drude-Smith model.
+        
+        .. math::
+            \epsilon(i\xi) = 1 + \frac{\omega_\mathrm{P}^2}{+ \xi^2 + \gamma\xi}\left(1+\frac{\gamma c_1}{\xi + \gamma}\right)
+
+        In the zero-frequency limit the behavior corresponds to a Drude metal.
+        
+        Parameters
+        ----------
+        name : string
+            name of material
+        omega_p : float
+            plasma frequency in rad/s
+        gamma : float
+            dissipation frequency in rad/s
+        c1 : float
+            Drude-Smith coefficient
+
+        Returns
+        -------
+        instance of drude_smith class
+
+        """
+        self.name = name
+        self.K_p = omega_p/c
+        self.gamma = gamma/c
+        self.c1 = c1
+        self.materialclass = "drude"
+
+    def epsilon(self, K):
+        r"""Dielectric function.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber rad/m
+
+        Returns
+        -------
+        eps : flaot
+            permittivity, dimensionless number
+
+        """
+        if K == 0.:
+            # dummy number to avoid crash
+            return 1.
+        else:
+            return 1 + self.K_p**2/(K**2 + K*self.gamma)*(1 + self.gamma*self.c1/(K + self.gamma))
+    
+    def n(self, K):
+        r"""Refractive index.
+
+        Note that the implementation assumes non-magnetic materials.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber in rad/m
+
+        Returns
+        -------
+        n : flaot
+            refractive index, dimensionless number
+
+        """
+        return np.sqrt(self.epsilon(K))
+    
 
 
 class perfect_reflector(material):
@@ -219,6 +288,8 @@ def convert_zwol_to_lorentz(data):
     return np.vstack((xiP, xiR, gamma)).T/c
 
 Gold = drude("Gold", 9., 0.035)
+
+Mercury = drude_smith("Mercury", 1.975e16, 1.647e15, -0.49)
 
 Electrolyte = lorentz_oscillator("Electrolyte", [[],[]], static_value = 0)
 
@@ -258,10 +329,15 @@ Vacuum = vacuum()
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    X = np.logspace(2,10,100)
-    n = [Silica1.n(x) for x in X]
+    X = np.logspace(10,19,100)/c
     eps = [Silica1.epsilon(x) for x in X]
-    eps2 = [fused_silica.epsilon(x) for x in X]
-    plt.semilogx(X, eps)
-    plt.semilogx(X, eps2)
+    eps2 = [PS1.epsilon(x) for x in X]
+    eps3 = [Mercury.epsilon(x) for x in X]
+    eps4 = [Gold.epsilon(x) for x in X]
+
+    plt.loglog(X*c, eps)
+    plt.loglog(X*c, eps2)
+    plt.loglog(X*c, eps3)
+    plt.loglog(X*c, eps4)
+    plt.ylim(1,500)
     plt.show()
