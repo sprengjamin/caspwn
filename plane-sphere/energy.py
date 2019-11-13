@@ -97,8 +97,8 @@ def phi_array(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere,
     rTE2 = rTE(K, k2, n_plane**2, materialclass_plane)
     rTM2 = rTM(K, k2, n_plane**2, materialclass_plane)
 
-    phiarr[0, :] = w1*w2*sqrt(rTM1*rTM2)*phiarr[0, :]
-    phiarr[1, :] = -w1*w2*sqrt(rTE1*rTE2)*phiarr[1, :]
+    phiarr[0, :] = np.sign(rTM1)*w1*w2*sqrt(rTM1*rTM2)*phiarr[0, :]
+    phiarr[1, :] = np.sign(rTE1)*w1*w2*sqrt(rTE1*rTE2)*phiarr[1, :]
     phiarr[2, :] = w1*w2*sqrt(-rTM1*rTE2)*phiarr[2, :]
     phiarr[3, :] = w1*w2*sqrt(-rTE1*rTM2)*phiarr[3, :]
     return phiarr
