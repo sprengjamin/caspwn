@@ -1,4 +1,7 @@
 """Materials
+
+.. todo::
+    * explain lorentz_oscillator data format
 """
 import numpy as np
 from scipy.constants import c, e, hbar
@@ -286,6 +289,9 @@ def convert_zwol_to_lorentz(data):
     xiP = np.sqrt(np.array(data[0]))*xiR
     gamma = np.zeros(len(data[0]))
     return np.vstack((xiP, xiR, gamma)).T/c
+
+glass_data = [[np.sqrt(1.282)*1.911*1.e16/c, 1.911*1.e16/c, 0.]] 
+Glass =  material.lorentz_oscillator("Glass", glass_data, dformat="lorentz")
 
 Gold = drude("Gold", 9., 0.035)
 
