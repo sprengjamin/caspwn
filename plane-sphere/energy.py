@@ -685,7 +685,7 @@ def casimir_quad(R, L, materials, N, M, lmax, nproc, observable):
     return out[0]/(2*np.pi)*hbar*c/L
 
 
-def casimir_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc, observable):
+def casimir_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc, observable, X=None):
     r"""
     Computes the Casimir free energy at equilibrium temperature :math:`T`.
 
@@ -732,7 +732,10 @@ def casimir_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc, observab
     if mode == "psd":
         energy = np.zeros(3)
         Teff = 4*np.pi*Boltzmann/hbar/c*T*L
-        order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
+        if X == None:
+            order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
+        else:
+            order = X
         xi, eta = psd(order)
         for n in range(order):
             term = 2*eta[n]*LogDet(R, L, materials, K_matsubara*xi[n], N, M, pts, wts, lmax, nproc, observable)
@@ -740,7 +743,12 @@ def casimir_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc, observab
     elif mode == "msd":
         energy = np.zeros(3)
         n = 1
-        while(True):
+        if X == None:
+            nmax = np.inf
+        else:
+            nmax = X
+
+        while(n <= nmax):
             term = LogDet(R, L, materials, 2*np.pi*K_matsubara*n, N, M, pts, wts, lmax, nproc, observable)
             energy += 2*term
             if abs(term[0]/energy0[0]) < epsrel:
@@ -753,31 +761,55 @@ def casimir_finite(R, L, T, materials, N, M, lmax, mode, epsrel, nproc, observab
 
 
 if __name__ == "__main__":
+    # import program and disable asymptotics of S1S2
+    """
+    #sys.path.append(NYSTROM_PATH+"/sphere")
+    from scattering_amplitude import S1S2
+    import kernel as ker
+
+    @njit
+    def S1S2_no_asymptotics(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
+        return S1S2(x, z, n, lmax, mie_a, mie_b, False)
+
+    ker.S1S2 = S1S2_no_asymptotics
+    kernel.recompile()
+    phi_array.recompile()
+    """
     np.random.seed(0)
-    R = 150e-6
-    L = 150e-6/50
-    T = 300
-    lmax = int(12*R/L)
+    R = 1.e-6
+    L = 1.e-6/1000
+    T = 293
+    mat = ("PR", "Vacuum", "PR")
+    lmax = int(14.*R/L)
     #T = 1.e-03
     rho = R/L
-    N = int(8*np.sqrt(rho))
+    N = int(14*np.sqrt(rho))
     print("N", N)
     M = N
     nproc = 4
     
+    K_matsubara = Boltzmann*T*L/(hbar*c)
+    Teff = 4*np.pi*Boltzmann/hbar/c*T*L
+    epsrel = 1.e-10
+    order = int(max(np.ceil((1-1.5*np.log10(np.abs(epsrel)))/np.sqrt(Teff)), 5))
+    xi, eta = psd(order)
+    Kvac = (xi*K_matsubara)[-5]
+    
+    pts, wts = quadrature(N)
+    start = time.time()
+    term = 2*eta[-5]*LogDet(R, L, mat, Kvac, N, M, pts, wts, lmax, nproc, "energy")
+    end = time.time()
+    
     #mie = mie_e_array(1e4, 1.*rho)
     #print(phiSequence(rho, 1., M, 2.3, 2.3, 1., 1., mie))
-    mat = ("Gold", "Water", "Gold")
-    mat = ("PR", "Vacuum", "PR")
-    start = time.time()
+    #mat = ("Gold", "Water", "Gold")
     #en = energy_finite(R, L, T, mat, N, M, "msd", 1e-8, nproc) 
     #print("msd", en)
-    en = casimir_finite(R, L, T, mat, N, M, lmax, "psd", 1e-8, nproc, "pressure")
+    #en = casimir_finite(R, L, T, mat, N, M, lmax, "psd", 1e-8, nproc, "energy")
     #en = energy_quad(R, L, mat, N, M, nproc) 
-    end = time.time()
     print("time")
     print(end-start)
     print("energy")
-    print(en)
+    #print(en)
     print("PFA")
     print(-np.pi**3*rho/720)
