@@ -1,10 +1,7 @@
 r""" Casimir energy for the plane-sphere geometry.
 
 .. todo::
-    * implementation of force and pressure
-    * add support for different material on plane (add n_plane, matclass_plane as arguments)
     * replace marray by just fft at the appropriate place
-    * make dense implementation?
 
 """
 
