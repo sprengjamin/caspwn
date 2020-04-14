@@ -44,8 +44,8 @@ def phase(rho, r, K, k1, k2, phi):
                        kappa1 + kappa2)
 
 
-@njit("UniTuple(float64, 4)(float64, float64, float64, float64, float64, float64, float64, float64, string, int64, float64[:], float64[:])", cache=True)
-def kernel_polar(rho, r, sign, K, k1, k2, phi, n, materialclass, lmax, mie_a, mie_b):
+@njit("UniTuple(float64, 4)(float64, float64, float64, float64, float64, float64, float64, float64, int64, float64[:], float64[:])", cache=True)
+def kernel_polar_Kfinite(rho, r, sign, K, k1, k2, phi, n, lmax, mie_a, mie_b):
     r"""
     Returns the kernel of the reflection operator on a sphere in polar
     coordinates in symmetrized from.
@@ -82,32 +82,58 @@ def kernel_polar(rho, r, sign, K, k1, k2, phi, n, materialclass, lmax, mie_a, mi
         TMTM, TETE, TMTE, TETM
 
     """
-    if K == 0:
-        if phi == np.pi:
-            return 0., 0., 0., 0.
-        x = 2 * rho * math.sqrt(k1 * k2) * math.cos(phi / 2)
-        e = math.exp(x - (k1 + k2) * (rho + r))
-        norm = rho / (2 * math.pi)
-        S1, S2 = zero_frequency(x, n, lmax, materialclass)
-        TMTM = norm * S2 * e
-        TETE = norm * S1 * e
-        TMTE = 0.
-        TETM = 0.
-        return TMTM, TETE, TMTE, TETM
-    else:
-        kappa1 = math.sqrt(k1 * k1 + K * K)
-        kappa2 = math.sqrt(k2 * k2 + K * K)
-        z = (kappa1 * kappa2 + k1 * k2 * math.cos(phi)) / K ** 2
-        e = math.exp(phase(rho, r, K, k1, k2, phi))
-        A, B, C, D = ABCD(K, k1, k2, phi)
-        norm = math.sqrt(k1 * k2) / (2 * math.pi * K * math.sqrt(kappa1 * kappa2))
-        S1, S2 = S1S2(K * rho, z, n, lmax, mie_a, mie_b, True)
-        TMTM = norm * (B * S1 + A * S2) * e
-        TETE = norm * (A * S1 + B * S2) * e
-        TMTE = -sign * norm * (C * S1 + D * S2) * e
-        TETM = sign * norm * (D * S1 + C * S2) * e
-        return TMTM, TETE, TMTE, TETM
+    kappa1 = math.sqrt(k1 * k1 + K * K)
+    kappa2 = math.sqrt(k2 * k2 + K * K)
+    z = (kappa1 * kappa2 + k1 * k2 * math.cos(phi)) / K ** 2
+    e = math.exp(phase(rho, r, K, k1, k2, phi))
+    A, B, C, D = ABCD(K, k1, k2, phi)
+    norm = math.sqrt(k1 * k2) / (2 * math.pi * K * math.sqrt(kappa1 * kappa2))
+    S1, S2 = S1S2(K * rho, z, n, lmax, mie_a, mie_b, True)
+    TMTM = norm * (B * S1 + A * S2) * e
+    TETE = norm * (A * S1 + B * S2) * e
+    TMTE = -sign * norm * (C * S1 + D * S2) * e
+    TETM = sign * norm * (D * S1 + C * S2) * e
+    return TMTM, TETE, TMTE, TETM
 
+@njit("UniTuple(float64, 2)(float64, float64, float64, float64, float64, float64, string, int64)", cache=True)
+def kernel_polar_Kzero(rho, r, k1, k2, phi, alpha, materialclass, lmax):
+    r"""
+    Returns the kernel of the reflection operator on a sphere in polar
+    coordinates in symmetrized from.
+
+    Parameters
+    ----------
+    rho: float
+        positive, aspect ratio R/L
+    r: float
+        positive, relative effective radius R_eff/R
+    k1, k2: float
+        positive, rescaled wave numbers
+    phi: float
+        between 0 and 2pi
+    alpha : float
+        positive, parameter depending on materialclass
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    lmax : int
+        positive, cut-off angular momentum
+        
+    Returns
+    -------
+    tuple
+        tuple of length 2 of kernels for the polarization contributions
+        TMTM, TETE
+
+    """
+    if phi == np.pi:
+        return 0., 0.
+    x = 2 * rho * math.sqrt(k1 * k2) * math.cos(phi / 2)
+    e = math.exp(x - (k1 + k2) * (rho + r))
+    norm = rho / (2 * math.pi)
+    S1, S2 = zero_frequency(x, alpha, lmax, materialclass)
+    TMTM = norm * S2 * e
+    TETE = norm * S1 * e
+    return TMTM, TETE
 
 if __name__ == "__main__":
     rho = 1.

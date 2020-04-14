@@ -1,6 +1,6 @@
 import numpy as np
 
-def itt(i):
+def unpack(i):
     """
     transforms index to tupel (row_index, column_index)
     

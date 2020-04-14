@@ -669,18 +669,12 @@ def casimir_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, mode, ep
 
 if __name__ == "__main__":
     np.random.seed(0)
+    R2 = 1.25e-05
     R1 = 2.5e-06
-    R1 = 50e-06
-    R2 = 12.7e-06
-    R2 = 50e-06
-    L = 0.5e-06
-    L = 5.e-06
-    T = 293.015
-    T = 300.
-    materials = ("fused_silica", "Water", "fused_silica")
-    materials = ("PS1", "Water", "fused_silica")
-    materials = ("PS1", "Water", "PS1")
-    observable = "pressure"
+    L = 1.e-06
+    T = 293.
+    materials = ("Silica1", "Water", "Silica1")
+    observable = "energy"
     #materials = ("PR", "Vacuum", "PR")
     lmax1 = int(10*R1/L)
     lmax2 = int(10 * R2 / L)
@@ -691,32 +685,10 @@ if __name__ == "__main__":
     eta = 10
 
     nproc = 1
-    Nin = int(eta*np.sqrt(rho1+rho2))
-    Nout = int(eta*np.sqrt(rhoeff))
-    M = Nin
+    Nin = 32#int(eta*np.sqrt(rho1+rho2))
+    Nout = 7#int(eta*np.sqrt(rhoeff))
+    M = 24#Nin
 
     n0, n1 = casimir_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
-    h = 0.001*L
-    lower0, lower1 = casimir_finite(R1, R2, L - h, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
-    higher0, higher1 = casimir_finite(R1, R2, L + h, T, materials, Nin, Nout, M, lmax1, lmax2, "psd", 1.e-08, nproc, observable)
     print("energy")
-    print(n0)
-    print("force")
-    r = n0[1]
-    r1 = n1[1]
-    print("r", r, r1)
-    d = -(higher0[0]-lower0[0])/2/h
-    d1 = -(higher1[0]-lower1[0])/2/h
-    print("d", d, d1)
-    print("relerr", abs(d/r-1), abs(d1/r1-1))
-    print()
-    print("pressure")
-    r = n0[2]
-    r1 = n1[2]
-    print("r", r, r1)
-    d = (higher0[1]-lower0[1])/2/h
-    d1 = (higher1[1]-lower1[1])/2/h
-    print("d", d, d1)
-    print("relerr", abs(d / r - 1), abs(d1 / r1 - 1))
-    #print("msd")
-    #print(energy_finite(R1, R2, L, T, materials, Nin, Nout, M, lmax1, lmax2, "msd", 1.e-08, nproc))
+    print(n0, n1)

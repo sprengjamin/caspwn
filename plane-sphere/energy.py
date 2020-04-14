@@ -32,6 +32,75 @@ import material
 
 
 @njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, string, float64, string, int64, float64[:], float64[:])", cache=True)
+def phi_array_Kzero(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
+    r"""
+    Returns the phi array for the kernel function for each polarization block
+    at vanishing wavenumber.
+
+    Parameters
+    ----------
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    M: int
+        positive, length of sequence
+    k1, k2: float
+        positive, rescaled wave numbers
+    w1, w2: float
+        positive, quadrature weights corresponding to k1 and k2, respectively.
+    n : float
+        positive, refractive index
+    lmax : int
+        positive, cut-off angular momentum
+    materialclass: string
+        the material class (currently supports: drude, dielectric, PR)
+    mie_a : list
+        list of mie coefficients for electric polarizations
+    mie_b : list
+        list of mie coefficients for magnetic polarizations
+
+    Returns
+    -------
+    np.ndarray
+        array of length 4 of the phi array for the polarization contributions
+        TMTM, TETE, TMTE, TETM
+
+    """
+    phiarr = np.empty((4, M))
+
+    # phi = 0.
+    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] = kernel(rho, 1., 1., K, k1, k2, 0., n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
+    
+    if M%2==0:
+        # phi = np.pi is assumed
+        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
+        imax = M//2-1
+        phi = 2*np.pi*np.arange(M//2)/M
+    else:
+        # phi = np.pi is not assumed
+        imax = M//2
+        phi = 2*np.pi*np.arange(M//2+1)/M
+   
+    # 0 < phi < np.pi
+    for i in range(1, imax+1):
+        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n_sphere, materialclass_sphere, lmax, mie_a, mie_b)
+        phiarr[0, M-i] = phiarr[0, i]
+        phiarr[1, M-i] = phiarr[1, i]
+        phiarr[2, M-i] = -phiarr[2, i]
+        phiarr[3, M-i] = -phiarr[3, i]
+
+    rTE1 = rTE(K, k1, n_plane**2, materialclass_plane)
+    rTM1 = rTM(K, k1, n_plane**2, materialclass_plane)
+    rTE2 = rTE(K, k2, n_plane**2, materialclass_plane)
+    rTM2 = rTM(K, k2, n_plane**2, materialclass_plane)
+
+    phiarr[0, :] = np.sign(rTM1)*w1*w2*sqrt(rTM1*rTM2)*phiarr[0, :]
+    phiarr[1, :] = np.sign(rTE1)*w1*w2*sqrt(rTE1*rTE2)*phiarr[1, :]
+    phiarr[2, :] = w1*w2*sqrt(-rTM1*rTE2)*phiarr[2, :]
+    phiarr[3, :] = w1*w2*sqrt(-rTE1*rTM2)*phiarr[3, :]
+    return phiarr
+@njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, string, float64, string, int64, float64[:], float64[:])", cache=True)
+
+
 def phi_array(rho, K, M, k1, k2, w1, w2, n_plane, materialclass_plane, n_sphere, materialclass_sphere, lmax, mie_a, mie_b):
     r"""
     Returns the phi array for the kernel function for each polarization block.

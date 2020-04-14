@@ -39,10 +39,18 @@ from math import lgamma
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 from angular import pte_array
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs"))
+from bessel import fraction
 
+@njit("float64(float64, float64)", cache=True)
+def plasma_coefficient(l, z):
+    nu = l+0.5
+    #return -1/(2*nu/z*fraction(nu, z) + 1)
+    #return -(1-2*nu/z/fraction(nu-1, z))
+    return -l/(l+1)*(1-2*nu/z/fraction(nu-1, z))
 
 @njit("UniTuple(float64, 2)(float64, float64, int64, unicode_type)", cache=True)
-def zero_frequency(x, n, lmax, materialclass):
+def zero_frequency(x, alpha, lmax, materialclass):
     r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
     The implementation depends on the material class. The information about
     that is encoded in the mie-cache.
@@ -50,9 +58,9 @@ def zero_frequency(x, n, lmax, materialclass):
     Parameters
     ----------
     x : float
-        positive, parameter
-    n : float
-        positive, refractive index
+        positive, parameter related to scattering angle
+    alpha : float
+        positive, parameter depending on materialclass
     lmax : int
         positive, cut-off angular momentum
     materialclass: string
@@ -65,7 +73,7 @@ def zero_frequency(x, n, lmax, materialclass):
     
     """
     if materialclass == "dielectric":
-        e = n**2
+        e = alpha
         if x > 500.:
             PFA = 0.5*(e-1)/(e+1)
             correction1 = -2/(e+1)/x
@@ -89,20 +97,43 @@ def zero_frequency(x, n, lmax, materialclass):
                     break
                 l += 1
 
-            if l_init == 1:
-                return 0, S
-
             # downward summation
             l = l_init - 1
-            while True:
+            while l > 0:
                 term = (e-1)/(e+(l+1)/l)*math.exp(2*l*logx - lgamma(2*l+1)-x)
                 S += term
                 if term/S < err:
                     break
                 l -= 1
-                if l == 0:
-                    break
             return 0, S
+
+    elif materialclass == "plasma":
+        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+        err = 1.e-16
+        l_init = int(0.5*x)+1
+        if l_init > lmax:
+            l_init = lmax
+        logx = math.log(x)
+        S1 =  plasma_coefficient(l_init, alpha)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+        
+        # upward summation
+        l = l_init + 1
+        while l <= lmax:
+            term = plasma_coefficient(l, alpha)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+            S1 += term
+            if term/S1 < err:
+                break
+            l += 1
+
+        # downward summation
+        l = l_init - 1
+        while l > 0:
+            term = plasma_coefficient(l, alpha)*math.exp(2*l*logx - lgamma(2*l+1)-x)
+            S1 += term
+            if term/S1 < err:
+                break
+            l -= 1
+        return S1, S2
 
     elif materialclass == "drude":
         if x == 0.:
@@ -353,10 +384,11 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
 
 
 if __name__ == "__main__":
-    x = 5000
+    x = 100
     z = 32.622776601683796
     n = 1.1
     lmax = 10000
+    """
     from mie import mie_e_array
     mie_a, mie_b = mie_e_array(lmax, x, n)
     S1, S2 = S1S2(x, z, n, lmax, mie_a, mie_b, False)
@@ -369,11 +401,10 @@ if __name__ == "__main__":
     print(S2)
     print(S2a)
     print((S2-S2a)/S2a)
-    """
     #width = math.sqrt(x*math.sqrt((1+z)/2))
     print("width", width)
     print("6*width", 6*width)
     #jit()(S1S2).inspect_types()
     """
-    print(zero_frequency(x, n, lmax, "PR"))
-    print(zero_frequency(x, n, lmax, "drude"))
+    print(zero_frequency(x, 1., lmax, "plasma"))
+    #print(zero_frequency(x, n, lmax, "drude"))
