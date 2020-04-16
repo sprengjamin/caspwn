@@ -45,8 +45,6 @@ from bessel import fraction
 @njit("float64(float64, float64)", cache=True)
 def plasma_coefficient(l, z):
     nu = l+0.5
-    #return -1/(2*nu/z*fraction(nu, z) + 1)
-    #return -(1-2*nu/z/fraction(nu-1, z))
     return -l/(l+1)*(1-2*nu/z/fraction(nu-1, z))
 
 @njit("UniTuple(float64, 2)(float64, float64, int64, unicode_type)", cache=True)
@@ -87,6 +85,8 @@ def zero_frequency(x, alpha, lmax, materialclass):
                 l_init = lmax
             logx = math.log(x)
             S =  (e-1)/(e+(l_init+1)/l_init)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+            if S == 0.:
+                return 0., 0.
             
             # upward summation
             l = l_init + 1
@@ -115,6 +115,8 @@ def zero_frequency(x, alpha, lmax, materialclass):
             l_init = lmax
         logx = math.log(x)
         S1 =  plasma_coefficient(l_init, alpha)*math.exp(2*l_init*logx - lgamma(2*l_init+1)-x)
+        if S1 == 0.:
+            return 0., S2
         
         # upward summation
         l = l_init + 1
@@ -384,10 +386,10 @@ def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
 
 
 if __name__ == "__main__":
-    x = 100
+    x = 0.001
     z = 32.622776601683796
     n = 1.1
-    lmax = 10000
+    lmax = 100000000
     """
     from mie import mie_e_array
     mie_a, mie_b = mie_e_array(lmax, x, n)
@@ -406,5 +408,13 @@ if __name__ == "__main__":
     print("6*width", 6*width)
     #jit()(S1S2).inspect_types()
     """
-    print(zero_frequency(x, 1., lmax, "plasma"))
+    import matplotlib.pyplot as plt
+    print(zero_frequency(32599.3474702326, 2280.4788413404267, 12000, "plasma"))
+    #X = np.logspace(-3, 7, 50)
+    #Y1 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "plasma")[0] for x in X])
+    #Y2 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "PR")[0] for x in X])
+    #plt.loglog(X, -Y1)
+    #plt.loglog(X, -Y2)
+    #plt.show()
+
     #print(zero_frequency(x, n, lmax, "drude"))
