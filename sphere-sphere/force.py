@@ -21,7 +21,7 @@ from energy import mArray_sparse_mp
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_cache
-import scattering_amplitude
+import scattering_amplitudes
 from kernel import kernel_polar as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature

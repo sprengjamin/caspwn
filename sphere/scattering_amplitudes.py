@@ -23,15 +23,12 @@ with
     \chi(\ell,x,z) = (\ell+1/2)\mathrm{arccosh}z + \sqrt{(2\ell+1)^2 + (2 x)^2} + (2\ell+1) \log\frac{2x}{2\ell+1+\sqrt{(2\ell+1)^2+(2x)^2}}-2x\sqrt{(1+z)/2}\,.
 
 .. todo::
-    * Write tests for real materials(mpmath for low l, perhaps also for higher ones; test vs asymptotics). 
-    
+    * Write tests for real materials(mpmath for low l, perhaps also for higher ones; test vs asymptotics).
     * Understand behavior close to z=1. for large x,
       see analysis/scattering-amplitude/S1S2/plot_high.py
-
     * see if implementation using logarithms runs faster
 
 """
-import numpy as np
 import math
 from numba import njit
 from math import sqrt
@@ -48,10 +45,9 @@ def plasma_coefficient(l, z):
     return -l/(l+1)*(1-2*nu/z/fraction(nu-1, z))
 
 @njit("UniTuple(float64, 2)(float64, float64, int64, unicode_type)", cache=True)
-def zero_frequency(x, alpha, lmax, materialclass):
-    r"""Mie scattering amplitudes for plane waves in the limit of :math:`xi=0`.
-    The implementation depends on the material class. The information about
-    that is encoded in the mie-cache.
+def S1S2_zero(x, alpha, lmax, materialclass):
+    r"""Mie scattering amplitudes for plane waves at vanishing frequency/wavenumber.
+    The implementation depends on the material class.
 
     Parameters
     ----------
@@ -62,7 +58,7 @@ def zero_frequency(x, alpha, lmax, materialclass):
     lmax : int
         positive, cut-off angular momentum
     materialclass: string
-        the material class (currently supports: drude, dielectric, PR)
+        the material class (currently supports: drude, dielectric, plasma, PR)
 
     Returns
     -------
@@ -262,23 +258,21 @@ def chi(l, x, z, acoshz):
 
 
 @njit("UniTuple(float64, 2)(float64, float64, float64, int64, float64[:], float64[:], boolean)", cache=True)
-def S1S2(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
-    r"""Mie scattering amplitudes for plane waves.
+def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
+    r"""Mie scattering amplitudes for plane waves at finite frequency/wavenumber.
 
     Parameters
     ----------
     x : float
-        positive, imaginary frequency
+        positive, imaginary size parameter
     z : float
         positive, :math:`z=-\cos \Theta`
     n : float
         positive, refractive index
     lmax : int
         positive, cut-off angular momentum
-    mie_a : list
-        list of mie coefficients for electric polarizations
-    mie_b : list
-        list of mie coefficients for magnetic polarizations
+    mie_a, mie_b : list
+        list of mie coefficients for electric and magnetic polarization
     use_asymptotics : boolean
         when True asymptotics are used for the
         scattering amplitude when x > 5000
@@ -409,7 +403,7 @@ if __name__ == "__main__":
     #jit()(S1S2).inspect_types()
     """
     import matplotlib.pyplot as plt
-    print(zero_frequency(32599.3474702326, 2280.4788413404267, 12000, "plasma"))
+    print(S1S2_zero(32599.3474702326, 2280.4788413404267, 12000, "plasma"))
     #X = np.logspace(-3, 7, 50)
     #Y1 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "plasma")[0] for x in X])
     #Y2 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "PR")[0] for x in X])

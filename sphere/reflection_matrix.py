@@ -1,0 +1,469 @@
+r"""sphere reflection matrix in angular representation
+.. to do:
+    * why does jit slow down arm_partial_finite?
+"""
+
+import numpy as np
+from math import sqrt
+import concurrent.futures as futures
+from numba import njit
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
+from kernels import kernel_polar_finite
+from kernels import kernel_polar_zero
+
+@njit("UniTuple(int64, 2)(int64)", cache=True)
+def unpack_index(n):
+    """
+    transforms index to tupel (row_index, column_index)
+    
+    Parameters
+    ----------
+    n: integer
+        non-negative, index
+
+    Returns
+    -------
+    (row_index, column_index): tuple
+
+    """
+    row_index = int((np.sqrt(1+8*n)-1)/2)
+    column_index = n - row_index*(row_index+1)//2
+    return row_index, column_index
+
+@njit("boolean(float64, float64, float64, float64, float64)", cache=True)
+def isFinite(rho, r, K, k1, k2):
+    """
+    Estimates by means of the asymptotics of the scattering amplitudes if the given
+    matrix element can be numerically set to zero.
+
+    Parameters
+    ----------
+    rho: float
+        positive, aspect ratio R/L
+    r: float
+        positive, relative amount of surface-to-surface translation
+    K: float
+        positive, rescaled wavenumber
+    k1, k2: float
+        positive, rescaled wave numbers
+
+    Returns
+    -------
+    boolean
+        True if the matrix element must not be neglected
+
+    """
+    if K == 0.:
+        exponent = 2*rho*sqrt(k1*k2) - (k1+k2)*(rho+r)
+    else:
+        kappa1 = sqrt(k1*k1+K*K)
+        kappa2 = sqrt(k2*k2+K*K)
+        exponent = rho*sqrt(2*(K*K + kappa1*kappa2 + k1*k2)) - (kappa1+kappa2)*(rho+r)
+    if exponent < -37.:
+        return False
+    else:
+        return True
+
+@njit("UniTuple(float64[:], 4)(float64, float64, float64, float64, int64, float64, float64, float64, int64, float64[:], float64[:])", cache=True)
+def arm_elements_finite(rho, r, sign, K, M, k1, k2, n_sphere, lmax, mie_a, mie_b):
+    r"""Angular Reflection Matrix elements for FINITE frequencies/wavenumbers.
+
+    Computes the matrix elements of the reflection operator at the sphere for
+    all angular transverse momenta with discretization order :math:`M` at fixed
+    radial transverse momenta k1 and k2 for each polarization block.
+
+
+    Parameters
+    ----------
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    sign: float
+        sign, +/-1, differs for the two spheres
+    K: float
+        positive, rescaled wavenumber in medium
+    M: int
+        positive, angular discretizaton order
+    k1, k2: float
+        positive, rescaled transverse wave numbers
+    n_sphere : float
+        positive, refractive index of sphere
+    lmax : int
+        positive, cut-off angular momentum
+    mie_a, mie_b : list
+        list of mie coefficients for electric and magnetic polarizations
+
+    Returns
+    -------
+    4-tuple
+        with arrays of length M for the polarization contributions
+        TMTM, TETE, TMTE, TETM
+
+    """
+    TMTM = np.empty(M)
+    TETE = np.empty(M)
+    TMTE = np.empty(M)
+    TETM = np.empty(M)
+
+    # phi = 0.
+    TMTM[0], TETE[0], TMTE[0], TETM[0] = kernel_polar_finite(rho, r, sign, K, k1, k2, 0., n_sphere, lmax, mie_a, mie_b)
+    
+    if M%2==0:
+        # phi = np.pi is assumed
+        TMTM[M//2], TETE[M//2], TMTE[M//2], TETM[M//2] = kernel_polar_finite(rho, r, sign, K, k1, k2, np.pi, n_sphere, lmax, mie_a, mie_b)
+        imax = M//2-1
+        phi = 2*np.pi*np.arange(M//2)/M
+    else:
+        # phi = np.pi is not assumed
+        imax = M//2
+        phi = 2*np.pi*np.arange(M//2+1)/M
+   
+    # 0 < phi < np.pi
+    for i in range(1, imax+1):
+        TMTM[i], TETE[i], TMTE[i], TETM[i] = kernel_polar_finite(rho, r, sign, K, k1, k2, phi[i], n_sphere, lmax, mie_a, mie_b)
+        TMTM[M-i] = TMTM[i]
+        TETE[M-i] = TETE[i]
+        TMTE[M-i] = -TMTE[i]
+        TETM[M-i] = -TETM[i]
+    return TMTM, TETE, TMTE, TETM
+        
+def arm_partial_finite(indices, rho, r, sign, K, N, M, k, n_sphere, lmax, mie_a, mie_b):
+    r"""
+    PARTIAL Angular Reflection Matrix for FINITE frequencies/wavenumbers.
+    The matrix elements are computed for the given indices.
+
+    Parameters
+    ----------
+    indices : np.ndarray
+        array containing indices
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    sign: float
+        sign, +/-1, differs for the two spheres
+    K: float
+        positive, rescaled wavenumber in medium
+    N, M: int
+        positive, radial and angular discretization order
+    k: np.ndarray
+        nodes of the radial quadrature rule
+    n_sphere : float
+        positive, refractive index of sphere
+    lmax: int
+        positive, cut-off angular momentum
+    mie_a, mie_b: list
+        list of mie coefficients for electric and magnetic polarizations
+
+    Returns
+    -------
+    row: np.ndarray
+        row indices
+    col: np.ndarray
+        column indices
+    dataTMTM, dataTETE, dataTMTE, dataTETM : np.ndarray
+        angular matrix elements for TMTM, TETE, TMTE, TETM polarization
+
+    Dependencies
+    ------------
+    isFinite, angular_reflection_matrix_elements
+
+    """
+    row = np.empty(N)
+    col = np.empty(N)
+    dataTMTM = np.empty((N, M))
+    dataTETE = np.empty((N, M))
+    dataTMTE = np.empty((N, M))
+    dataTETM = np.empty((N, M))
+
+    ind = 0
+    for index in indices:
+        i, j = unpack_index(index)
+        if isFinite(rho, r, K, k[i], k[j]):
+            if ind+1 >= len(row):
+                row = np.hstack((row, np.empty(len(row))))
+                col = np.hstack((col, np.empty(len(row))))
+                dataTMTM = np.vstack((dataTMTM, np.empty((len(row), M))))
+                dataTETE = np.vstack((dataTETE, np.empty((len(row), M))))
+                dataTMTE = np.vstack((dataTMTE, np.empty((len(row), M))))
+                dataTETM = np.vstack((dataTETM, np.empty((len(row), M))))
+            row[ind] = i
+            col[ind] = j
+            dataTMTM[ind, :], dataTETE[ind, :], dataTMTE[ind, :], dataTETM[ind, :] = arm_elements_finite(rho, r, sign, K, M, k[i], k[j], n_sphere, lmax, mie_a, mie_b)
+            ind += 1
+                
+    row = row[:ind]
+    col = col[:ind]
+    dataTMTM = dataTMTM[:ind, :]
+    dataTETE = dataTETE[:ind, :]
+    dataTMTE = dataTMTE[:ind, :]
+    dataTETM = dataTETM[:ind, :]
+    return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
+
+
+def arm_full_finite(nproc, rho, r, sign, K, N, M, k, n_sphere, lmax, mie_a, mie_b):
+    r"""
+    FULL Angular Reflection Matrix for a FINITE frequency/wavenumber.
+    The calculation is parellelized among nproc processes.
+
+    Parameters
+    ----------
+    nproc: int
+        number of processes
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    sign: float
+        sign, +/-1, differs for the two spheres
+    K: float
+        positive, rescaled wavenumber in medium
+    N, M: int
+        positive, radial and angular discretization order
+    k : np.ndarray
+        nodes of the radial quadrature rule
+    n_sphere : float
+        positive, refractive index sphere
+    lmax : int
+        positive, cut-off angular momentum
+    mie_a, mie_b : list
+        list of mie coefficients for electric and magnetic polarizations
+
+    Returns
+    -------
+    row: np.ndarray
+        row indices
+    col: np.ndarray
+        column indices
+    dataTMTM, dataTETE, dataTMTE, dataTETM : np.ndarray
+        angular matrix elements for TMTM, TETE, TMTE, TETM polarization
+
+    Dependencies
+    ------------
+    ARM_partial_finite
+
+    """
+    ndiv = nproc*8 # factor is arbitrary, but can be chosen optimally
+
+    indices = np.array_split(np.random.permutation(N * (N + 1) // 2), ndiv)
+
+    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
+        wait_for = [executors.submit(arm_partial_finite, indices[i], rho, r, sign, K, N, M, k, n_sphere, lmax, mie_a, mie_b)
+                    for i in range(ndiv)]
+        results = [f.result() for f in futures.as_completed(wait_for)]
+    
+    # gather results into arrays
+    length = 0
+    for i in range(ndiv):
+        length += len(results[i][0])
+    row = np.empty(length, dtype=np.int)
+    col = np.empty(length, dtype=np.int)
+    dataTMTM = np.empty((length, M))
+    dataTETE = np.empty((length, M))
+    dataTMTE = np.empty((length, M))
+    dataTETM = np.empty((length, M))
+    ini = 0
+    for i in range(ndiv):
+        fin = ini + len(results[i][0])
+        row[ini:fin] = results[i][0]
+        col[ini:fin] = results[i][1]
+        dataTMTM[ini:fin] = results[i][2]
+        dataTETE[ini:fin] = results[i][3]
+        dataTMTE[ini:fin] = results[i][4]
+        dataTETM[ini:fin] = results[i][5]
+        ini = fin
+    return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
+
+
+@njit(
+    "UniTuple(float64[:], 2)(float64, float64, int64, float64, float64, float64, string, int64)",
+    cache=True)
+def arm_elements_zero(rho, r, M, k1, k2, alpha_sphere, materialclass_sphere, lmax):
+    r"""Angular Reflection Matrix elements the ZERO-frequency/wavenumber contribution.
+
+    Computes the matrix elements of the reflection operator at the sphere for
+    all angular transverse momenta with discretization order :math:`M` at fixed
+    radial transverse momenta k1 and k2 for each polarization block.
+
+
+    Parameters
+    ----------
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    K: float
+        positive, rescaled wavenumber in medium
+    M: int
+        positive, angular discretizaton order
+    k1, k2: float
+        positive, rescaled transverse wave numbers
+    alpha_sphere : float
+        positive, parameter
+    materialclass_sphere : string
+        materialclass
+    lmax : int
+        positive, cut-off angular momentum
+
+    Returns
+    -------
+    2-tuple
+        with arrays of length M for the polarization contributions TMTM, TETE
+
+    """
+    TMTM = np.empty(M)
+    TETE = np.empty(M)
+
+    # phi = 0.
+    TMTM[0], TETE[0] = kernel_polar_zero(rho, r, k1, k2, 0., alpha_sphere, materialclass_sphere, lmax)
+
+    if M % 2 == 0:
+        # phi = np.pi is assumed
+        TMTM[M // 2], TETE[M // 2] = kernel_polar_zero(rho, r, k1, k2, np.pi, alpha_sphere, materialclass_sphere, lmax)
+        imax = M // 2 - 1
+        phi = 2 * np.pi * np.arange(M // 2) / M
+    else:
+        # phi = np.pi is not assumed
+        imax = M // 2
+        phi = 2 * np.pi * np.arange(M // 2 + 1) / M
+
+    # 0 < phi < np.pi
+    for i in range(1, imax + 1):
+        TMTM[i], TETE[i] = kernel_polar_zero(rho, r, k1, k2, phi[i], alpha_sphere, materialclass_sphere, lmax)
+        TMTM[M - i] = TMTM[i]
+        TETE[M - i] = TETE[i]
+    return TMTM, TETE
+
+
+#@njit(cache=True)
+def arm_partial_zero(indices, rho, r, N, M, k, alpha_sphere, materialclass_sphere, lmax):
+    r"""
+    PARTIAL Angular Reflection Matrix for the ZERO-frequency/wavenumber contribution.
+    The matrix elements are computed for the given indices.
+
+    Parameters
+    ----------
+    indices : np.ndarray
+        array containing indices
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    N, M: int
+        positive, radial and angular discretization order
+    k: np.ndarray
+        nodes of the radial quadrature rule
+    alpha_sphere : float
+        positive, parameter
+    materialclass_sphere : string
+        materialclass
+    lmax: int
+        positive, cut-off angular momentum
+
+    Returns
+    -------
+    row: np.ndarray
+        row indices
+    col: np.ndarray
+        column indices
+    dataTMTM, dataTETE : np.ndarray
+        angular matrix elements for TMTM, TETE polarization
+
+    Dependencies
+    ------------
+    isFinite, ARM_elements_zero
+
+    """
+    row = np.empty(N)
+    col = np.empty(N)
+    dataTMTM = np.empty((N, M))
+    dataTETE = np.empty((N, M))
+
+    ind = 0
+    for index in indices:
+        i, j = unpack_index(index)
+        if isFinite(rho, r, 0., k[i], k[j]):
+            if ind + 1 >= len(row):
+                row = np.hstack((row, np.empty(len(row))))
+                col = np.hstack((col, np.empty(len(row))))
+                dataTMTM = np.vstack((dataTMTM, np.empty((len(row), M))))
+                dataTETE = np.vstack((dataTETE, np.empty((len(row), M))))
+            row[ind] = i
+            col[ind] = j
+            dataTMTM[ind, :], dataTETE[ind, :] = arm_elements_zero(rho, r, M, k[i], k[j], alpha_sphere, materialclass_sphere, lmax)
+            ind += 1
+
+    row = row[:ind]
+    col = col[:ind]
+    dataTMTM = dataTMTM[:ind, :]
+    dataTETE = dataTETE[:ind, :]
+    return row, col, dataTMTM, dataTETE
+
+
+def arm_full_zero(nproc, rho, r, N, M, k, alpha_sphere, materialclass_sphere, lmax):
+    r"""
+    FULL Angular Reflection Matrix for the ZERO-frequency/wavenumber contribution.
+    The calculation is parellelized among nproc processes.
+
+    Parameters
+    ----------
+    nproc: int
+        number of processes
+    rho: float
+        positive, aspect ratio :math:`R/L`
+    r: float
+        positive, relative amount of surface-to-surface translation
+    N, M: int
+        positive, radial and angular discretization order
+    k : np.ndarray
+        nodes of the radial quadrature rule
+    alpha_sphere : float
+        positive, parameter
+    materialclass_sphere : string
+        materialclass
+    lmax : int
+        positive, cut-off angular momentum
+
+    Returns
+    -------
+    row: np.ndarray
+        row indices
+    col: np.ndarray
+        column indices
+    dataTMTM, dataTETE : np.ndarray
+        angular matrix elements for TMTM, TETE polarization
+
+    Dependencies
+    ------------
+    arm_partial_zero
+
+    """
+    ndiv = nproc * 8  # factor is arbitrary, but can be chosen optimally
+
+    indices = np.array_split(np.random.permutation(N * (N + 1) // 2), ndiv)
+
+    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
+        wait_for = [
+            executors.submit(arm_partial_zero, indices[i], rho, r, N, M, k, alpha_sphere, materialclass_sphere, lmax)
+            for i in range(ndiv)]
+        results = [f.result() for f in futures.as_completed(wait_for)]
+
+    # gather results into arrays
+    length = 0
+    for i in range(ndiv):
+        length += len(results[i][0])
+    row = np.empty(length, dtype=np.int)
+    col = np.empty(length, dtype=np.int)
+    dataTMTM = np.empty((length, M))
+    dataTETE = np.empty((length, M))
+    ini = 0
+    for i in range(ndiv):
+        fin = ini + len(results[i][0])
+        row[ini:fin] = results[i][0]
+        col[ini:fin] = results[i][1]
+        dataTMTM[ini:fin] = results[i][2]
+        dataTETE[ini:fin] = results[i][3]
+        ini = fin
+    return row, col, dataTMTM, dataTETE

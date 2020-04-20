@@ -1,4 +1,4 @@
-r""" Casimir energy for the plane-sphere geometry.
+r""" Casimir energy for the plane-sphere geometry for finite frequency/wavenumber.
 
 .. todo::
     * replace dft_matrix_elements by a FFT after the whole round-trip matrix has been computed?
@@ -6,8 +6,6 @@ r""" Casimir energy for the plane-sphere geometry.
 
 """
 
-import mkl
-#mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 
 from math import sqrt
@@ -18,14 +16,14 @@ from scipy.integrate import quad
 from scipy.constants import Boltzmann, hbar, c
 import time
 
-from index import unpack
+from index import itt_scalar
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_e_array
-from kernels import kernel_polar_Kfinite as kernel
+from kernels import kernel_polar_finite as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
-from fresnel import rTM_Kfinite as rTM
-from fresnel import rTE_Kfinite as rTE
+from fresnel import rTM_finite as rTM
+from fresnel import rTE_finite as rTE
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature, auto_integration
 from psd import psd
@@ -33,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material/"))
 import material
 
 
-@njit("float64[:,:](float64, float64, int64, float64, float64, float64, float64, float64, float64, int64, float64[:], float64[:])", cache=True)
+@njit("UniTuple(float64[:], 4)(float64, float64, int64, float64, float64, float64, float64, float64, float64, int64, float64[:], float64[:])", cache=True)
 def angular_matrix_elements(rho, K, M, k1, k2, w1, w2, n_plane, n_sphere, lmax, mie_a, mie_b):
     r"""
     Computes the matrix elements of the round-trip operator for all angular
@@ -61,19 +59,40 @@ def angular_matrix_elements(rho, K, M, k1, k2, w1, w2, n_plane, n_sphere, lmax, 
 
     Returns
     -------
-    np.ndarray
-        array of shape (4, M) for the polarization contributions
+    4-tuple
+        with arrays of length M for the polarization contributions
         TMTM, TETE, TMTE, TETM
 
     """
-    phiarr = np.empty((4, M))
+    phiarrTMTM = np.empty(M)
+    phiarrTETE = np.empty(M)
+    phiarrTMTE = np.empty(M)
+    phiarrTETM = np.empty(M)
+    
+    rTE1 = rTE(K, k1, n_plane**2)
+    rTM1 = rTM(K, k1, n_plane**2)
+    rTE2 = rTE(K, k2, n_plane**2)
+    rTM2 = rTM(K, k2, n_plane**2)
+    
+    factorTMTM = np.sign(rTM1)*w1*w2*sqrt(rTM1*rTM2)
+    factorTETE = np.sign(rTE1)*w1*w2*sqrt(rTE1*rTE2)
+    factorTMTE = w1*w2*sqrt(-rTM1*rTE2)
+    factorTETM = w1*w2*sqrt(-rTE1*rTM2)
 
     # phi = 0.
-    phiarr[0, 0], phiarr[1, 0], phiarr[2, 0], phiarr[3, 0] = kernel(rho, 1., 1., K, k1, k2, 0., n_sphere, lmax, mie_a, mie_b)
+    phiarrTMTM[0], phiarrTETE[0], phiarrTMTE[0], phiarrTETM[0] = kernel(rho, 1., 1., K, k1, k2, 0., n_sphere, lmax, mie_a, mie_b)
+    phiarrTMTM[0] *= factorTMTM
+    phiarrTETE[0] *= factorTETE
+    phiarrTMTE[0] *= factorTMTE
+    phiarrTETM[0] *= factorTETM
     
     if M%2==0:
         # phi = np.pi is assumed
-        phiarr[0, M//2], phiarr[1, M//2], phiarr[2, M//2], phiarr[3, M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n_sphere, lmax, mie_a, mie_b)
+        phiarrTMTM[M//2], phiarrTETE[M//2], phiarrTMTE[M//2], phiarrTETM[M//2] = kernel(rho, 1., 1., K, k1, k2, np.pi, n_sphere, lmax, mie_a, mie_b)
+        phiarrTMTM[M//2] *= factorTMTM
+        phiarrTETE[M//2] *= factorTETE
+        phiarrTMTE[M//2] *= factorTMTE
+        phiarrTETM[M//2] *= factorTETM
         imax = M//2-1
         phi = 2*np.pi*np.arange(M//2)/M
     else:
@@ -83,168 +102,28 @@ def angular_matrix_elements(rho, K, M, k1, k2, w1, w2, n_plane, n_sphere, lmax, 
    
     # 0 < phi < np.pi
     for i in range(1, imax+1):
-        phiarr[0, i], phiarr[1, i], phiarr[2, i], phiarr[3, i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n_sphere, lmax, mie_a, mie_b)
-        phiarr[0, M-i] = phiarr[0, i]
-        phiarr[1, M-i] = phiarr[1, i]
-        phiarr[2, M-i] = -phiarr[2, i]
-        phiarr[3, M-i] = -phiarr[3, i]
-
-    rTE1 = rTE(K, k1, n_plane**2)
-    rTM1 = rTM(K, k1, n_plane**2)
-    rTE2 = rTE(K, k2, n_plane**2)
-    rTM2 = rTM(K, k2, n_plane**2)
-
-    phiarr[0, :] = np.sign(rTM1)*w1*w2*sqrt(rTM1*rTM2)*phiarr[0, :]
-    phiarr[1, :] = np.sign(rTE1)*w1*w2*sqrt(rTE1*rTE2)*phiarr[1, :]
-    phiarr[2, :] = w1*w2*sqrt(-rTM1*rTE2)*phiarr[2, :]
-    phiarr[3, :] = w1*w2*sqrt(-rTE1*rTM2)*phiarr[3, :]
-    return phiarr
+        phiarrTMTM[i], phiarrTETE[i], phiarrTMTE[i], phiarrTETM[i] = kernel(rho, 1., 1., K, k1, k2, phi[i], n_sphere, lmax, mie_a, mie_b)
+        phiarrTMTM[i] *= factorTMTM
+        phiarrTETE[i] *= factorTETE
+        phiarrTMTE[i] *= factorTMTE
+        phiarrTETM[i] *= factorTETM
+        phiarrTMTM[M-i] = phiarrTMTM[i]
+        phiarrTETE[M-i] = phiarrTETE[i]
+        phiarrTMTE[M-i] = -phiarrTMTE[i]
+        phiarrTETM[M-i] = -phiarrTETM[i]
+    return phiarrTMTM, phiarrTETE, phiarrTMTE, phiarrTETM
         
 
-def dft_matrix_elements(rho, K, M, k1, k2, w1, w2, n_plane, n_sphere,  lmax, mie_a, mie_b):
-    r"""
-    Computes the discrete Fourier transformed matrix elements of the round-trip operator at angular discretization order :math:`M` at fixed radial
-    transverse momenta k1 and k2.
-
-    Parameters
-    ----------
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    K: float
-        positive, rescaled wavenumber in medium
-    M: int
-        positive, angular discretization order
-    k1, k2: float
-        positive, rescaled transverse wave numbers
-    w1, w2: float
-        positive, total quadrature weights corresponding to k1 and k2
-    n_plane, n_sphere : float
-        positive, refractive index of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-    mie_a, mie_b : list
-        list of mie coefficients for electric and magnetic polarizations
-    
-    Returns
-    -------
-    np.ndarray
-        array of shape (4, M//2) for the polarization contributions
-        TMTM, TETE, TMTE, TETM
-
-    Dependencies
-    ------------
-    angular_matrix_elements
-
-    """
-    phiarr = angular_matrix_elements(rho, K, M, k1, k2, w1, w2, n_plane, n_sphere, lmax, mie_a, mie_b)
-    marr = np.fft.rfft(phiarr)
-    return np.array([marr[0,:].real, marr[1,:].real, marr[2,:].imag, marr[3,:].imag])
-
-
-def dftME_diag(i, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b):
-    r"""
-    Computes diagonal dft matrix elements with respect to the
-    transverse momenta specified by index i.
-
-    Parameters
-    ----------
-    i: int
-        non-negative, row or column index of the diagonal element
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    K: float
-        positive, rescaled wavenumber in medium
-    N, M: int
-        positive, radial and angular discretization order
-    k: np.ndarray
-        nodes of the radial quadrature rule
-    w: np.ndarray
-        symmetrized total weights
-    n_plane, n_sphere : float
-        positive, refractive index of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-    mie_a, mie_b : list
-        list of mie coefficients for electric and magnetic polarizations
-
-    Returns
-    -------
-    row: np.ndarray
-        row indices
-    col: np.ndarray
-        column indices
-    data: np.ndarray
-        dft matrix elements
-
-    Dependencies
-    ------------
-    dft_matrix_elements
-
-    """
-    row = [i, N+i, N+i]
-    col = [i, N+i, i]
-    data = (dft_matrix_elements(rho, K, M, k[i], k[i], w[i], w[i], n_plane, n_sphere, lmax, mie_a, mie_b))[:-1,:]
-    return row, col, data
-
-
-def dftME_offdiag(i, j, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b):
-    r"""
-    Computes off-diagonal dft matrix elements with respect to the
-    transverse momenta specified by index i and j.
-
-    Parameters
-    ----------
-    i: int
-        non-negative, row index of the off-diagonal element
-    j: int
-        non-negative, column index of the off-diagonal element
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    K: float
-        positive, rescaled wavenumber in medium
-    N, M: int
-        positive, radial and angular discretization order
-    k: np.ndarray
-        nodes of the radial quadrature rule
-    w: np.ndarray
-        symmetrized total weights
-    n_plane, n_sphere : float
-        positive, refractive index of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-    mie_a, mie_b : list
-        list of mie coefficients for electric and magnetic polarizations
-
-    Returns
-    -------
-    row: np.ndarray
-        row indices
-    col: np.ndarray
-        column indices
-    data: np.ndarray
-        dft matrix elements
-
-    Dependencies
-    ------------
-    dft_matrix_elements
-
-    """
-    row = [i, N+i, N+j, N+i] 
-    col = [j, N+j, i, j] 
-    data = dft_matrix_elements(rho, K, M, k[i], k[j], w[i], w[j], n_plane, n_sphere, lmax, mie_a, mie_b)
-    return row, col, data
-
-
-def dftME_partial(dindices, oindices, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b):
+def ME_partial(indices, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b):
     r"""
     Computes dft matrix elements with respect to the transverse momenta
-    specified by the arrays dindices and oindices specifying indices on the
+    specified by the arrays indices specifying indices on the
     diagonal and off the diagonal, respectively.
 
     Parameters
     ----------
-    dindices, oindices: np.ndarray
-        array of diagonal and off-diagonal indices
+    indices : np.ndarray
+        array containing indices
     rho: float
         positive, aspect ratio :math:`R/L`
     K: float
@@ -268,43 +147,47 @@ def dftME_partial(dindices, oindices, rho, K, N, M, k, w, n_plane, n_sphere, lma
         row indices
     col: np.ndarray
         column indices
-    data: np.ndarray
-        dft matrix elements
+    dataTMTM, dataTETE, dataTMTE, dataTETM : np.ndarray
+        angular matrix elements for TMTM, TETE, TMTE, TETM polarization
 
     Dependencies
     ------------
-    isFinite, dftME_diag, itt, dftME_offdiag
+    isFinite, angular_matrix_elements
 
     """
-    # 16 is just arbitrary here
-    mkl.set_num_threads(1)
-    row = np.empty(16*N)
-    col = np.empty(16*N)
-    data = np.empty((16*N, M//2+1))
-    
-    ind = 0
-    for i in dindices:
-        if isFinite(rho, K, k[i], k[i]):
-            row[ind:ind+3], col[ind:ind+3], data[ind:ind+3, :] = dftME_diag(i, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b)
-            ind += 3
+    row = np.empty(N)
+    col = np.empty(N)
+    dataTMTM = np.empty((N, M))
+    dataTETE = np.empty((N, M))
+    dataTMTE = np.empty((N, M))
+    dataTETM = np.empty((N, M))
 
-    for oindex in oindices:
-        i, j = unpack(oindex)
+    ind = 0
+    for index in indices:
+        i, j = itt_scalar(index)
         if isFinite(rho, K, k[i], k[j]):
-            if ind+4 >= len(row):
+            if ind+1 >= len(row):
                 row = np.hstack((row, np.empty(len(row))))
                 col = np.hstack((col, np.empty(len(row))))
-                data = np.vstack((data, np.empty((len(row), M//2+1))))
-            row[ind:ind+4], col[ind:ind+4], data[ind:ind+4, :] = dftME_offdiag(i, j, rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b)
-            ind += 4
+                dataTMTM = np.vstack((dataTMTM, np.empty((len(row), M))))
+                dataTETE = np.vstack((dataTETE, np.empty((len(row), M))))
+                dataTMTE = np.vstack((dataTMTE, np.empty((len(row), M))))
+                dataTETM = np.vstack((dataTETM, np.empty((len(row), M))))
+            row[ind] = i
+            col[ind] = j
+            dataTMTM[ind, :], dataTETE[ind, :], dataTMTE[ind, :], dataTETM[ind, :] = angular_matrix_elements(rho, K, M, k[i], k[j], w[i], w[j], n_plane, n_sphere, lmax, mie_a, mie_b)
+            ind += 1
                 
     row = row[:ind] 
     col = col[:ind] 
-    data = data[:ind, :] 
-    return row, col, data
+    dataTMTM = dataTMTM[:ind, :] 
+    dataTETE = dataTETE[:ind, :] 
+    dataTMTE = dataTMTE[:ind, :] 
+    dataTETM = dataTETM[:ind, :] 
+    return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
 
 
-def dftME_full(nproc, rho, K, N, M, nds, wts, n_plane, n_sphere, lmax, mie_a, mie_b):
+def ME_full(nproc, rho, K, N, M, nds, wts, n_plane, n_sphere, lmax, mie_a, mie_b):
     r"""
     Computes all dft matrix elements. The calculation is parellelized among
     nproc processes.
@@ -335,7 +218,7 @@ def dftME_full(nproc, rho, K, N, M, nds, wts, n_plane, n_sphere, lmax, mie_a, mi
 
     Dependencies
     ------------
-    dftME_partial
+    ME_partial
 
     """
     k = nds
@@ -343,11 +226,10 @@ def dftME_full(nproc, rho, K, N, M, nds, wts, n_plane, n_sphere, lmax, mie_a, mi
     
     ndiv = nproc*8 # factor is arbitrary, but can be chosen optimally
 
-    dindices = np.array_split(np.random.permutation(N), ndiv)
-    oindices = np.array_split(np.random.permutation(N * (N - 1) // 2), ndiv)
+    indices = np.array_split(np.random.permutation(N * (N + 1) // 2), ndiv)
 
     with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
-        wait_for = [executors.submit(dftME_partial, dindices[i], oindices[i], rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b)
+        wait_for = [executors.submit(ME_partial, indices[i], rho, K, N, M, k, w, n_plane, n_sphere, lmax, mie_a, mie_b)
                     for i in range(ndiv)]
         results = [f.result() for f in futures.as_completed(wait_for)]
     
@@ -357,15 +239,21 @@ def dftME_full(nproc, rho, K, N, M, nds, wts, n_plane, n_sphere, lmax, mie_a, mi
         length += len(results[i][0])
     row = np.empty(length, dtype=np.int)
     col = np.empty(length, dtype=np.int)
-    data = np.empty((length, results[0][2].shape[1]))
+    dataTMTM = np.empty((length, M))
+    dataTETE = np.empty((length, M))
+    dataTMTE = np.empty((length, M))
+    dataTETM = np.empty((length, M))
     ini = 0
     for i in range(ndiv):
         fin = ini + len(results[i][0])
         row[ini:fin] = results[i][0]
         col[ini:fin] = results[i][1]
-        data[ini:fin] = results[i][2]
+        dataTMTM[ini:fin] = results[i][2]
+        dataTETE[ini:fin] = results[i][3]
+        dataTMTE[ini:fin] = results[i][4]
+        dataTETM[ini:fin] = results[i][5]
         ini = fin
-    return row, col, data
+    return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
 
 
 @njit("boolean(float64, float64, float64, float64)", cache=True)
@@ -400,8 +288,8 @@ def isFinite(rho, K, k1, k2):
         return True
 
 
-@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], int64, float64[:])", cache=True)
-def construct_matrices(row, col, data, N, kappa):
+@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64[:], float64[:], float64[:], int64, float64[:])", cache=True)
+def construct_matrices(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM, N, kappa):
     r"""Construct round-trip matrices and its first two derivatives for each m.
 
         Parameters
@@ -420,18 +308,38 @@ def construct_matrices(row, col, data, N, kappa):
         (ndarray, ndarray, ndarray)
 
     """
-    rndtrp_matrix = np.zeros((2 * N, 2 * N))
-    dL_rndtrp_matrix = np.zeros((2 * N, 2 * N))
-    d2L_rndtrp_matrix = np.zeros((2 * N, 2 * N))
-    for i in range(len(data)):
-        rndtrp_matrix[row[i], col[i]] = data[i]
-        rndtrp_matrix[col[i], row[i]] = data[i]
-        dL_rndtrp_matrix[row[i], col[i]] = -(kappa[row[i] % N] + kappa[col[i] % N]) * data[i]
-        dL_rndtrp_matrix[col[i], row[i]] = dL_rndtrp_matrix[row[i], col[i]]
-        d2L_rndtrp_matrix[row[i], col[i]] = (kappa[row[i] % N] + kappa[col[i] % N]) ** 2 * data[i]
-        d2L_rndtrp_matrix[col[i], row[i]] = d2L_rndtrp_matrix[row[i], col[i]]
-    return rndtrp_matrix, dL_rndtrp_matrix, d2L_rndtrp_matrix
+    mat = np.zeros((2 * N, 2 * N))
+    dL_mat = np.zeros((2 * N, 2 * N))
+    d2L_mat = np.zeros((2 * N, 2 * N))
+    for i in range(len(row)):
+        factor = kappa[row[i]] + kappa[col[i]]
+        mat[row[i], col[i]] = dataTMTM[i]
+        mat[col[i], row[i]] = dataTMTM[i]
+        mat[row[i]+N, col[i]+N] = dataTETE[i]
+        mat[col[i]+N, row[i]+N] = dataTETE[i]
+        mat[row[i], col[i]+N] = dataTMTE[i]
+        mat[col[i]+N, row[i]] = dataTMTE[i]
+        mat[row[i]+N, col[i]] = dataTETM[i]
+        mat[col[i], row[i]+N] = dataTETM[i]
+        
+        dL_mat[row[i], col[i]] = -factor*dataTMTM[i]
+        dL_mat[col[i], row[i]] = dL_mat[row[i], col[i]]
+        dL_mat[row[i]+N, col[i]+N] = -factor*dataTETE[i]
+        dL_mat[col[i]+N, row[i]+N] = dL_mat[row[i]+N, col[i]+N]
+        dL_mat[row[i], col[i]+N] = -factor*dataTMTE[i]
+        dL_mat[col[i]+N, row[i]] = dL_mat[row[i], col[i]+N]
+        dL_mat[row[i]+N, col[i]] = -factor*dataTETM[i]
+        dL_mat[col[i], row[i]+N] = dL_mat[row[i]+N, col[i]]
 
+        d2L_mat[row[i], col[i]] = factor ** 2 * dataTMTM[i]
+        d2L_mat[col[i], row[i]] = d2L_mat[row[i], col[i]]
+        d2L_mat[row[i]+N, col[i]+N] = factor ** 2 * dataTETE[i]
+        d2L_mat[col[i]+N, row[i]+N] = d2L_mat[row[i]+N, col[i]+N]
+        d2L_mat[row[i], col[i]+N] = factor ** 2 * dataTMTE[i]
+        d2L_mat[col[i]+N, row[i]] = d2L_mat[row[i], col[i]+N]
+        d2L_mat[row[i]+N, col[i]] = factor ** 2 * dataTETM[i]
+        d2L_mat[col[i], row[i]+N] = d2L_mat[row[i]+N, col[i]]
+    return mat, dL_mat, d2L_mat
 
 def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
     r"""Computes a 3-tuple containing the quantities
@@ -516,7 +424,7 @@ def K_contribution(R, L, K, nr_plane, nr_sphere, N, M, nds, wts, lmax, nproc, ob
 
     Dependencies
     ------------
-    dftME_full, mie_e_array
+    ME_full, mie_e_array
 
     """
     start_matrix = time.time()
@@ -534,28 +442,36 @@ def K_contribution(R, L, K, nr_plane, nr_sphere, N, M, nds, wts, lmax, nproc, ob
     else:
         mie_a, mie_b = mie_e_array(lmax, x, nr_sphere)
 
-    row, col, data = dftME_full(nproc, rho, K, N, M, nds, wts, nr_plane, nr_sphere, lmax, mie_a, mie_b)
+    row, col, dataTMTM, dataTETE, dataTMTE, dataTETM = ME_full(nproc, rho, K, N, M, nds, wts, nr_plane, nr_sphere, lmax, mie_a, mie_b)
 
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
-    start_logdet = end_matrix
+    start_dft = end_matrix
+    if len(row) != 0.:
+        dataTMTM = np.fft.rfft(dataTMTM).real
+        dataTETE = np.fft.rfft(dataTETE).real
+        dataTMTE = np.fft.rfft(dataTMTE).imag
+        dataTETM = np.fft.rfft(dataTETM).imag
+    end_dft = time.time()
+    timing_dft = end_dft-start_dft
+    start_logdet = end_dft
 
     kappa = np.sqrt(K ** 2 + nds ** 2)
 
     # m=0
-    mat, dL_mat, d2L_mat = construct_matrices(row, col, data[:,0], N, kappa)
+    mat, dL_mat, d2L_mat = construct_matrices(row, col, dataTMTM[:,0], dataTETE[:,0], dataTMTE[:,0], dataTETM[:,0], N, kappa)
     logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
 
     # m>0    
     for m in range(1, M//2):
-        mat, dL_mat, d2L_mat = construct_matrices(row, col, data[:,m], N, kappa)
+        mat, dL_mat, d2L_mat = construct_matrices(row, col, dataTMTM[:,m], dataTETE[:,m], dataTMTE[:,m], dataTETM[:,m], N, kappa)
         term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
         logdet += 2 * term1
         dL_logdet += 2 * term2
         d2L_logdet += 2 * term3
 
     # last m
-    mat, dL_mat, d2L_mat = construct_matrices(row, col, data[:,M//2], N, kappa)
+    mat, dL_mat, d2L_mat = construct_matrices(row, col, dataTMTM[:,M//2], dataTETE[:,M//2], dataTMTE[:,M//2], dataTETM[:,M//2], N, kappa)
     term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
     if M%2==0:
         logdet += term1
@@ -568,7 +484,7 @@ def K_contribution(R, L, K, nr_plane, nr_sphere, N, M, nds, wts, lmax, nproc, ob
     end_logdet = time.time()
     timing_logdet = end_logdet-start_logdet
     print("# ", end="")
-    print(K, logdet, timing_matrix, timing_logdet, sep=", ")
+    print(K, logdet, timing_matrix, timing_dft, timing_logdet, sep=", ")
     return np.array([logdet, dL_logdet/L, d2L_logdet/L**2])
 
 
@@ -754,7 +670,7 @@ def casimir_Tfinite(R, L, T, nfunc_plane, nfunc_medium, nfunc_sphere, N, M, lmax
 
 if __name__ == "__main__":
     R = 1.e-6
-    L = R/100
+    L = R/10
     T = 293
     
     nfunc_plane = material.PS1.n    
@@ -770,7 +686,18 @@ if __name__ == "__main__":
     epsrel = 1.e-6
     nproc = 4
     observable = "energy"
-        
+
+    nr_plane = nfunc_plane(1.)/nfunc_medium(1.)
+    nr_sphere = nfunc_sphere(1.)/nfunc_medium(1.)
+    nds, wts = quadrature(N)
+    K = nfunc_medium(1.)*1
+    print('K',K)
+    print('np',nr_plane)
+    print('ns',nr_sphere)
+
+    c = K_contribution(R, L, K, nr_plane, nr_sphere, N, M, nds, wts, lmax, nproc, observable)
+
+
     #en = casimir_T0(R, L, nfunc_plane, nfunc_medium, nfunc_sphere, N, M, lmax, nproc, observable, X=40)
-    en = casimir_Tfinite(R, L, T, nfunc_plane, nfunc_medium, nfunc_sphere, N, M, lmax, mode, epsrel, nproc, observable, X=None)
-    print(en)
+    #en = casimir_Tfinite(R, L, T, nfunc_plane, nfunc_medium, nfunc_sphere, N, M, lmax, mode, epsrel, nproc, observable, X=None)
+    #print(en)

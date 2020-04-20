@@ -1,13 +1,6 @@
-r""" Casimir energy for the plane-sphere geometry.
-
-.. todo::
-    * replace dft_matrix_elements by a FFT after the whole round-trip matrix has been computed?
-    * construct matrices for each m (to save memory)
+r""" Casimir interaction for the plane-sphere geometry at vanishing frequency/wavenumber
 
 """
-
-import mkl
-#mkl.domain_set_num_threads(1, "fft")
 import numpy as np
 
 from math import sqrt
@@ -24,8 +17,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_e_array
 from kernels import kernel_polar_Kzero as kernel
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
-from fresnel import rTM_Kzero as rTM
-from fresnel import rTE_Kzero as rTE
+from fresnel import rTM_zero as rTM
+from fresnel import rTE_zero as rTE
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from integration import quadrature, auto_integration
 from psd import psd
@@ -101,139 +94,6 @@ def angular_matrix_elements(rho, M, k1, k2, w1, w2, alpha_plane, alpha_sphere, m
         phiarrTE[M-i] = phiarrTE[i]
 
     return phiarrTM, phiarrTE
-        
-
-def dft_matrix_elements(rho, M, k1, k2, w1, w2, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax):
-    r"""
-    Computes the discrete Fourier transformed matrix elements of the round-trip operator at angular discretization order :math:`M` at fixed radial
-    transverse momenta k1 and k2.
-
-    Parameters
-    ----------
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    M: int
-        positive, angular discretization order
-    k1, k2: float
-        positive, rescaled transverse wave numbers
-    w1, w2: float
-        positive, total quadrature weights corresponding to k1 and k2
-    alpha_plane, alpha_sphere : float
-        positive, parameter of plane and sphere (meaning depends on
-        materialclass)
-    materialclass_plane, materialclass_sphere : string
-        materialclass of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-    
-    Returns
-    -------
-    (np.ndarray, np.ndarray)
-        tuple of arrays of length M for the polarization contributions TMTM,
-        TETE
-
-    Dependencies
-    ------------
-    angular_matrix_elements
-
-    """
-    phiarrTM, phiarrTE = angular_matrix_elements(rho, M, k1, k2, w1, w2, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax)
-    marrTM = np.fft.rfft(phiarrTM)
-    marrTE = np.fft.rfft(phiarrTE)
-    return marrTM.real, marrTE.real
-
-
-def dftME_diag(i, rho, N, M, k, w, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax):
-    r"""
-    Computes diagonal dft matrix elements with respect to the
-    transverse momenta specified by index i.
-
-    Parameters
-    ----------
-    i: int
-        non-negative, row or column index of the diagonal element
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    N, M: int
-        positive, radial and angular discretization order
-    k: np.ndarray
-        nodes of the radial quadrature rule
-    w: np.ndarray
-        symmetrized total weights
-    alpha_plane, alpha_sphere : float
-        positive, parameter of plane and sphere (meaning depends on
-        materialclass)
-    materialclass_plane, materialclass_sphere : string
-        materialclass of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-
-    Returns
-    -------
-    row: np.ndarray
-        row indices
-    col: np.ndarray
-        column indices
-    dataTM, dataTE: np.ndarray
-        angular matrix elements for TM and TE polarization
-
-    Dependencies
-    ------------
-    angular_matrix_elements
-
-    """
-    row = [i]
-    col = [i]
-    dataTM, dataTE = angular_matrix_elements(rho, M, k[i], k[i], w[i], w[i], alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax)
-    return row, col, dataTM, dataTE
-
-
-def dftME_offdiag(i, j, rho, K, N, M, k, w, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax):
-    r"""
-    Computes off-diagonal dft matrix elements with respect to the
-    transverse momenta specified by index i and j.
-
-    Parameters
-    ----------
-    i: int
-        non-negative, row index of the off-diagonal element
-    j: int
-        non-negative, column index of the off-diagonal element
-    rho: float
-        positive, aspect ratio :math:`R/L`
-    K: float
-        positive, rescaled wavenumber in medium
-    N, M: int
-        positive, radial and angular discretization order
-    k: np.ndarray
-        nodes of the radial quadrature rule
-    w: np.ndarray
-        symmetrized total weights
-    n_plane, n_sphere : float
-        positive, refractive index of plane and sphere
-    lmax : int
-        positive, cut-off angular momentum
-    mie_a, mie_b : list
-        list of mie coefficients for electric and magnetic polarizations
-
-    Returns
-    -------
-    row: np.ndarray
-        row indices
-    col: np.ndarray
-        column indices
-    data: np.ndarray
-        dft matrix elements
-
-    Dependencies
-    ------------
-    dft_matrix_elements
-
-    """
-    row = [i, N+i, N+j, N+i] 
-    col = [j, N+j, i, j] 
-    data = dft_matrix_elements(rho, K, M, k[i], k[j], w[i], w[j], alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax)
-    return row, col, data
 
 
 def ME_partial(indices, rho, N, M, k, w, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax):
@@ -275,11 +135,11 @@ def ME_partial(indices, rho, N, M, k, w, alpha_plane, alpha_sphere, materialclas
     isFinite, angular_matrix_elements, itt_scalar
 
     """
-    # 16 is an initial guess
-    row = np.empty(16*N)
-    col = np.empty(16*N)
-    dataTM = np.empty((16*N, M))
-    dataTE = np.empty((16*N, M))
+    # size N is initial guess
+    row = np.empty(N)
+    col = np.empty(N)
+    dataTM = np.empty((N, M))
+    dataTE = np.empty((N, M))
 
     ind = 0
     for index in indices:
@@ -288,7 +148,8 @@ def ME_partial(indices, rho, N, M, k, w, alpha_plane, alpha_sphere, materialclas
             if ind+1 >= len(row):
                 row = np.hstack((row, np.empty(len(row))))
                 col = np.hstack((col, np.empty(len(row))))
-                data = np.vstack((data, np.empty((len(row), M//2+1))))
+                dataTM = np.vstack((dataTM, np.empty((len(row), M))))
+                dataTE = np.vstack((dataTE, np.empty((len(row), M))))
             row[ind] = i
             col[ind] = j
             dataTM[ind, :], dataTE[ind, :] = angular_matrix_elements(rho, M, k[i], k[j], w[i], w[j], alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax)
@@ -520,16 +381,16 @@ def Kzero_contribution(R, L, alpha_plane, alpha_sphere, materialclass_plane, mat
     row, col, dataTM, dataTE = ME_full(nproc, rho, N, M, nds, wts, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, lmax)
     end_matrix = time.time()
     timing_matrix = end_matrix-start_matrix
-    start_fft = end_matrix
 
     ## discrete Fourier transform
-    dataTM = np.fft.rfft(dataTM).real
-    dataTE = np.fft.rfft(dataTE).real
+    start_fft = end_matrix
+    if len(row) != 0.:
+        dataTM = np.fft.rfft(dataTM).real
+        dataTE = np.fft.rfft(dataTE).real
     end_fft = time.time()
     timing_fft = end_fft-start_fft
 
     start_logdet = end_fft
-
     k = nds
     ## TM contribution
     # m=0
@@ -556,7 +417,6 @@ def Kzero_contribution(R, L, alpha_plane, alpha_sphere, materialclass_plane, mat
         dL_logdet += 2 * term2
         d2L_logdet += 2 * term3
     
-    print(logdet)
     logdet = 0.
     ## TE contribution
     if materialclass_plane != "dielectric" and materialclass_plane != "drude" and materialclass_sphere != "dielectric" and materialclass_sphere != "drude":
@@ -637,20 +497,15 @@ if __name__ == "__main__":
     T = 300
     
     wp = 9*e/hbar
-    alpha_plane = wp*L/c
     alpha_sphere = wp*R/c
-    print(alpha_plane)
-    print(alpha_sphere)
+    alpha_plane = wp*L/c
     materialclass_plane = "plasma"
     materialclass_sphere = "plasma"
-
-    rho = max(R/L, 50)
-    N = int(10.*np.sqrt(rho))
-    M = int(8.*np.sqrt(rho))
-    lmax = int(12*rho)
-
     nproc = 4
     observable = "energy"
-        
+    rho = max(R/L, 50)
+    N = int(9.*np.sqrt(rho))
+    M = int(8.*np.sqrt(rho))
+    lmax = int(12*rho)
     en = casimir(R, L, T, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, lmax, nproc, observable)
     print(en)

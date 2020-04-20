@@ -10,7 +10,7 @@ from numba import njit
 import math
 
 @njit("float64(float64, float64, float64)")
-def rTE_Kfinite(K, k, epsilon):
+def rTE_finite(K, k, epsilon):
     r"""Fresnel reflection coefficients for TE-polarized modes for finite wave numbers.
 
     .. math::
@@ -39,7 +39,7 @@ def rTE_Kfinite(K, k, epsilon):
     return num/den
 
 @njit("float64(float64, float64, string)")
-def rTE_Kzero(k, Kp, materialclass):
+def rTE_zero(k, Kp, materialclass):
     r"""Fresnel reflection coefficients for TE-polarized modes at vanishing wavenumbers.
 
     Parameters
@@ -71,7 +71,7 @@ def rTE_Kzero(k, Kp, materialclass):
         return 0.
 
 @njit("float64(float64, float64, float64)")
-def rTM_Kfinite(K, k, epsilon):
+def rTM_finite(K, k, epsilon):
     r"""Fresnel reflection coefficients for TM-polarized modes for finite wavenumbers.
 
     .. math::
@@ -100,7 +100,7 @@ def rTM_Kfinite(K, k, epsilon):
     return num/den
 
 @njit("float64(float64, float64, string)")
-def rTM_Kzero(k, epsilon, materialclass):
+def rTM_zero(k, epsilon, materialclass):
     r"""Fresnel reflection coefficients for TM-polarized modes at vanishing wavenumbers.
 
     .. math::
