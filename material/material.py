@@ -189,7 +189,33 @@ class drude(material):
             return 1.
         else:
             return np.sqrt(self.epsilon(K))
-        
+
+
+class plasma(material):
+    def __init__(self, name, plasma):
+        """ plasma in eV
+            gamma in eV
+        """
+        self.name = name
+        self.materialclass = "plasma"
+        self.K_plasma = plasma * e / hbar / c
+
+    def epsilon(self, K):
+        if K == 0.:
+            # dummy number to avoid crash
+            return 1.
+        else:
+            return 1 + self.K_plasma ** 2 / K**2
+
+    def n(self, K):
+        if K == 0.:
+            # dummy number to avoid crash
+            return 1.
+        else:
+            return np.sqrt(self.epsilon(K))
+
+
+
 class drude_smith(material):
     def __init__(self, name, omega_p, gamma, c1):
         r"""Drude-Smith model.
@@ -293,7 +319,9 @@ def convert_zwol_to_lorentz(data):
 glass_data = [[np.sqrt(1.282)*1.911*1.e16/c, 1.911*1.e16/c, 0.]] 
 Glass =  lorentz_oscillator("Glass", glass_data, dformat="lorentz")
 
-Gold = drude("Gold", 9., 0.035)
+Gold_drude = drude("Gold_drude", 9., 0.035)
+
+Gold_plasma = plasma("Gold_plasma", 9.)
 
 Mercury = drude_smith("Mercury", 1.975e16, 1.647e15, -0.49)
 

@@ -1,5 +1,7 @@
 import numpy as np
 from numba import njit
+from scipy.integrate import quad
+from scipy.constants import hbar, c
 
 
 @njit("float64[:](int64)", cache=True)
@@ -17,7 +19,7 @@ def weights(N):
 
 
 @njit("UniTuple(float64[:], 2)(int64)", cache=True)
-def quadrature(N):
+def fc_quadrature(N):
     r"""Fourier-Chebyshev quadrature rule.
 
     Parameters
@@ -38,6 +40,51 @@ def quadrature(N):
     pts = 1./(np.tan(t/2))**2
     wts = weights(N)
     return pts, wts
+
+
+def integral_fcq(L, func, X):
+    """
+
+    Parameters
+    ----------
+    L : float
+        surface-to-surface distance
+    func : function
+        scalar valued integrand
+    X : int
+        FC quadrature order
+
+    Returns
+    -------
+    float
+
+    """
+    K_pts, K_wts = fc_quadrature(X)
+    res = 0.
+    for i in range(X):
+        res += K_wts[i] * func(K_pts[i])
+    return res / (2 * np.pi) * hbar * c / L
+
+
+def integral_quad(L, func, epsrel):
+    """
+
+    Parameters
+    ----------
+    L : float
+        surface-to-surface distance
+    func : function
+        scalar valued integrand
+    epsrel : float
+        relative error passed to quad-routine
+
+    Returns
+    -------
+    float
+
+    """
+    res = quad(func, 0, np.inf, epsrel=epsrel)[0]
+    return res / (2 * np.pi) * hbar * c / L
 
 
 def zipzap(a, b):

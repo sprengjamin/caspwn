@@ -48,7 +48,7 @@ def construct_roundtrip_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM,
     d2L_mat = np.zeros((2 * N, 2 * N))
     for l in range(len(row)):
         i, j = row[l], col[l]
-        weight = 2*np.pi/M*sqrt(w[i]*w[j])
+        weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
         factorTMTM = np.sign(rTM[i])*sqrt(rTM[i]*rTM[j])*weight
         factorTETE = np.sign(rTE[i])*sqrt(rTE[i]*rTE[j])*weight
         factorTMTE = sqrt(-rTM[i]*rTE[j])*weight
@@ -181,7 +181,7 @@ def contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc,
     else:
         mie_a, mie_b = mie_e_array(lmax, x, n_sphere)
 
-    row, col, dataTMTM, dataTETE, dataTMTE, dataTETM = arm_full_finite(nproc, rho, 1., 1., K, N, M, nds, n_sphere, lmax, mie_a, mie_b)
+    row, col, dataTMTM, dataTETE, dataTMTE, dataTETM = arm_full_finite(nproc, rho, 1., 1., K, N, N, M, nds, nds, n_sphere, lmax, mie_a, mie_b)
 
     end_matrix = perf_counter()
     timing_matrix = end_matrix-start_matrix
@@ -255,7 +255,7 @@ def construct_roundtrip_zero(row, col, data, N, M, k, w, rp):
     d2L_mat = np.zeros((N, N))
     for l in range(len(data)):
         i, j = row[l], col[l]
-        weight = 2*np.pi/M*sqrt(w[i]*w[j])
+        weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
         factor = np.sign(rp[i])*sqrt(rp[i]*rp[j])*weight
         dL_factor = -(k[i] + k[j])
         d2L_factor = dL_factor**2
@@ -308,7 +308,7 @@ def contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, mate
     # aspect ratio
     rho = R/L
 
-    row, col, dataTM, dataTE = arm_full_zero(nproc, rho, 1., N, M, nds, alpha_sphere, materialclass_sphere, lmax)
+    row, col, dataTM, dataTE = arm_full_zero(nproc, rho, 1., N, N, M, nds, nds, alpha_sphere, materialclass_sphere, lmax)
     end_matrix = perf_counter()
     timing_matrix = end_matrix-start_matrix
 
@@ -390,7 +390,7 @@ if __name__ == '__main__':
     from integration import quadrature
 
     R = 1.e-6
-    L = 10.e-9
+    L = 1.e-9
 
     K = 1.
     n_plane = np.inf
@@ -406,13 +406,13 @@ if __name__ == '__main__':
 
     nds, wts = quadrature(N)
 
-    #c = contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc, observable)
+    c = contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc, observable)
 
     alpha_plane = 4.
     alpha_sphere = 4.
     materialclass_plane = 'dielectric'
     materialclass_sphere = 'dielectric'
 
-    c0 = contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, nds, wts, lmax, nproc, observable)
+    #c0 = contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, nds, wts, lmax, nproc, observable)
 
 

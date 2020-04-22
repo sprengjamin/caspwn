@@ -1,17 +1,12 @@
 r"""Kernel of the reflection operator on a sphere.
 
 """
-
 import numpy as np
 import math
-
 from numba import njit
-
 import sys, os
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
 from scattering_amplitudes import S1S2_finite, S1S2_zero
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
 from ABCD import ABCD
 
@@ -87,7 +82,7 @@ def kernel_polar_finite(rho, r, sign, K, k1, k2, phi, n, lmax, mie_a, mie_b):
     z = (kappa1 * kappa2 + k1 * k2 * math.cos(phi)) / K ** 2
     e = math.exp(phase(rho, r, K, k1, k2, phi))
     A, B, C, D = ABCD(K, k1, k2, phi)
-    norm = math.sqrt(k1 * k2) / (2 * math.pi * K * math.sqrt(kappa1 * kappa2))
+    norm = 2 * math.pi * math.sqrt(k1 * k2) / (K * math.sqrt(kappa1 * kappa2))
     S1, S2 = S1S2_finite(K * rho, z, n, lmax, mie_a, mie_b, True)
     TMTM = norm * (B * S1 + A * S2) * e
     TETE = norm * (A * S1 + B * S2) * e
@@ -130,7 +125,7 @@ def kernel_polar_zero(rho, r, k1, k2, phi, alpha, materialclass, lmax):
         return 0., 0.
     x = 2 * rho * math.sqrt(k1 * k2) * math.cos(phi / 2)
     e = math.exp(x - (k1 + k2) * (rho + r))
-    norm = rho / (2 * math.pi)
+    norm = 2 * math.pi * rho
     S1, S2 = S1S2_zero(x, alpha, lmax, materialclass)
     TMTM = norm * S2 * e
     TETE = norm * S1 * e
