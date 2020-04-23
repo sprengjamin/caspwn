@@ -143,7 +143,7 @@ else:
     print("# etalmax1: nan")
     lmax1 = args.lmax1
 print("# lmax1:", lmax1)
-rho2 = max(args.R1/args.L, 50)
+rho2 = max(args.R2/args.L, 50)
 if args.lmax2 == None:
     print("# etalmax2:", args.etalmax2)
     lmax2 = int(args.etalmax2*rho2)
@@ -204,8 +204,8 @@ if args.T == 0.:
     print(res)
 else: # T > 0
     func = lambda K: \
-        contribution_finite(args.R1, args.R2, args.L, nfunc_medium(K / args.L) * K, nfunc_sphere1(K / args.L),
-                            nfunc_sphere2(K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
+        contribution_finite(args.R1, args.R2, args.L, nfunc_medium(K / args.L) * K, nfunc_sphere1(K / args.L)/nfunc_medium(K / args.L),
+                            nfunc_sphere2(K / args.L)/nfunc_medium(K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
                             wts_inner, lmax1, lmax2, args.cores, observable)
     if args.msd:
         print("# summation method: msd")
