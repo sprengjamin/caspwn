@@ -180,7 +180,7 @@ if args.T == 0.:
     print(res)
 else: # T > 0
     func = lambda K: \
-        contribution_finite(args.R, args.L, nfunc_medium(K / args.L) * K, nfunc_plane(K / args.L), nfunc_sphere(K / args.L), N, M, nds, wts, lmax, args.cores, observable)
+        contribution_finite(args.R, args.L, nfunc_medium(K / args.L) * K, nfunc_plane(K / args.L)/nfunc_medium(K / args.L), nfunc_sphere(K / args.L)/nfunc_medium(K / args.L), N, M, nds, wts, lmax, args.cores, observable)
 
     if args.msd:
         print("# summation method: msd")
