@@ -127,6 +127,9 @@ else:
     lmax = args.lmax
 print("# lmax:", lmax)
 
+print("#")
+print("# cores:", args.cores)
+print("#")
 
 # load materials
 mat_plane = eval("material."+args.plane)
