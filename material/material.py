@@ -321,6 +321,8 @@ Glass =  lorentz_oscillator("Glass", glass_data, dformat="lorentz")
 
 Gold_drude = drude("Gold_drude", 9., 0.035)
 
+Gold_drude_MH = drude("Gold_drude", 9., 0.030) # according to MH phd thesis
+
 Gold_plasma = plasma("Gold_plasma", 9.)
 
 Mercury = drude_smith("Mercury", 1.975e16, 1.647e15, -0.49)
