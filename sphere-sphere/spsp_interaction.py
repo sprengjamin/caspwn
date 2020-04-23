@@ -205,12 +205,12 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, n
         TMTM1 = np.fft.rfft(TMTM1).real
         TETE1 = np.fft.rfft(TETE1).real
         TMTE1 = np.fft.rfft(TMTE1).imag
-        TETM1 = np.fft.rfft(TETM1).imag
+        TETM1 = -np.fft.rfft(TETM1).imag
     if len(row2) != 0.:
         TMTM2 = np.fft.rfft(TMTM2).real
         TETE2 = np.fft.rfft(TETE2).real
         TMTE2 = np.fft.rfft(TMTE2).imag
-        TETM2 = np.fft.rfft(TETM2).imag
+        TETM2 = -np.fft.rfft(TETM2).imag
     end_dft = perf_counter()
     timing_dft = end_dft-start_dft
     start_logdet = end_dft
