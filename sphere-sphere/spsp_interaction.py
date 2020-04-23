@@ -206,7 +206,7 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, n
         TETE1 = np.fft.rfft(TETE1).real
         TMTE1 = np.fft.rfft(TMTE1).imag
         TETM1 = np.fft.rfft(TETM1).imag
-    if len(row1) != 0.:
+    if len(row2) != 0.:
         TMTM2 = np.fft.rfft(TMTM2).real
         TETE2 = np.fft.rfft(TETE2).real
         TMTE2 = np.fft.rfft(TMTE2).imag
@@ -397,7 +397,7 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
                                                            nds_inner, wts_outer, wts_inner)
         mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, 0], N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
-        logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
+        term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
         logdet += term1
         dL_logdet += term2
@@ -416,9 +416,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
             d2L_logdet += 2 * term3
 
         # last m
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, M//2], N_outer, N_inner, M, nds_outer,
+        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, M//2], N_outer, N_inner, M, nds_outer,
                                                            nds_inner, wts_outer, wts_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, M//2], N_inner, N_outer, M, nds_inner,
+        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, M//2], N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
