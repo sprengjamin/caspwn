@@ -88,7 +88,7 @@ class lorentz_oscillator(material):
  
         
 class optical_data(material):
-    def __init__(self, name, data, materialclass, f_extra=None):
+    def __init__(self, name, data, materialclass, wp_low=None, gamma_low=None, wp_high=None, gamma_high=None):
         r"""Permittivity is given by inter- and extrapolating optical data.
         
         Parameters
@@ -99,9 +99,10 @@ class optical_data(material):
             optical data in the format (K [rad/m], eps(i K))
         materialclass : string
             material class, e.g. "drude", "dielectric", "PR"
-        f_extra : function
-            (optional) function defining the extrapolation towards :math:`K=0`.
-            Default is constant extrapolation.
+        wp_low, gamma_low : float
+            plasma frequency and damping constant, for extrapolation at low frequencies in eV
+        wp_high, gamma_high : float
+            plasma frequency and damping constant, for extrapolation at high frequencies in eV
 
         Returns
         -------
@@ -111,7 +112,23 @@ class optical_data(material):
         self.name = name
         self.data = data
         self.materialclass = materialclass
-        self.f_extra = f_extra
+        if wp_low != None:
+            self.Kp_low = wp_low*e/hbar/c
+        else:
+            self.Kp_low = None
+        if gamma_low != None:
+            self.Kgamma_low = gamma_low*e/hbar/c
+        else:
+            self.Kgamma_low = None
+        if wp_high != None:
+            self.Kp_high = wp_high*e/hbar/c
+        else:
+            self.Kp_high = None
+        if gamma_high != None:
+            self.Kgamma_high = gamma_high*e/hbar/c
+        else:    
+            self.Kgamma_high = None
+    
 
     def epsilon(self, K):
         r"""Dielectric function.
@@ -136,11 +153,17 @@ class optical_data(material):
             xi = K*c
             i = np.searchsorted(self.data[:,0], xi)
             if i == 0:
-                # for too small xi extrapolate with the first point
-                return self.data[0][1]
+                if self.Kp_low != None:
+                    return 1 + self.Kp_low**2/K/(K+self.Kgamma_low)
+                else:
+                    # for too small xi extrapolate with the first point
+                    return self.data[0][1]
             elif i >= len(self.data):
-                # for too large xi extrapolate with the last point
-                return self.data[-1][1]
+                if self.Kp_high != None:
+                    return 1 + self.Kp_high**2/K/(K+self.Kgamma_high)
+                else:
+                    # for too large xi extrapolate with the last point
+                    return self.data[-1][1]
             else:
                 xi1 = self.data[i-1, 0]
                 eps1 = self.data[i-1,1]
@@ -363,17 +386,16 @@ modifiedWater = lorentz_oscillator("modifiedWater", Water_data, static_value = 0
 
 Vacuum = vacuum()
 
+Water_Renan = lorentz_oscillator("Water_Renan", Water_data, static_value = 78.)
+PS_Renan = lorentz_oscillator("PS1", PS1_data, static_value = 2.5)
+
+filename = os.path.join(os.path.dirname(__file__), "./optical_data/GoldDalvit.dat")
+Gold_Decca = optical_data("Gold_Decca", np.loadtxt(filename), "drude", wp_low=9, gamma_low=0.03, wp_high=54.475279, gamma_high=211.48855)
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    X = np.logspace(10,19,100)/c
-    eps = [Silica1.epsilon(x) for x in X]
-    eps2 = [PS1.epsilon(x) for x in X]
-    eps3 = [Mercury.epsilon(x) for x in X]
-    eps4 = [Gold.epsilon(x) for x in X]
+    X = np.logspace(10,22,100)/c
+    eps = [Gold_Decca.epsilon(x) for x in X]
 
     plt.loglog(X*c, eps)
-    plt.loglog(X*c, eps2)
-    plt.loglog(X*c, eps3)
-    plt.loglog(X*c, eps4)
-    plt.ylim(1,500)
     plt.show()
