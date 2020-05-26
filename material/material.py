@@ -367,10 +367,8 @@ class DebyeLorentzModel(material):
         """
         eps = 1.
         for (c, invtau) in self.debye_data:
-            print(c,invtau)
             eps += c/(1 + K/invtau)
         for (Kp, c, gamma) in self.lorentz_data:
-            print(Kp,c,gamma)
             eps += c*Kp**2/(Kp**2 + K*gamma + K**2)
         return eps
     
