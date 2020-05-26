@@ -472,8 +472,6 @@ uv = [[8.34, 4.47e-2, 0.75],
       [30.06, 1.33e-1, 18.28],  
       [49.45, 5.66e-2, 36.28]]
 lorentz = np.vstack((np.array(ir), np.array(uv)))
-print(debye)
-print(lorentz)
 
 WaterRT = DebyeLorentzModel("WaterRT", debye, lorentz)
 
