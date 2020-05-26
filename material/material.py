@@ -339,6 +339,62 @@ def convert_zwol_to_lorentz(data):
     gamma = np.zeros(len(data[0]))
     return np.vstack((xiP, xiR, gamma)).T/c
 
+class DebyeLorentzModel(material):
+    def __init__(self, name, debye_data, lorentz_data):
+        self.name = name
+        self.debye_data = np.empty((len(debye_data), 2))
+        self.debye_data[:,0] = debye_data[:,0]
+        self.debye_data[:,1] = convert_eV_to_radbym(debye_data[:,1])
+        self.lorentz_data = np.empty((len(lorentz_data), 3))
+        self.lorentz_data[:,0] = convert_eV_to_radbym(lorentz_data[:,0])
+        self.lorentz_data[:,1] = lorentz_data[:,1]
+        self.lorentz_data[:,2] = convert_eV_to_radbym(lorentz_data[:,2])
+        self.materialclass = "dielectric"
+
+    def epsilon(self, K):
+        r"""Dielectric function.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber rad/m
+
+        Returns
+        -------
+        eps : flaot
+            relative permittivity, dimensionless number
+
+        """
+        eps = 1.
+        for (c, invtau) in self.debye_data:
+            print(c,invtau)
+            eps += c/(1 + K/invtau)
+        for (Kp, c, gamma) in self.lorentz_data:
+            print(Kp,c,gamma)
+            eps += c*Kp**2/(Kp**2 + K*gamma + K**2)
+        return eps
+    
+    def n(self, K):
+        r"""Refractive index.
+
+        Note that the implementation assumes non-magnetic materials.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber in rad/m
+
+        Returns
+        -------
+        n : flaot
+            refractive index, dimensionless number
+
+        """
+        return np.sqrt(self.epsilon(K))
+
+def convert_eV_to_radbym(val):
+    return val*e/hbar/c
+
 glass_data = [[np.sqrt(1.282)*1.911*1.e16/c, 1.911*1.e16/c, 0.]] 
 Glass =  lorentz_oscillator("Glass", glass_data, dformat="lorentz")
 
@@ -392,10 +448,46 @@ PS_Renan = lorentz_oscillator("PS1", PS1_data, static_value = 2.5)
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/GoldDalvit.dat")
 Gold_Decca = optical_data("Gold_Decca", np.loadtxt(filename), "drude", wp_low=9, gamma_low=0.03, wp_high=54.475279, gamma_high=211.48855)
 
+# precise water
+#             c, 1/tau [eV]  
+debye =     [[0.47, 6.84e-6],
+             [72.62, 7.98e-5]]
+debye = np.array(debye)
+#     omega [eV], c, gamma [eV]
+ir = [[8.46e-4, 2.59e-1, 3.92e-4],
+      [4.19e-3, 1.04,    7.43e-3],  
+      [2.12e-2, 1.62,    2.60e-2],  
+      [6.25e-2, 5.55e-1, 3.98e-2],  
+      [8.49e-2, 2.38e-1, 2.99e-2],  
+      [2.04e-1, 1.34e-2, 8.43e-3],  
+      [4.18e-1, 7.17e-2, 3.41e-2]]
+uv = [[8.34, 4.47e-2, 0.75],
+      [9.50, 3.27e-2, 1.12],  
+      [10.41, 4.66e-2, 1.26],  
+      [11.67, 6.67e-2, 1.58],  
+      [12.95, 7.42e-2, 1.65],  
+      [14.13, 9.30e-2, 1.86],  
+      [15.50, 7.79e-2, 2.22],  
+      [17.17, 7.9e-2,  2.7],  
+      [18.89, 4.18e-2, 2.82],  
+      [21.45, 1.07e-1, 6.87],  
+      [30.06, 1.33e-1, 18.28],  
+      [49.45, 5.66e-2, 36.28]]
+lorentz = np.vstack((np.array(ir), np.array(uv)))
+print(debye)
+print(lorentz)
+
+WaterRT = DebyeLorentzModel("WaterRT", debye, lorentz)
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     X = np.logspace(10,22,100)/c
-    eps = [Gold_Decca.epsilon(x) for x in X]
+    eps1 = [Water.epsilon(x) for x in X]
+    eps2 = [WaterRT.epsilon(x) for x in X]
 
-    plt.loglog(X*c, eps)
+    plt.semilogx(X*c*hbar/e, eps1, label="my")
+    plt.semilogx(X*c*hbar/e, eps2, label="new")
+    #plt.xlim(0.1,1.e3)
+    #plt.ylim(1.,2.5)
+    plt.legend()
     plt.show()
