@@ -13,8 +13,8 @@ from mie import mie_e_array
 from reflection_matrix import arm_full_zero, arm_full_finite
 
 
-@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64[:], float64[:], float64[:], int64, int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
-def construct_matrix_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM, N1, N2, M, kappa1, kappa2, w1, w2):
+@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64[:], float64[:], float64[:], float64, int64, int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
+def construct_matrix_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM, r, N1, N2, M, kappa1, kappa2, w1, w2):
     r"""Construct matrix and its first two derivatives.
 
         Parameters
@@ -23,6 +23,8 @@ def construct_matrix_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM, N1
             1D arrays of ints, row and column index of the matrix elements, respectively.
         data : list
             1D array of floats, matrix elements
+        r : float
+            relative translation distance contained in the reflection matrix, between 0 and 1
         N1, N2, M : int
             positive, radial and angular discretization order
         kappa1, kappa2 : list
@@ -41,7 +43,7 @@ def construct_matrix_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM, N1
     for l in range(len(row)):
         i, j = row[l], col[l]
         weight = 1/M/2/np.pi*sqrt(w1[i]*w2[j])
-        dL_factor = -(kappa1[i] + kappa2[j])
+        dL_factor = -(kappa1[i] + kappa2[j])*r
         d2L_factor = dL_factor**2
         mat[i, j] = weight*dataTMTM[l]
         mat[i+N1, j+N2] = weight*dataTETE[l]
@@ -219,17 +221,17 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, n
     kappa_inner = np.sqrt(K ** 2 + nds_inner ** 2)
 
     # m=0
-    mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:,0], TETE1[:,0], TMTE1[:,0], TETM1[:,0], Nouter, Ninner, M, kappa_outer, kappa_inner, wts_outer, wts_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:,0], TETE2[:,0], TMTE2[:,0], TETM2[:,0], Ninner, Nouter, M, kappa_inner, kappa_outer, wts_inner, wts_outer)
+    mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:,0], TETE1[:,0], TMTE1[:,0], TETM1[:,0], 0.5, Nouter, Ninner, M, kappa_outer, kappa_inner, wts_outer, wts_inner)
+    mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:,0], TETE2[:,0], TMTE2[:,0], TETM2[:,0], 0.5, Ninner, Nouter, M, kappa_inner, kappa_outer, wts_inner, wts_outer)
 
     logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
     # m>0
     for m in range(1, M//2):
         mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:, m], TETE1[:, m], TMTE1[:, m],
-                                                          TETM1[:, m], Nouter, Ninner, M, kappa_outer, kappa_inner,
+                                                          TETM1[:, m], 0.5, Nouter, Ninner, M, kappa_outer, kappa_inner,
                                                           wts_outer, wts_inner)
         mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:, m], TETE2[:, m], TMTE2[:, m],
-                                                          TETM2[:, m], Ninner, Nouter, M, kappa_inner, kappa_outer,
+                                                          TETM2[:, m], 0.5, Ninner, Nouter, M, kappa_inner, kappa_outer,
                                                           wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
@@ -239,10 +241,10 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, n
 
     # last m
     mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:, M//2], TETE1[:, M//2], TMTE1[:, M//2],
-                                                      TETM1[:, M//2], Nouter, Ninner, M, kappa_outer, kappa_inner,
+                                                      TETM1[:, M//2], 0.5, Nouter, Ninner, M, kappa_outer, kappa_inner,
                                                       wts_outer, wts_inner)
     mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:, M//2], TETE2[:, M//2], TMTE2[:, M//2],
-                                                      TETM2[:, M//2], Ninner, Nouter, M, kappa_inner, kappa_outer,
+                                                      TETM2[:, M//2], 0.5, Ninner, Nouter, M, kappa_inner, kappa_outer,
                                                       wts_inner, wts_outer)
     term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                     observable)
@@ -260,8 +262,8 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, n
     print(K, logdet, "%.3f"%timing_matrix, "%.3f"%timing_dft, "%.3f"%timing_logdet, sep=", ")
     return np.array([logdet, dL_logdet/L, d2L_logdet/L**2])
 
-@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], int64, int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
-def construct_roundtrip_zero(row, col, data, N1, N2, M, k1, k2, w1, w2):
+@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64, int64, int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
+def construct_roundtrip_zero(row, col, data, r, N1, N2, M, k1, k2, w1, w2):
     r"""Construct round-trip matrices and its first two derivatives for each m.
 
         Parameters
@@ -270,6 +272,8 @@ def construct_roundtrip_zero(row, col, data, N1, N2, M, k1, k2, w1, w2):
             1D arrays of ints, row and column index of the matrix elements, respectively.
         data : ndarray
             1D array of floats, matrix elements
+        r : float
+            relative translation distance contained in the reflection matrix, between 0 and 1
         N1, N2, M : int
             matrix dimension of each polarization block
         k1, k2, w1, w2: list
@@ -286,7 +290,7 @@ def construct_roundtrip_zero(row, col, data, N1, N2, M, k1, k2, w1, w2):
     for l in range(len(data)):
         i, j = row[l], col[l]
         weight = 1/M/2/np.pi*sqrt(w1[i]*w2[j])
-        dL_factor = -(k1[i] + k2[j])
+        dL_factor = -(k1[i] + k2[j])*r
         d2L_factor = dL_factor**2
         mat[i, j] = weight*data[l]
         dL_mat[i, j] = dL_factor*mat[i, j]
@@ -358,15 +362,15 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
 
     ## TM contribution
     # m=0
-    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:,0], N_outer, N_inner, M, nds_outer, nds_inner, wts_outer, wts_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:,0], N_inner, N_outer, M, nds_inner, nds_outer, wts_inner, wts_outer)
+    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:,0], 0.5, N_outer, N_inner, M, nds_outer, nds_inner, wts_outer, wts_inner)
+    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:,0], 0.5, N_inner, N_outer, M, nds_inner, nds_outer, wts_inner, wts_outer)
     logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
 
     # m>0
     for m in range(1, M//2):
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, m], N_outer, N_inner, M, nds_outer,
+        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, m], 0.5, N_outer, N_inner, M, nds_outer,
                                                            nds_inner, wts_outer, wts_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, m], N_inner, N_outer, M, nds_inner,
+        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, m], 0.5, N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
@@ -375,9 +379,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
         d2L_logdet += 2 * term3
 
     # last m
-    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, M//2], N_outer, N_inner, M, nds_outer,
+    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, M//2], 0.5, N_outer, N_inner, M, nds_outer,
                                                        nds_inner, wts_outer, wts_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, M//2], N_inner, N_outer, M, nds_inner,
+    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, M//2], 0.5, N_inner, N_outer, M, nds_inner,
                                                        nds_outer, wts_inner, wts_outer)
     term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                     observable)
@@ -393,9 +397,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
     ## TE contribution
     if materialclass_sphere1 != "dielectric" and materialclass_sphere1 != "drude" and materialclass_sphere2 != "dielectric" and materialclass_sphere2 != "drude":
         # m=0
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, 0], N_outer, N_inner, M, nds_outer,
+        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, 0], 0.5, N_outer, N_inner, M, nds_outer,
                                                            nds_inner, wts_outer, wts_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, 0], N_inner, N_outer, M, nds_inner,
+        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, 0], 0.5, N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
@@ -405,9 +409,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
 
         # m>0
         for m in range(1, M//2):
-            mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, m], N_outer, N_inner, M, nds_outer,
+            mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, m], 0.5, N_outer, N_inner, M, nds_outer,
                                                                nds_inner, wts_outer, wts_inner)
-            mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, m], N_inner, N_outer, M, nds_inner,
+            mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, m], 0.5, N_inner, N_outer, M, nds_inner,
                                                                nds_outer, wts_inner, wts_outer)
             term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                             observable)
@@ -416,9 +420,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
             d2L_logdet += 2 * term3
 
         # last m
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, M//2], N_outer, N_inner, M, nds_outer,
+        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, M//2], 0.5, N_outer, N_inner, M, nds_outer,
                                                            nds_inner, wts_outer, wts_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, M//2], N_inner, N_outer, M, nds_inner,
+        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, M//2], 0.5, N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
