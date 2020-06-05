@@ -114,6 +114,7 @@ class optical_data(material):
         self.materialclass = materialclass
         if wp_low != None:
             self.Kp_low = wp_low*e/hbar/c
+            self.K_plasma = self.Kp_low
         else:
             self.Kp_low = None
         if gamma_low != None:
