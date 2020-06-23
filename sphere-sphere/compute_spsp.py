@@ -53,6 +53,7 @@ group.add_argument("--quad", help="use QUADPACK for frequency integration (defau
 parser.add_argument("--epsrel", help="relative error for --psd, --msd or --quad", default=1.e-08, type=float, metavar="")
 group.add_argument("--fcq", help="use Fourier-Chebyshev quadrature scheme for frequency integration", action="store_true")
 parser.add_argument("--X", help="quadrature order of Fourier-Chebyshev scheme (when --fcq is used)", type=int, metavar="")
+parser.add_argument("--O", help="order of PSD or MSD (overwrites --epsrel)", type=int, metavar="")
 
 # multiprocessing
 parser.add_argument("--cores", help="number of CPU cores assigned", default=cpu_count(), type=int, metavar="")
@@ -239,9 +240,9 @@ else: # T > 0
     res0 = contribution_zero(args.R1, args.R2, args.L, alpha_sphere1, alpha_sphere2, materialclass_sphere1, materialclass_sphere2, Nout, Nin, M, nds_outer, wts_outer, nds_inner, wts_inner, lmax1, lmax2, args.cores, observable)
     res0 *= 0.5*k*args.T
     if args.msd:
-        res1 = msd_sum(args.T, args.L, func, args.epsrel)
+        res1 = msd_sum(args.T, args.L, func, args.epsrel, nmax=args.O)
     elif not(args.ht):
-        res1 = psd_sum(args.T, args.L, func, args.epsrel)
+        res1 = psd_sum(args.T, args.L, func, args.epsrel, order=args.O)
     print("#")
     finishtime = datetime.datetime.now()
     print("# finish time:", finishtime.replace(microsecond=0))
