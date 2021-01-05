@@ -447,6 +447,13 @@ PS_Renan = lorentz_oscillator("PS1", PS1_data, static_value = 2.5)
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/GoldDalvit.dat")
 Gold_Decca = optical_data("Gold_Decca", np.loadtxt(filename), "drude", wp_low=9, gamma_low=0.03, wp_high=54.475279, gamma_high=211.48855)
 
+# dielectric function from Mostepanenko
+filename = os.path.join(os.path.dirname(__file__), "./optical_data/eps_gold_plasma.csv")
+GoldPlMoste = optical_data("GoldPlMoste", np.loadtxt(filename), "plasma", wp_low=9, gamma_low=0)
+
+filename = os.path.join(os.path.dirname(__file__), "./optical_data/eps_gold_drude.csv")
+GoldDrMoste = optical_data("GoldDrMoste", np.loadtxt(filename), "drude", wp_low=9, gamma_low=0.035)
+
 # precise water
 #             c, 1/tau [eV]  
 debye =     [[0.47, 6.84e-6],
