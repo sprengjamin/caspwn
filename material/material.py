@@ -85,6 +85,83 @@ class lorentz_oscillator(material):
 
         """
         return np.sqrt(self.epsilon(K))
+
+class optical_data_matsubara(material):
+    def __init__(self, name, data, materialclass, wp):
+        r"""Permittivity is given by inter- and extrapolating optical data.
+        
+        Parameters
+        ----------
+        name : string
+            name of material
+        data : numpy.ndarray
+            optical data in the format (K [rad/m], eps(i K))
+        materialclass : string
+            material class, e.g. "drude", "dielectric", "PR"
+        wp : float
+            plasma frequency in eV/hbar
+
+        Returns
+        -------
+        instance of optical_data class
+
+        """
+        self.name = name
+        self.data = data
+        self.materialclass = materialclass
+        self.K_plasma = wp*e/hbar/c
+    
+
+    def epsilon(self, K):
+        r"""Dielectric function.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber rad/m
+
+        Returns
+        -------
+        eps : flaot
+            permittivity, dimensionless number
+
+        """
+        if K == 0.:
+            if self.f_extra == None:
+                return self.data[0][1]
+            else:
+                raise NotImplementedError
+        else:
+            xi = K*c
+            i = np.searchsorted(self.data[:,0], xi)
+            if i == 0:
+                return self.data[0][1]
+            elif i >= len(self.data):
+                return self.data[-1][1]
+            else:
+                xi1 = self.data[i-1, 0]
+                eps1 = self.data[i-1,1]
+                xi2 = self.data[i, 0]
+                eps2 = self.data[i,1]
+                return eps1 + (eps2-eps1)*(xi-xi1)/(xi2-xi1)
+
+    def n(self, K):
+        r"""Refractive index.
+
+        Note that the implementation assumes non-magnetic materials.
+
+        Parameters
+        ----------
+        K : flaot
+            vacuum wavenumber in rad/m
+
+        Returns
+        -------
+        n : flaot
+            refractive index, dimensionless number
+
+        """
+        return np.sqrt(self.epsilon(K))
  
         
 class optical_data(material):
@@ -449,10 +526,10 @@ Gold_Decca = optical_data("Gold_Decca", np.loadtxt(filename), "drude", wp_low=9,
 
 # dielectric function from Mostepanenko
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/eps_gold_plasma.csv")
-GoldPlMoste = optical_data("GoldPlMoste", np.loadtxt(filename), "plasma", wp_low=9, gamma_low=0)
+GoldPlMoste = optical_data_matsubara("GoldPlMoste", np.loadtxt(filename), "plasma", wp=9.)
 
 filename = os.path.join(os.path.dirname(__file__), "./optical_data/eps_gold_drude.csv")
-GoldDrMoste = optical_data("GoldDrMoste", np.loadtxt(filename), "drude", wp_low=9, gamma_low=0.035)
+GoldDrMoste = optical_data_matsubara("GoldDrMoste", np.loadtxt(filename), "drude", wp=9.)
 
 # precise water
 #             c, 1/tau [eV]  
