@@ -190,12 +190,12 @@ else: # T > 0
         print("# summation method: msd")
         print("# epsrel:", args.epsrel)
         from summation import msd_sum
-    if args.ht:
-        print("# mode: high-temperature limit")
     else: # psd
         print("# summation method: psd")
         print("# epsrel:", args.epsrel)
         from summation import psd_sum
+    if args.ht:
+        print("# mode: high-temperature limit")
     print("#")
     print("# K, logdet, t(matrix construction), t(dft), t(matrix operations)")
     materialclass_plane = mat_plane.materialclass
