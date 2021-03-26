@@ -75,6 +75,7 @@ def Ple_low(l, x):
     Pl += -bessels[5]*x**5/nu*671/80640
     Pl += -bessels[4]*x**4/nu**2*101/3583
     Pl += -bessels[3]*(x/nu)**3*173/15360
+    """
     # n = 8
     Pl += bessels[8]*x**8*1261/29030400
     Pl += bessels[7]*x**7/nu*1261/967680
@@ -96,8 +97,9 @@ def Ple_low(l, x):
     Pl += bessels[10]*x**10/nu**2*3135577/5367398400
     Pl += bessels[9]*x**9/nu**3*72836747/12651724800
     Pl += bessels[8]*x**8/nu**4*2323237523/101213798400
-    Pl += bessels[7]*x**7/nu**6*1396004969/47233105920
+    Pl += bessels[7]*x**7/nu**5*1396004969/47233105920
     Pl += bessels[6]*(x/nu)**6*233526463/43599790080
+    """
     return Pl
 
 @njit("float64(float64)", cache=True)

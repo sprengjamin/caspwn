@@ -7,7 +7,7 @@ import os
 #from kernel import phase
 
 from mpmath import *
-from kernel import phase
+from kernels import phase
 mp.dps = 80
 
 def mp_phase(rho, xi, k1, k2, phi):

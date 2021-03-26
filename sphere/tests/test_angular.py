@@ -92,8 +92,8 @@ def test_c_coefficients():
     for x in X:
         print(x)
         # allow less precision for higher coefficients since contribution decreases
-        np.testing.assert_allclose(_c1(x), float(mp_c1(mpf(x))), rtol=1.e-15, atol=0.1)
-        np.testing.assert_allclose(_c2(x), float(mp_c2(mpf(x))), rtol=1.e-13, atol=0.1)
+        np.testing.assert_allclose(_c1(x)/float(mp_c1(mpf(x))), 1., rtol=1.e-15)
+        np.testing.assert_allclose(_c2(x)/float(mp_c2(mpf(x))), 1., rtol=1.e-13)
         print(_c3(x))
         print(float(mp_c3(mpf(x))))
         np.testing.assert_allclose(_c3(x), float(mp_c3(mpf(x))), rtol=1.e-11)
@@ -120,7 +120,7 @@ def test_recurrence():
             np.testing.assert_allclose(my_te3, float(mp_te3), rtol=rtol)
     
 def test_pte_array():
-    rtol = 1.e-14
+    rtol = 2.e-10
     Lmin = [10, 100, 989, 5679, 10000, 887766]
     dL = [1000, 1459, 2397]
     X = np.logspace(-3, 2, 5)
@@ -132,8 +132,8 @@ def test_pte_array():
                 print("lmin:", lmin, "dl:", dl, "x:", x)
                 print("pe prec:", np.abs(pe[-1]/pe_a-1.))
                 print("te prec:", np.abs(te[-1]/te_a-1.))
-                np.testing.assert_allclose(pe[-1], pe_a, rtol = rtol, atol=1.)
-                np.testing.assert_allclose(te[-1], te_a, rtol = rtol, atol=1.)
+                np.testing.assert_allclose(pe[-1]/pe_a, 1., rtol = rtol)
+                np.testing.assert_allclose(te[-1]/te_a, 1., rtol = rtol)
 
 
 if __name__ == "__main__":
