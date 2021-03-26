@@ -1,4 +1,4 @@
-Here are test which check the consistency of the observables.  It is tested
+Here are tests which check the consistency of the observables.  It is tested
 that the force returned by the routine is negative gradient of the energy and
 that the pressure is the gradient of the force.
 
