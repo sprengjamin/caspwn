@@ -2,7 +2,7 @@ import sys, os
 import argparse
 from multiprocessing import cpu_count
 from math import sqrt
-from scipy.constants import k
+from scipy.constants import k, c
 from plsp_interaction import contribution_finite, contribution_zero
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs"))
 from integration import fc_quadrature
@@ -29,7 +29,7 @@ obs.add_argument("--pressure", help="compute Casimir energy, force and pressure 
 
 # materials
 parser.add_argument("--sphere", help="material of sphere", default="PR", type=str, metavar="")
-parser.add_argument("--medium", help="material of medium", default="Vacuum", type=str, metavar="")
+parser.add_argument("--medium", help="material of medium", default="vacuum", type=str, metavar="")
 parser.add_argument("--plane", help="material of plane", default="PR", type=str, metavar="")
 
 # convergence parameters
@@ -133,12 +133,14 @@ print("# cores:", args.cores)
 print("#")
 
 # load materials
-mat_plane = eval("material."+args.plane)
-mat_medium = eval("material."+args.medium)
-mat_sphere = eval("material."+args.sphere)
-nfunc_plane = mat_plane.n
-nfunc_medium = mat_medium.n
-nfunc_sphere = mat_sphere.n
+import importlib
+mat_plane = importlib.import_module(args.plane)
+mat_medium = importlib.import_module(args.medium)
+mat_sphere = importlib.import_module(args.sphere)
+nfunc_plane = lambda xi: sqrt(mat_plane.epsilon(xi))
+nfunc_medium = lambda xi: sqrt(mat_medium.epsilon(xi))
+nfunc_sphere = lambda xi: sqrt(mat_sphere.epsilon(xi))
+
 
 nds, wts = fc_quadrature(N)
 
@@ -153,7 +155,7 @@ if args.T == 0.:
 
 
     func = lambda K: \
-            contribution_finite(args.R, args.L, nfunc_medium(K / args.L) * K, nfunc_plane(K / args.L), nfunc_sphere(K / args.L), N, M, nds, wts, lmax, args.cores, observable)[j]
+            contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), N, M, nds, wts, lmax, args.cores, observable)[j]
 
     if args.fcq:
         print("# integration method: fcq")
@@ -184,7 +186,7 @@ if args.T == 0.:
     print(res)
 else: # T > 0
     func = lambda K: \
-        contribution_finite(args.R, args.L, nfunc_medium(K / args.L) * K, nfunc_plane(K / args.L)/nfunc_medium(K / args.L), nfunc_sphere(K / args.L)/nfunc_medium(K / args.L), N, M, nds, wts, lmax, args.cores, observable)
+        contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), N, M, nds, wts, lmax, args.cores, observable)
 
     if args.msd:
         print("# summation method: msd")

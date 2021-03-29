@@ -2,7 +2,7 @@ import sys, os
 import argparse
 from multiprocessing import cpu_count
 from math import sqrt
-from scipy.constants import k
+from scipy.constants import k, c
 from spsp_interaction import contribution_finite, contribution_zero
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs"))
 from integration import fc_quadrature
@@ -29,7 +29,7 @@ obs.add_argument("--pressure", help="compute Casimir energy, force and pressure 
 
 # materials
 parser.add_argument("--sphere1", help="material of sphere 1", default="PR", type=str, metavar="")
-parser.add_argument("--medium", help="material of medium", default="Vacuum", type=str, metavar="")
+parser.add_argument("--medium", help="material of medium", default="vacuum", type=str, metavar="")
 parser.add_argument("--sphere2", help="material of sphere 2", default="PR", type=str, metavar="")
 
 # convergence parameters
@@ -157,12 +157,13 @@ print("#")
 print("# cores:", args.cores)
 print("#")
 # load materials
-mat_sphere1 = eval("material."+args.sphere1)
-mat_medium = eval("material."+args.medium)
-mat_sphere2 = eval("material."+args.sphere2)
-nfunc_sphere1 = mat_sphere1.n
-nfunc_medium = mat_medium.n
-nfunc_sphere2 = mat_sphere2.n
+import importlib
+mat_sphere1 = importlib.import_module(args.sphere1)
+mat_medium = importlib.import_module(args.medium)
+mat_sphere2 = importlib.import_module(args.sphere2)
+nfunc_sphere1 = lambda xi: sqrt(mat_sphere1.epsilon(xi))
+nfunc_medium = lambda xi: sqrt(mat_medium.epsilon(xi))
+nfunc_sphere2 = lambda xi: sqrt(mat_sphere2.epsilon(xi))
 
 nds_outer, wts_outer = fc_quadrature(Nout)
 nds_inner, wts_inner = fc_quadrature(Nin)
@@ -175,8 +176,8 @@ if args.T == 0.:
     if observable == "pressure":
         j = 2
     func = lambda K: \
-    contribution_finite(args.R1, args.R2, args.L, nfunc_medium(K / args.L) * K, nfunc_sphere1(K / args.L),
-                        nfunc_sphere2(K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
+    contribution_finite(args.R1, args.R2, args.L, nfunc_medium(c * K / args.L) * K, nfunc_sphere1(c * K / args.L)/nfunc_medium(c * K / args.L),
+                        nfunc_sphere2(c * K / args.L)/nfunc_medium(c * K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
                         wts_inner, lmax1, lmax2, args.cores, observable)[j]
 
     if args.fcq:
@@ -208,8 +209,8 @@ if args.T == 0.:
     print(res)
 else: # T > 0
     func = lambda K: \
-        contribution_finite(args.R1, args.R2, args.L, nfunc_medium(K / args.L) * K, nfunc_sphere1(K / args.L)/nfunc_medium(K / args.L),
-                            nfunc_sphere2(K / args.L)/nfunc_medium(K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
+        contribution_finite(args.R1, args.R2, args.L, nfunc_medium(c * K / args.L) * K, nfunc_sphere1(c * K / args.L)/nfunc_medium(c * K / args.L),
+                            nfunc_sphere2(c * K / args.L)/nfunc_medium(c * K / args.L), Nout, Nin, M, nds_outer, wts_outer, nds_inner,
                             wts_inner, lmax1, lmax2, args.cores, observable)
     if args.msd:
         print("# summation method: msd")
