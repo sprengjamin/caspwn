@@ -6,6 +6,7 @@ from math import sqrt
 import concurrent.futures as futures
 from numba import njit
 from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import lu_factor, lu_solve
 from scipy.integrate import quad
 from scipy.constants import Boltzmann, hbar, c
 from time import perf_counter
@@ -14,9 +15,6 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../sphere/"))
 from mie import mie_e_array
 from reflection_matrix import arm_full_zero, arm_full_finite
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane/"))
-from fresnel import rTM_zero, rTM_finite
-from fresnel import rTE_zero, rTE_finite
 
 
 @njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64[:], float64[:], float64[:], int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
@@ -46,41 +44,77 @@ def construct_roundtrip_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM,
     mat = np.zeros((2 * N, 2 * N))
     dL_mat = np.zeros((2 * N, 2 * N))
     d2L_mat = np.zeros((2 * N, 2 * N))
-    for l in range(len(row)):
-        i, j = row[l], col[l]
-        weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
-        factorTMTM = np.sign(rTM[i])*sqrt(rTM[i]*rTM[j])*weight
-        factorTETE = np.sign(rTE[i])*sqrt(rTE[i]*rTE[j])*weight
-        factorTMTE = sqrt(-rTM[i]*rTE[j])*weight
-        factorTETM = sqrt(-rTE[i]*rTM[j])*weight
-        dL_factor = -(kappa[i] + kappa[j])
-        d2L_factor = dL_factor**2
-        mat[i, j] = factorTMTM*dataTMTM[l]
-        mat[j, i] = mat[i, j]
-        mat[i+N, j+N] = factorTETE*dataTETE[l]
-        mat[j+N, i+N] = mat[i+N, j+N]
-        mat[i, j+N] = factorTMTE*dataTMTE[l]
-        mat[j+N, i] = mat[i, j+N]
-        mat[i+N, j] = factorTETM*dataTETM[l]
-        mat[j, i+N] = mat[i+N, j]
+    if np.all(np.sign(rTM)==np.sign(rTM[0])) and np.all(np.sign(rTE)==np.sign(rTE[0])):
+        # symmetrize matrices
+        for l in range(len(row)):
+            i, j = row[l], col[l]
+            weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
+            factorTMTM = np.sign(rTM[i])*sqrt(rTM[i]*rTM[j])*weight
+            factorTETE = np.sign(rTE[i])*sqrt(rTE[i]*rTE[j])*weight
+            factorTMTE = sqrt(-rTM[i]*rTE[j])*weight
+            factorTETM = sqrt(-rTE[i]*rTM[j])*weight
+            dL_factor = -(kappa[i] + kappa[j])
+            d2L_factor = dL_factor**2
+            mat[i, j] = factorTMTM*dataTMTM[l]
+            mat[j, i] = mat[i, j]
+            mat[i+N, j+N] = factorTETE*dataTETE[l]
+            mat[j+N, i+N] = mat[i+N, j+N]
+            mat[i, j+N] = factorTMTE*dataTMTE[l]
+            mat[j+N, i] = mat[i, j+N]
+            mat[i+N, j] = factorTETM*dataTETM[l]
+            mat[j, i+N] = mat[i+N, j]
 
-        dL_mat[i, j] = dL_factor*mat[i, j]
-        dL_mat[j, i] = dL_mat[i, j]
-        dL_mat[i+N, j+N] = dL_factor*mat[i+N, j+N]
-        dL_mat[j+N, i+N] = dL_mat[i+N, j+N]
-        dL_mat[i, j+N] = dL_factor*mat[i, j+N]
-        dL_mat[j+N, i] = dL_mat[i, j+N]
-        dL_mat[i+N, j] = dL_factor*mat[i+N, j]
-        dL_mat[j, i+N] = dL_mat[i+N, j]
+            dL_mat[i, j] = dL_factor*mat[i, j]
+            dL_mat[j, i] = dL_mat[i, j]
+            dL_mat[i+N, j+N] = dL_factor*mat[i+N, j+N]
+            dL_mat[j+N, i+N] = dL_mat[i+N, j+N]
+            dL_mat[i, j+N] = dL_factor*mat[i, j+N]
+            dL_mat[j+N, i] = dL_mat[i, j+N]
+            dL_mat[i+N, j] = dL_factor*mat[i+N, j]
+            dL_mat[j, i+N] = dL_mat[i+N, j]
 
-        d2L_mat[i, j] = d2L_factor*mat[i, j]
-        d2L_mat[j, i] = d2L_mat[i, j]
-        d2L_mat[i+N, j+N] = d2L_factor*mat[i+N, j+N]
-        d2L_mat[j+N, i+N] = d2L_mat[i+N, j+N]
-        d2L_mat[i, j+N] = d2L_factor*mat[i, j+N]
-        d2L_mat[j+N, i] = d2L_mat[i, j+N]
-        d2L_mat[i+N, j] = d2L_factor*mat[i+N, j]
-        d2L_mat[j, i+N] = d2L_mat[i+N, j]
+            d2L_mat[i, j] = d2L_factor*mat[i, j]
+            d2L_mat[j, i] = d2L_mat[i, j]
+            d2L_mat[i+N, j+N] = d2L_factor*mat[i+N, j+N]
+            d2L_mat[j+N, i+N] = d2L_mat[i+N, j+N]
+            d2L_mat[i, j+N] = d2L_factor*mat[i, j+N]
+            d2L_mat[j+N, i] = d2L_mat[i, j+N]
+            d2L_mat[i+N, j] = d2L_factor*mat[i+N, j]
+            d2L_mat[j, i+N] = d2L_mat[i+N, j]
+    else:
+        # do not symmetrize matrices
+        for l in range(len(row)):
+            i, j = row[l], col[l]
+            weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
+            dL_factor = -(kappa[i] + kappa[j])
+            d2L_factor = dL_factor**2
+            mat[i, j] = weight*rTM[i]*dataTMTM[l]
+            mat[j, i] = weight*rTM[j]*dataTMTM[l]
+            mat[i+N, j+N] = weight*rTE[i]*dataTETE[l]
+            mat[j+N, i+N] = weight*rTE[j]*dataTETE[l]
+            mat[i, j+N] = weight*rTM[i]*dataTMTE[l]
+            mat[j+N, i] = weight*rTE[j]*dataTETM[l]
+            mat[i+N, j] = weight*rTE[i]*dataTETM[l]
+            mat[j, i+N] = weight*rTM[j]*dataTMTE[l]
+
+            dL_mat[i, j] = dL_factor*mat[i, j]
+            dL_mat[j, i] = dL_factor*mat[j, i]
+            dL_mat[i+N, j+N] = dL_factor*mat[i+N, j+N]
+            dL_mat[j+N, i+N] = dL_factor*mat[j+N, i+N]
+            dL_mat[i, j+N] = dL_factor*mat[i, j+N]
+            dL_mat[j+N, i] = dL_factor*mat[j+N, i]
+            dL_mat[i+N, j] = dL_factor*mat[i+N, j]
+            dL_mat[j, i+N] = dL_factor*mat[j, i+N]
+
+            d2L_mat[i, j] = d2L_factor*mat[i, j]
+            d2L_mat[j, i] = d2L_factor*mat[j, i]
+            d2L_mat[i+N, j+N] = d2L_factor*mat[i+N, j+N]
+            d2L_mat[j+N, i+N] = d2L_factor*mat[j+N, i+N]
+            d2L_mat[i, j+N] = d2L_factor*mat[i, j+N]
+            d2L_mat[j+N, i] = d2L_factor*mat[j+N, i]
+            d2L_mat[i+N, j] = d2L_factor*mat[i+N, j]
+            d2L_mat[j, i+N] = d2L_factor*mat[j, i+N]
+
     return mat, dL_mat, d2L_mat
 
 def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
@@ -116,23 +150,40 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
 
 
     """
-    c, lower = cho_factor(np.eye(mat.shape[0]) - mat)
-    logdet = 2*np.sum(np.log(np.diag(c)))
-    if observable == "energy":
-        return logdet, 0., 0.
-    matA = cho_solve((c, lower), dL_mat)
-    dL_logdet = np.trace(matA)
-    if observable == "force":
-        return logdet, dL_logdet, 0.
-    matB = cho_solve((c, lower), d2L_mat)
-    d2L_logdet = np.trace(matB) + np.sum(matA**2)
-    if observable == "pressure":
-        return logdet, dL_logdet, d2L_logdet
+    if np.all(mat == mat.T):
+        c, lower = cho_factor(np.eye(mat.shape[0]) - mat)
+        logdet = 2*np.sum(np.log(np.diag(c)))
+        if observable == "energy":
+            return logdet, 0., 0.
+        matA = cho_solve((c, lower), dL_mat)
+        dL_logdet = np.trace(matA)
+        if observable == "force":
+            return logdet, dL_logdet, 0.
+        matB = cho_solve((c, lower), d2L_mat)
+        d2L_logdet = np.trace(matB) + np.sum(matA**2)
+        if observable == "pressure":
+            return logdet, dL_logdet, d2L_logdet
+        else:
+            raise ValueError
     else:
-        raise ValueError
+        lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
+        logdet = np.sum(np.log(np.diag(lu)))
+        if observable == "energy":
+            return logdet, 0., 0.
+
+        matA = lu_solve((lu, piv), dL_mat)
+        dL_logdet = np.trace(matA)
+        if observable == "force":
+            return logdet, dL_logdet, 0.
+        matB = lu_solve((lu, piv), d2L_mat)
+        d2L_logdet = np.trace(matB) + np.sum(matA**2)
+        if observable == "pressure":
+            return logdet, dL_logdet, d2L_logdet
+        else:
+            raise ValueError
 
 
-def contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc, observable):
+def contribution_finite(R, L, K, n_plane, n_sphere, rTM_finite, rTE_finite, N, M, nds, wts, lmax, nproc, observable):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -146,6 +197,8 @@ def contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc,
         positive, rescaled wavenumber in medium
     n_plane, n_sphere: float
         positive, refractive index of plane and sphere (relative to medium)
+    rTM_finite, rTE_finite: function
+        the reflection coefficients on the plane for TM and TE polarization
     N, M: int
         positive, radial and angular discretization order
     nds, wts: np.ndarray
@@ -196,8 +249,8 @@ def contribution_finite(R, L, K, n_plane, n_sphere, N, M, nds, wts, lmax, nproc,
     start_logdet = end_dft
 
     kappa = np.sqrt(K ** 2 + nds ** 2)
-    rTM = np.array([rTM_finite(K, k, n_plane**2) for k in nds])
-    rTE = np.array([rTE_finite(K, k, n_plane**2) for k in nds])
+    rTM = np.array([rTM_finite(K, k) for k in nds])
+    rTE = np.array([rTE_finite(K, k) for k in nds])
 
     # m=0
     mat, dL_mat, d2L_mat = construct_roundtrip_finite(row, col, dataTMTM[:,0], dataTETE[:,0], dataTMTE[:,0], dataTETM[:,0], N, M, kappa, wts, rTM, rTE)
@@ -253,22 +306,37 @@ def construct_roundtrip_zero(row, col, data, N, M, k, w, rp):
     mat = np.zeros((N, N))
     dL_mat = np.zeros((N, N))
     d2L_mat = np.zeros((N, N))
-    for l in range(len(data)):
-        i, j = row[l], col[l]
-        weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
-        factor = np.sign(rp[i])*sqrt(rp[i]*rp[j])*weight
-        dL_factor = -(k[i] + k[j])
-        d2L_factor = dL_factor**2
-        mat[i, j] = factor*data[l]
-        mat[j, i] = factor*data[l]
-        dL_mat[i, j] = dL_factor*mat[i, j]
-        dL_mat[j, i] = dL_mat[i, j]
-        d2L_mat[i, j] = d2L_factor*mat[i, j]
-        d2L_mat[j, i] = d2L_mat[i, j]
+    if np.all(np.sign(rp)==np.sign(rp[0])):
+        # symmetrize matrices
+        for l in range(len(data)):
+            i, j = row[l], col[l]
+            weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
+            factor = np.sign(rp[i])*sqrt(rp[i]*rp[j])*weight
+            dL_factor = -(k[i] + k[j])
+            d2L_factor = dL_factor**2
+            mat[i, j] = factor*data[l]
+            mat[j, i] = factor*data[l]
+            dL_mat[i, j] = dL_factor*mat[i, j]
+            dL_mat[j, i] = dL_mat[i, j]
+            d2L_mat[i, j] = d2L_factor*mat[i, j]
+            d2L_mat[j, i] = d2L_mat[i, j]
+    else:
+        # do not symmetrize matrices
+        for l in range(len(data)):
+                i, j = row[l], col[l]
+                weight = 1/M/2/np.pi*sqrt(w[i]*w[j])
+                dL_factor = -(k[i] + k[j])
+                d2L_factor = dL_factor**2
+                mat[i, j] = weight*data[l]*rp[i]
+                mat[j, i] = weight*data[l]*rp[j]
+                dL_mat[i, j] = dL_factor*mat[i, j]
+                dL_mat[j, i] = dL_factor*mat[j, i]
+                d2L_mat[i, j] = d2L_factor*mat[i, j]
+                d2L_mat[j, i] = d2L_factor*mat[j, i]
     return mat, dL_mat, d2L_mat
 
 
-def contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, nds, wts, lmax, nproc, observable):
+def contribution_zero(R, L, alpha_sphere, materialclass_plane, materialclass_sphere, rTM_zero, rTE_zero, N, M, nds, wts, lmax, nproc, observable):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -283,6 +351,8 @@ def contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, mate
         materialclass)
     materialclass_plane, materialclass_sphere : string
         materialclass of plane and sphere
+    rTM_zero, rTE_zero: function
+        the reflection coefficients on the plane for TM and TE polarization
     N, M: int
         positive, radial and angular discretization order
     nds, wts: np.ndarray
@@ -322,7 +392,7 @@ def contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, mate
 
     start_logdet = end_fft
     k = nds
-    rTM = np.array([rTM_zero(k, alpha_plane, materialclass_plane) for k in nds])
+    rTM = np.array([rTM_zero(k) for k in nds])
     ## TM contribution
     # m=0
     mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTM[:,0], N, M, k, wts, rTM)
@@ -349,8 +419,7 @@ def contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, mate
         d2L_logdet += 2 * term3
 
     ## TE contribution
-    rTE = np.array([rTE_zero(k, alpha_plane, materialclass_plane) for k in nds])
-
+    rTE = np.array([rTE_zero(k) for k in nds])
     if materialclass_plane != "dielectric" and materialclass_plane != "drude" and materialclass_sphere != "dielectric" and materialclass_sphere != "drude":
         # m=0
         mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTE[:,0], N, M, k, wts, rTE)

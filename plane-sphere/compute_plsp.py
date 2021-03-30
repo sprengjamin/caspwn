@@ -7,7 +7,8 @@ from plsp_interaction import contribution_finite, contribution_zero
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs"))
 from integration import fc_quadrature
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../material"))
-import material
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../plane"))
+
 
 parser = argparse.ArgumentParser(description="Computation of the Casimir energy in the plane-sphere geometry.")
 
@@ -31,6 +32,10 @@ obs.add_argument("--pressure", help="compute Casimir energy, force and pressure 
 parser.add_argument("--sphere", help="material of sphere", default="PR", type=str, metavar="")
 parser.add_argument("--medium", help="material of medium", default="vacuum", type=str, metavar="")
 parser.add_argument("--plane", help="material of plane", default="PR", type=str, metavar="")
+
+# additional layer
+parser.add_argument("--add_plane_layer", help="material of addtional plane layer", type=str, metavar="")
+parser.add_argument("--layer_thickness", help="thickness of front plane layer", type=float, metavar="")
 
 # convergence parameters
 parser.add_argument("--etaN", help="radial discretization parameter", default=5.6, type=float, metavar="")
@@ -141,6 +146,47 @@ nfunc_plane = lambda xi: sqrt(mat_plane.epsilon(xi))
 nfunc_medium = lambda xi: sqrt(mat_medium.epsilon(xi))
 nfunc_sphere = lambda xi: sqrt(mat_sphere.epsilon(xi))
 
+# define plane reflection coefficients
+if args.add_plane_layer == None:
+    from fresnel import rTM_zero, rTM_finite, rTE_zero, rTE_finite
+    if mat_plane.materialclass == "dielectric":
+        eps = mat_plane.epsilon(0.)/mat_medium.epsilon(0.)
+    else:
+        eps = 0. # dummy
+    reflection_TM_zero = lambda k: rTM_zero(k, eps, mat_plane.materialclass)
+    reflection_TM_finite = lambda k0, k: rTM_finite(k0, k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
+    if mat_plane.materialclass == "plasma":
+        Kp = mat_plane.wp * args.L / c
+    else:
+        Kp = 0. # dummy
+    reflection_TE_zero = lambda k: rTE_zero(k, Kp, mat_plane.materialclass)
+    reflection_TE_finite = lambda k0, k: rTE_finite(k0, k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
+
+else:
+    mat_layer = importlib.import_module(args.add_plane_layer)
+    nfunc_layer = lambda xi: sqrt(mat_layer.epsilon(xi))
+
+    from two_layers import rTM_1slab_zero, rTM_1slab_finite, rTE_1slab_zero, rTE_1slab_finite
+    if mat_plane.materialclass == "dielectric":
+        eps1 = nfunc_plane(0.)**2/nfunc_medium(0.)**2
+        Kp1 = 0. # dummy
+    else:
+        raise NotImplementedError("In layered system only dielectric front layers (specified by --plane) are allowed.")
+    if mat_layer.materialclass == "dielectric":
+        eps2 = nfunc_layer(0.)**2/nfunc_plane(0.)**2
+        Kp2 = 0. # dummy
+    elif mat_layer.materialclass == "plasma":
+        eps2 = 0. # dummy
+        Kp2 = mat_layer.wp * args.L / c
+    else:
+        eps2 = 0. # dummy
+        Kp2 = 0. # dummy
+
+    reflection_TM_zero = lambda k: rTM_1slab_zero(k, eps1, mat_plane.materialclass, eps2, mat_layer.materialclass, args.layer_thickness/args.L)
+    reflection_TM_finite = lambda k0, k: rTM_1slab_finite(k0, k, mat_medium.epsilon(c * k0 / args.L), mat_plane.epsilon(c * k0 / args.L), mat_layer.epsilon(c * k0 / args.L), args.layer_thickness/args.L)
+    reflection_TE_zero = lambda k: rTE_1slab_zero(k, Kp1, mat_plane.materialclass, Kp2, mat_layer.materialclass, args.layer_thickness/args.L)
+    reflection_TE_finite = lambda k0, k: rTE_1slab_finite(k0, k, mat_medium.epsilon(c * k0 / args.L), mat_plane.epsilon(c * k0 / args.L), mat_layer.epsilon(c * k0 / args.L), args.layer_thickness/args.L)
+
 
 nds, wts = fc_quadrature(N)
 
@@ -155,7 +201,7 @@ if args.T == 0.:
 
 
     func = lambda K: \
-            contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), N, M, nds, wts, lmax, args.cores, observable)[j]
+            contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)[j]
 
     if args.fcq:
         print("# integration method: fcq")
@@ -186,7 +232,7 @@ if args.T == 0.:
     print(res)
 else: # T > 0
     func = lambda K: \
-        contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), N, M, nds, wts, lmax, args.cores, observable)
+        contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)
 
     if args.msd:
         print("# summation method: msd")
@@ -200,14 +246,7 @@ else: # T > 0
         print("# mode: high-temperature limit")
     print("#")
     print("# K, logdet, t(matrix construction), t(dft), t(matrix operations)")
-    materialclass_plane = mat_plane.materialclass
     materialclass_sphere = mat_sphere.materialclass
-    if materialclass_plane == "dielectric":
-        alpha_plane = nfunc_plane(0.)**2/nfunc_medium(0.)**2
-    elif materialclass_plane == "plasma":
-        alpha_plane = eval("material." + args.plane + ".K_plasma")*args.L
-    else: # will not be used
-        alpha_plane = 0.
     if materialclass_sphere == "dielectric":
         alpha_sphere = nfunc_sphere(0.)**2/nfunc_medium(0.)**2
     elif materialclass_sphere == "plasma":
@@ -215,7 +254,7 @@ else: # T > 0
     else: # will not be used
         alpha_sphere = 0.
 
-    res0 = contribution_zero(args.R, args.L, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, nds,
+    res0 = contribution_zero(args.R, args.L, alpha_sphere, mat_plane.materialclass, mat_sphere.materialclass, reflection_TM_zero, reflection_TE_zero, N, M, nds,
                               wts, lmax, args.cores, observable)
     res0 *= 0.5*k*args.T
     if args.msd:
