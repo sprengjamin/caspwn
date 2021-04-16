@@ -12,4 +12,7 @@ C = data[0]
 wi = data[1]*eV/hbar
 
 def epsilon(xi):
-    return 1 + np.sum(C/(1 + (xi/wi)**2))
+    if xi == 0.:
+        return 24.3
+    else:
+        return 1 + np.sum(C/(1 + (xi/wi)**2))
