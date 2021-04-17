@@ -154,13 +154,13 @@ if args.add_plane_layer == None:
     else:
         eps = 0. # dummy
     reflection_TM_zero = lambda k: rTM_zero(k, eps, mat_plane.materialclass)
-    reflection_TM_finite = lambda k0, k: rTM_finite(k0, k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
+    reflection_TM_finite = lambda k0, k: rTM_finite(k0*nfunc_medium(c*k0/args.L), k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
     if mat_plane.materialclass == "plasma":
         Kp = mat_plane.wp * args.L / c
     else:
         Kp = 0. # dummy
     reflection_TE_zero = lambda k: rTE_zero(k, Kp, mat_plane.materialclass)
-    reflection_TE_finite = lambda k0, k: rTE_finite(k0, k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
+    reflection_TE_finite = lambda k0, k: rTE_finite(k0*nfunc_medium(c*k0/args.L), k, mat_plane.epsilon(c * k0 / args.L)/mat_medium.epsilon(c * k0 / args.L))
 
 else:
     mat_layer = importlib.import_module(args.add_plane_layer)
@@ -200,8 +200,8 @@ if args.T == 0.:
 
 
 
-    func = lambda K: \
-            contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)[j]
+    func = lambda k0: \
+            contribution_finite(args.R, args.L, k0, nfunc_medium(c * k0 / args.L) * k0, nfunc_plane(c * k0 / args.L)/nfunc_medium(c * k0 / args.L), nfunc_sphere(c * k0 / args.L)/nfunc_medium(c * k0 / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)[j]
 
     if args.fcq:
         print("# integration method: fcq")
@@ -231,8 +231,8 @@ if args.T == 0.:
         print("# pressure [N/m]")
     print(res)
 else: # T > 0
-    func = lambda K: \
-        contribution_finite(args.R, args.L, nfunc_medium(c * K / args.L) * K, nfunc_plane(c * K / args.L)/nfunc_medium(c * K / args.L), nfunc_sphere(c * K / args.L)/nfunc_medium(c * K / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)
+    func = lambda k0: \
+        contribution_finite(args.R, args.L, k0, nfunc_medium(c * k0 / args.L) * k0, nfunc_plane(c * k0 / args.L)/nfunc_medium(c * k0 / args.L), nfunc_sphere(c * k0 / args.L)/nfunc_medium(c * k0 / args.L), reflection_TM_finite, reflection_TE_finite, N, M, nds, wts, lmax, args.cores, observable)
 
     if args.msd:
         print("# summation method: msd")

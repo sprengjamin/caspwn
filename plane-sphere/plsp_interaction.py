@@ -183,7 +183,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
             raise ValueError
 
 
-def contribution_finite(R, L, K, n_plane, n_sphere, rTM_finite, rTE_finite, N, M, nds, wts, lmax, nproc, observable):
+def contribution_finite(R, L, k0, K, n_plane, n_sphere, rTM_finite, rTE_finite, N, M, nds, wts, lmax, nproc, observable):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -193,6 +193,8 @@ def contribution_finite(R, L, K, n_plane, n_sphere, rTM_finite, rTE_finite, N, M
         positive, radius of the sphere
     L: float
         positive, surface-to-surface distance
+    k0: float
+        positive, rescaled vacuum wave number
     K: float
         positive, rescaled wavenumber in medium
     n_plane, n_sphere: float
@@ -249,8 +251,8 @@ def contribution_finite(R, L, K, n_plane, n_sphere, rTM_finite, rTE_finite, N, M
     start_logdet = end_dft
 
     kappa = np.sqrt(K ** 2 + nds ** 2)
-    rTM = np.array([rTM_finite(K, k) for k in nds])
-    rTE = np.array([rTE_finite(K, k) for k in nds])
+    rTM = np.array([rTM_finite(k0, k) for k in nds])
+    rTE = np.array([rTE_finite(k0, k) for k in nds])
 
     # m=0
     mat, dL_mat, d2L_mat = construct_roundtrip_finite(row, col, dataTMTM[:,0], dataTETE[:,0], dataTMTE[:,0], dataTETM[:,0], N, M, kappa, wts, rTM, rTE)
