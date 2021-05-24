@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.constants import epsilon_0, pi
 
+materialclass = "dielectric"
 
 wi = np.array([1.75, 2.56, 4.42, 10.0, 48.3])*1.e16
 ci = np.array([89.3, 137.5, 41.2, 2.78, 0.18])*1.e-42
