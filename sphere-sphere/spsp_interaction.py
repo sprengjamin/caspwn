@@ -117,25 +117,48 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
         (float, float, float)
 
 
-        """
+    """
     mat = mat1.dot(mat2)
-    lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
-    logdet = np.sum(np.log(np.diag(lu)))
-    if observable == "energy":
-        return logdet, 0., 0.
 
-    dL_mat = dL_mat1.dot(mat2) + mat1.dot(dL_mat2)
-    matA = lu_solve((lu, piv), dL_mat)
-    dL_logdet = np.trace(matA)
-    if observable == "force":
-        return logdet, dL_logdet, 0.
-    d2L_mat = d2L_mat1.dot(mat2) + 2 * dL_mat1.dot(dL_mat2) + mat1.dot(d2L_mat2)
-    matB = lu_solve((lu, piv), d2L_mat)
-    d2L_logdet = np.trace(matB) + np.sum(matA**2)
-    if observable == "pressure":
-        return logdet, dL_logdet, d2L_logdet
+    norm_mat = np.linalg.norm(mat)
+    tr_mat = np.trace(mat)
+    if tr_mat == 0.:
+        assert (norm_mat == 0.)
+        return 0., 0., 0.
+
+    if abs(norm_mat ** 2 / (1 - norm_mat) / tr_mat) < 1.e-10:
+        # make trace approximation
+        if observable == "energy":
+            return -tr_mat, 0., 0.
+        dL_mat = dL_mat1.dot(mat2) + mat1.dot(dL_mat2)
+        tr_dL_mat = np.trace(dL_mat)
+        if observable == "force":
+            return -tr_mat, tr_dL_mat, 0.
+        d2L_mat = d2L_mat1.dot(mat2) + 2 * dL_mat1.dot(dL_mat2) + mat1.dot(d2L_mat2)
+        tr_d2L_mat = np.trace(d2L_mat)
+        if observable == "pressure":
+            return -tr_mat, tr_dL_mat, tr_d2L_mat
+        else:
+            raise ValueError
     else:
-        raise ValueError
+        # compute logdet etc. exactly
+        lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
+        logdet = np.sum(np.log(np.diag(lu)))
+        if observable == "energy":
+            return logdet, 0., 0.
+
+        dL_mat = dL_mat1.dot(mat2) + mat1.dot(dL_mat2)
+        matA = lu_solve((lu, piv), dL_mat)
+        dL_logdet = np.trace(matA)
+        if observable == "force":
+            return logdet, dL_logdet, 0.
+        d2L_mat = d2L_mat1.dot(mat2) + 2 * dL_mat1.dot(dL_mat2) + mat1.dot(d2L_mat2)
+        matB = lu_solve((lu, piv), d2L_mat)
+        d2L_logdet = np.trace(matB) + np.sum(matA**2)
+        if observable == "pressure":
+            return logdet, dL_logdet, d2L_logdet
+        else:
+            raise ValueError
 
 def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, Nouter, Ninner, M, nds_outer, wts_outer, nds_inner, wts_inner, lmax1, lmax2, nproc, observable):
     r"""
