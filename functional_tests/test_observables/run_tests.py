@@ -9,9 +9,9 @@ for i in range(8):
     np.testing.assert_allclose(num_force[0], mi[1][0], rtol=7.e-4)
     np.testing.assert_allclose(num_force[1], mi[1][1], rtol=6.e-3)
     np.testing.assert_allclose(num_force[2], mi[1][2], rtol=6.e-3)
-    num_pressure = (hi[1] - lo[1]) / 2 / h[i]
-    np.testing.assert_allclose(num_pressure[0], mi[2][0], rtol=8.e-4)
-    np.testing.assert_allclose(num_pressure[1], mi[2][1], rtol=6.e-3)
-    np.testing.assert_allclose(num_pressure[2], mi[2][2], rtol=6.e-3)
+    num_forcegradient = (hi[1] - lo[1]) / 2 / h[i]
+    np.testing.assert_allclose(num_forcegradient[0], mi[2][0], rtol=8.e-4)
+    np.testing.assert_allclose(num_forcegradient[1], mi[2][1], rtol=6.e-3)
+    np.testing.assert_allclose(num_forcegradient[2], mi[2][2], rtol=6.e-3)
 
 print("All tests successful!")

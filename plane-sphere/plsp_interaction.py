@@ -131,7 +131,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
 
         When observable="energy" only the first quantity is computed and the other two returned as zero.
         For observable="force" only the first two quantities are computed and the last one returned as zero.
-        When observable="pressure" all quantities are computed.
+        When observable="forcegradient" all quantities are computed.
 
         Parameters
         ----------
@@ -142,7 +142,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
         d2L_mat : ndarray
             2D array, second derivative of round-trip matrix
         observable : string
-            specification of which observables are to be computed, allowed values are "energy", "force", "pressure"
+            specification of which observables are to be computed, allowed values are "energy", "force", "forcegradient"
 
         Returns
         -------
@@ -164,7 +164,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
         if observable == "force":
             return -tr_mat, tr_dL_mat, 0.
         tr_d2L_mat = np.trace(d2L_mat)
-        if observable == "pressure":
+        if observable == "forcegradient":
             return -tr_mat, tr_dL_mat, tr_d2L_mat
         else: raise ValueError
     else:
@@ -180,7 +180,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
                 return logdet, dL_logdet, 0.
             matB = cho_solve((c, lower), d2L_mat)
             d2L_logdet = np.trace(matB) + np.sum(matA**2)
-            if observable == "pressure":
+            if observable == "forcegradient":
                 return logdet, dL_logdet, d2L_logdet
             else:
                 raise ValueError
@@ -196,7 +196,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
                 return logdet, dL_logdet, 0.
             matB = lu_solve((lu, piv), d2L_mat)
             d2L_logdet = np.trace(matB) + np.sum(matA**2)
-            if observable == "pressure":
+            if observable == "forcegradient":
                 return logdet, dL_logdet, d2L_logdet
             else:
                 raise ValueError

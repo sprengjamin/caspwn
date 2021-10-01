@@ -26,7 +26,7 @@ parser.add_argument("T", help="temperature [K]", type=float)
 obs = parser.add_mutually_exclusive_group()
 obs.add_argument("--energy", help="compute only the Casimir energy", action="store_true")
 obs.add_argument("--force", help="compute Casimir energy and force", action="store_true")
-obs.add_argument("--pressure", help="compute Casimir energy, force and pressure (default)", action="store_true")
+obs.add_argument("--forcegradient", help="compute Casimir energy, force and force gradient (default)", action="store_true")
 
 # materials
 parser.add_argument("--sphere", help="material of sphere", default="PR", type=str, metavar="")
@@ -100,8 +100,8 @@ elif args.force:
     observable = "force"
     print("# observables: energy, force")
 else:
-    observable = "pressure"
-    print("# observables: energy, force, pressure")
+    observable = "forcegradient"
+    print("# observables: energy, force, force gradient")
 
 print("# R [m]:", args.R)
 print("# L [m]:", args.L)
@@ -195,7 +195,7 @@ if args.T == 0.:
         j = 0
     if observable == "force":
         j = 1
-    if observable == "pressure":
+    if observable == "forcegradient":
         j = 2
 
 
@@ -228,7 +228,7 @@ if args.T == 0.:
     elif args.force:
         print("# force [N]")
     else:
-        print("# pressure [N/m]")
+        print("# force gradient [N/m]")
     print(res)
 else: # T > 0
     func = lambda k0: \
@@ -275,7 +275,7 @@ else: # T > 0
             print("# force [N] (n=0 TM, n=0 TE)")
             print(res0_TM[1], res0_TE[1])
             if not (args.force):
-                print("# pressure [N/m] (n=0 TM, n=0 TE)")
+                print("# force gradient [N/m] (n=0 TM, n=0 TE)")
                 print(res0_TM[2], res0_TE[2])
     else:
         print("# energy [J] (n=0 TM, n=0 TE, n>0)")
@@ -284,5 +284,5 @@ else: # T > 0
             print("# force [N] (n=0 TM, n=0 TE, n>0)")
             print(res0_TM[1], res0_TE[1], res1[1])
             if not (args.force):
-                print("# pressure [N/m] (n=0 TM, n=0 TE, n>0)")
+                print("# force gradient [N/m] (n=0 TM, n=0 TE, n>0)")
                 print(res0_TM[2], res0_TE[2], res1[2])
