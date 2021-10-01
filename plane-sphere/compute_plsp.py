@@ -254,9 +254,10 @@ else: # T > 0
     else: # will not be used
         alpha_sphere = 0.
 
-    res0 = contribution_zero(args.R, args.L, alpha_sphere, mat_plane.materialclass, mat_sphere.materialclass, reflection_TM_zero, reflection_TE_zero, N, M, nds,
+    res0_TM, res0_TE = contribution_zero(args.R, args.L, alpha_sphere, mat_plane.materialclass, mat_sphere.materialclass, reflection_TM_zero, reflection_TE_zero, N, M, nds,
                               wts, lmax, args.cores, observable)
-    res0 *= 0.5*k*args.T
+    res0_TM *= 0.5*k*args.T
+    res0_TE *= 0.5*k*args.T
     if args.msd:
         res1 = msd_sum(args.T, args.L, func, args.epsrel, nmax=args.O)
     elif not(args.ht):
@@ -268,20 +269,20 @@ else: # T > 0
     print("# total elapsed time:", totaltime)
     print("#")
     if args.ht:
-        print("# energy [J] (n=0)")
-        print(res0[0])
+        print("# energy [J] (n=0 TM, n=0 TE)")
+        print(res0_TM[0], res0_TE[0])
         if not (args.energy):
-            print("# force [N] (n=0)")
-            print(res0[1])
+            print("# force [N] (n=0 TM, n=0 TE)")
+            print(res0_TM[1], res0_TE[1])
             if not (args.force):
-                print("# pressure [N/m] (n=0)")
-                print(res0[2])
+                print("# pressure [N/m] (n=0 TM, n=0 TE)")
+                print(res0_TM[2], res0_TE[2])
     else:
-        print("# energy [J] (n=0, n>0)")
-        print(res0[0], res1[0])
+        print("# energy [J] (n=0 TM, n=0 TE, n>0)")
+        print(res0_TM[0], res0_TE[0], res1[0])
         if not (args.energy):
-            print("# force [N] (n=0, n>0)")
-            print(res0[1], res1[1])
+            print("# force [N] (n=0 TM, n=0 TE, n>0)")
+            print(res0_TM[1], res0_TE[1], res1[1])
             if not (args.force):
-                print("# pressure [N/m] (n=0, n>0)")
-                print(res0[2], res1[2])
+                print("# pressure [N/m] (n=0 TM, n=0 TE, n>0)")
+                print(res0_TM[2], res0_TE[2], res1[2])

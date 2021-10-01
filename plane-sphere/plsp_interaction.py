@@ -417,63 +417,64 @@ def contribution_zero(R, L, alpha_sphere, materialclass_plane, materialclass_sph
     ## TM contribution
     # m=0
     mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTM[:,0], N, M, k, wts, rTM)
-    logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
+    logdet_TM, dL_logdet_TM, d2L_logdet_TM = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
 
     # m>0
     for m in range(1, M//2):
         mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTM[:,m], N, M, k, wts, rTM)
         term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
-        logdet += 2 * term1
-        dL_logdet += 2 * term2
-        d2L_logdet += 2 * term3
+        logdet_TM += 2 * term1
+        dL_logdet_TM += 2 * term2
+        d2L_logdet_TM += 2 * term3
 
     # last m
     mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTM[:,M//2], N, M, k, wts, rTM)
     term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
     if M%2==0:
-        logdet += term1
-        dL_logdet += term2
-        d2L_logdet += term3
+        logdet_TM += term1
+        dL_logdet_TM += term2
+        d2L_logdet_TM += term3
     else:
-        logdet += 2 * term1
-        dL_logdet += 2 * term2
-        d2L_logdet += 2 * term3
+        logdet_TM += 2 * term1
+        dL_logdet_TM += 2 * term2
+        d2L_logdet_TM += 2 * term3
 
     ## TE contribution
     rTE = np.array([rTE_zero(k) for k in nds])
     if materialclass_plane != "dielectric" and materialclass_plane != "drude" and materialclass_sphere != "dielectric" and materialclass_sphere != "drude":
         # m=0
         mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTE[:,0], N, M, k, wts, rTE)
-        term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
-        logdet += term1
-        dL_logdet += term2
-        d2L_logdet += term3
+        logdet_TE, dL_logdet_TE, d2L_logdet_TE = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
 
         # m>0
         for m in range(1, M//2):
             mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTE[:,m], N, M, k, wts, rTE)
             term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
-            logdet += 2 * term1
-            dL_logdet += 2 * term2
-            d2L_logdet += 2 * term3
+            logdet_TE += 2 * term1
+            dL_logdet_TE += 2 * term2
+            d2L_logdet_TE += 2 * term3
 
         # last m
         mat, dL_mat, d2L_mat = construct_roundtrip_zero(row, col, dataTE[:,M//2], N, M, k, wts, rTE)
         term1, term2, term3 = compute_matrix_operations(mat, dL_mat, d2L_mat, observable)
         if M%2==0:
-            logdet += term1
-            dL_logdet += term2
-            d2L_logdet += term3
+            logdet_TE += term1
+            dL_logdet_TE += term2
+            d2L_logdet_TE += term3
         else:
-            logdet += 2 * term1
-            dL_logdet += 2 * term2
-            d2L_logdet += 2 * term3
+            logdet_TE += 2 * term1
+            dL_logdet_TE += 2 * term2
+            d2L_logdet_TE += 2 * term3
+    else:
+        logdet_TE = 0.
+        dL_logdet_TE = 0.
+        d2L_logdet_TE = 0.
 
     end_logdet = perf_counter()
     timing_logdet = end_logdet-start_logdet
     print("# ", end="")
-    print(0., logdet, "%.3f"%timing_matrix, "%.3f"%timing_fft, "%.3f"%timing_logdet, sep=", ")
-    return np.array([logdet, dL_logdet/L, d2L_logdet/L**2])
+    print(0., logdet_TM + logdet_TE, "%.3f"%timing_matrix, "%.3f"%timing_fft, "%.3f"%timing_logdet, sep=", ")
+    return np.array([logdet_TM, dL_logdet_TM/L, d2L_logdet_TM/L**2]), np.array([logdet_TE, dL_logdet_TE/L, d2L_logdet_TE/L**2])
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))

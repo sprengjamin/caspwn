@@ -387,7 +387,7 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
     # m=0
     mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:,0], 0.5, N_outer, N_inner, M, nds_outer, nds_inner, wts_outer, wts_inner)
     mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:,0], 0.5, N_inner, N_outer, M, nds_inner, nds_outer, wts_inner, wts_outer)
-    logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
+    logdet_TM, dL_logdet_TM, d2L_logdet_TM = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
 
     # m>0
     for m in range(1, M//2):
@@ -397,9 +397,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
                                                            nds_outer, wts_inner, wts_outer)
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
-        logdet += 2 * term1
-        dL_logdet += 2 * term2
-        d2L_logdet += 2 * term3
+        logdet_TM += 2 * term1
+        dL_logdet_TM += 2 * term2
+        d2L_logdet_TM += 2 * term3
 
     # last m
     mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, M//2], 0.5, N_outer, N_inner, M, nds_outer,
@@ -409,13 +409,13 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
     term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                     observable)
     if M%2==0:
-        logdet += term1
-        dL_logdet += term2
-        d2L_logdet += term3
+        logdet_TM += term1
+        dL_logdet_TM += term2
+        d2L_logdet_TM += term3
     else:
-        logdet += 2 * term1
-        dL_logdet += 2 * term2
-        d2L_logdet += 2 * term3
+        logdet_TM += 2 * term1
+        dL_logdet_TM += 2 * term2
+        d2L_logdet_TM += 2 * term3
 
     ## TE contribution
     if materialclass_sphere1 != "dielectric" and materialclass_sphere1 != "drude" and materialclass_sphere2 != "dielectric" and materialclass_sphere2 != "drude":
@@ -424,11 +424,8 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
                                                            nds_inner, wts_outer, wts_inner)
         mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, 0], 0.5, N_inner, N_outer, M, nds_inner,
                                                            nds_outer, wts_inner, wts_outer)
-        term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
+        logdet_TE, dL_logdet_TE,d2L_logdet_TE = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
-        logdet += term1
-        dL_logdet += term2
-        d2L_logdet += term3
 
         # m>0
         for m in range(1, M//2):
@@ -438,9 +435,9 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
                                                                nds_outer, wts_inner, wts_outer)
             term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                             observable)
-            logdet += 2 * term1
-            dL_logdet += 2 * term2
-            d2L_logdet += 2 * term3
+            logdet_TE += 2 * term1
+            dL_logdet_TE += 2 * term2
+            d2L_logdet_TE += 2 * term3
 
         # last m
         mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, M//2], 0.5, N_outer, N_inner, M, nds_outer,
@@ -450,19 +447,23 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
         term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
                                                                   observable)
         if M%2==0:
-            logdet += term1
-            dL_logdet += term2
-            d2L_logdet += term3
+            logdet_TE += term1
+            dL_logdet_TE += term2
+            d2L_logdet_TE += term3
         else:
-            logdet += 2 * term1
-            dL_logdet += 2 * term2
-            d2L_logdet += 2 * term3
+            logdet_TE += 2 * term1
+            dL_logdet_TE += 2 * term2
+            d2L_logdet_TE += 2 * term3
+    else:
+        logdet_TE = 0.
+        dL_logdet_TE = 0.
+        d2L_logdet_TE = 0.
 
     end_logdet = perf_counter()
     timing_logdet = end_logdet-start_logdet
     print("# ", end="")
-    print(0., logdet, "%.3f"%timing_matrix, "%.3f"%timing_fft, "%.3f"%timing_logdet, sep=", ")
-    return np.array([logdet, dL_logdet/L, d2L_logdet/L**2])
+    print(0., logdet_TM+logdet_TE, "%.3f"%timing_matrix, "%.3f"%timing_fft, "%.3f"%timing_logdet, sep=", ")
+    return np.array([logdet_TM, dL_logdet_TM/L, d2L_logdet_TM/L**2]), np.array([logdet_TE, dL_logdet_TE/L, d2L_logdet_TE/L**2])
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
