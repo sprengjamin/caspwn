@@ -145,8 +145,12 @@ def S1S2_zero(x, alpha, lmax, materialclass):
         if x == 0.:
             return 0., 0.
         else:
-            S1 = -((x**2+2)*0.5*(1+math.exp(-2*x))-x*(1-math.exp(-2*x))-2*math.exp(-x))/x**2 
-            S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+            if x < 0.1:
+                S1 = -(x**2/4 + x**4/36 + x**6/960 + x**8/50400)*math.exp(-x)
+                S2 = (x**2/2 + x**4/24 + x**6/720 + x**8/40320)*math.exp(-x)
+            else:
+                S1 = -((x**2+2)*0.5*(1+math.exp(-2*x))-x*(-math.expm1(-2*x))-2*math.exp(-x))/x**2
+                S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
             return S1, S2
 
     else:
