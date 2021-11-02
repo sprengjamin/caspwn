@@ -104,7 +104,10 @@ def S1S2_zero(x, alpha, lmax, materialclass):
             return 0, S
 
     elif materialclass == "plasma":
-        S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+        if x < 0.1:
+            S2 = (x**2/2 + x**4/24 + x**6/720 + x**8/40320)*math.exp(-x)
+        else:
+            S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
         err = 1.e-16
         l_init = int(0.5*x)+1
         if l_init > lmax:
@@ -138,7 +141,10 @@ def S1S2_zero(x, alpha, lmax, materialclass):
             return 0., 0.
         else:
             S1 = 0.
-            S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
+            if x < 0.1:
+                S2 = (x**2/2 + x**4/24 + x**6/720 + x**8/40320)*math.exp(-x)
+            else:
+                S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
             return S1, S2
 
     elif materialclass == "PR":
