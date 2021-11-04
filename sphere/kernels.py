@@ -123,7 +123,7 @@ def kernel_polar_zero(rho, r, k1, k2, phi, alpha, materialclass, lmax):
     """
     if phi == np.pi:
         return 0., 0.
-    x = 2 * rho * math.sqrt(k1 * k2) * math.cos(phi / 2)
+    x = 2 * rho * math.sqrt(k1 * k2) * abs(math.cos(phi / 2))
     e = math.exp(x - (k1 + k2) * (rho + r))
     norm = 2 * math.pi * rho
     S1, S2 = S1S2_zero(x, alpha, lmax, materialclass)
