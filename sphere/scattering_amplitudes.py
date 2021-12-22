@@ -328,7 +328,7 @@ def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
             S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
             S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
             if S1 > 0.:
-                if S1term/S1 < err:
+                if S1term/S1 < err and S2term/S2 < err:
                     S1 += S1term
                     S2 += S2term
                     break
@@ -357,7 +357,7 @@ def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
             exp = math.exp(chi(l, x, z, acoshz))
             S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
             S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
-            if S1term/S1 < err:
+            if S1term/S1 < err and S2term/S2 < err:
                 S1 += S1term
                 S2 += S2term
                 break
@@ -376,7 +376,7 @@ def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
             exp = math.exp(chi(l, x, z, acoshz))
             S1term = (mie_a[l-1]*pe[i] + mie_b[l-1]*te[i])*exp
             S2term = (mie_a[l-1]*te[i] + mie_b[l-1]*pe[i])*exp
-            if S1term/S1 < err:
+            if S1term/S1 < err and S2term/S2 < err:
                 S1 += S1term
                 S2 += S2term
                 break
@@ -390,35 +390,17 @@ def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
 
 
 if __name__ == "__main__":
+    import numpy as np
     x = 0.001
-    z = 32.622776601683796
-    n = 1.1
-    lmax = 100000000
-    """
+    z = 1.1
+    n = 0.2
+    lmax = 100
     from mie import mie_e_array
     mie_a, mie_b = mie_e_array(lmax, x, n)
-    S1, S2 = S1S2(x, z, n, lmax, mie_a, mie_b, False)
-    sigma = math.sqrt((1+z)/2)
-    S1a, S2a = S1S2_asymptotics(x, z, n)
-    print("compare to asymptotics")
-    print(S1)
-    print(S1a)
-    print((S1-S1a)/S1a)
-    print(S2)
-    print(S2a)
-    print((S2-S2a)/S2a)
-    #width = math.sqrt(x*math.sqrt((1+z)/2))
-    print("width", width)
-    print("6*width", 6*width)
-    #jit()(S1S2).inspect_types()
-    """
-    import matplotlib.pyplot as plt
-    print(S1S2_zero(32599.3474702326, 2280.4788413404267, 12000, "plasma"))
-    #X = np.logspace(-3, 7, 50)
-    #Y1 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "plasma")[0] for x in X])
-    #Y2 = np.array([zero_frequency(x, 2280.4788413404267, lmax, "PR")[0] for x in X])
-    #plt.loglog(X, -Y1)
-    #plt.loglog(X, -Y2)
-    #plt.show()
+    S1, S2 = S1S2_finite(x, z, n, lmax, mie_a, mie_b, False)
 
-    #print(zero_frequency(x, n, lmax, "drude"))
+    expo = np.exp(2*x*np.sqrt((1+z)/2))
+    print(S1*expo, S2*expo)
+
+    print(-(n**2-1)/(n**2+2)*x**3)
+    print(-(n**2-1)/(n**2+2)*x**3*(-z))
