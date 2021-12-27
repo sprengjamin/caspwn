@@ -1,8 +1,6 @@
 import numpy as np
 from scipy.constants import k, hbar, c
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
-from psd import psd
+from .psd import psd
 
 def psd_sum(T, L, func, epsrel, order=None):
     """Computes the PSD sum for the finite frequency/wavenumber contributions
@@ -25,7 +23,7 @@ def psd_sum(T, L, func, epsrel, order=None):
     (float, float, float)
 
     """
-    K_matsubara = 2 * np.pi * k * T * L / (hbar * c)
+    K_matsubara = 2 * np.pi * k * T / (hbar * c)
     res = np.zeros(3)
     Teff = 4 * np.pi * k / hbar / c * T * L
     if order == None:
@@ -57,7 +55,7 @@ def msd_sum(T, L, func, epsrel, nmax=None):
     (float, float, float)
 
     """
-    K_matsubara = 2 * np.pi * k * T * L / (hbar * c)
+    K_matsubara = 2 * np.pi * k * T / (hbar * c)
     res = np.zeros(3)
     n = 1
     if nmax == None:

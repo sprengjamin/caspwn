@@ -12,9 +12,7 @@ for large orders :math:`\ell\geq 1000` using asymptotics.
 
 import numpy as np
 import math
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
-from bessel import Ine
+from ..ufuncs.bessel import Ine
 from numba import njit
 
 @njit("float64(int64, float64)", cache=True)

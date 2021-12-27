@@ -6,7 +6,6 @@ polarization basis.
 
 """
 
-import numpy as np
 import math
 from numba import njit
 

@@ -36,10 +36,7 @@ import math
 from numba import njit, jitclass
 from numba import int64, float64
 from numba.types import string
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
-from bessel import InuKnu_e
-from bessel import fraction
+from ..ufuncs.bessel import InuKnu_e, fraction
 
 @njit("float64(float64, float64)", cache=True)
 def _expdiff(l, x):

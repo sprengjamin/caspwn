@@ -33,11 +33,8 @@ import math
 from numba import njit
 from math import sqrt
 from math import lgamma
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
-from angular import pte_array
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs"))
-from bessel import fraction
+from ..sphere.angular import pte_array
+from ..ufuncs.bessel import fraction
 
 @njit("float64(float64, float64)", cache=True)
 def plasma_coefficient(l, z):
@@ -147,7 +144,7 @@ def S1S2_zero(x, alpha, lmax, materialclass):
                 S2 = 0.5*(1+math.exp(-2*x))-math.exp(-x)
             return S1, S2
 
-    elif materialclass == "PR":
+    elif materialclass == "PEC":
         if x == 0.:
             return 0., 0.
         else:
