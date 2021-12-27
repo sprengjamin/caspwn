@@ -1,5 +1,5 @@
 from math import inf
-materialclass = "PR"
+materialclass = "PEC"
 
 def epsilon(xi):
     return inf
