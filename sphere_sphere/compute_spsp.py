@@ -111,7 +111,7 @@ class system:
 
             f_n0_TM, f_n0_TE = contribution_zero(self.R1, self.R2, self.L, alpha_sphere1, alpha_sphere2,
                                                  materialclass_sphere1, materialclass_sphere2, self.Nout, self.Nin, self.M, k_outer,
-                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable)
+                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable, self.calculate_n0_TE)
 
             self.f_n0_TM = 0.5 * kB * self.T * f_n0_TM
             self.f_n0_TE = 0.5 * kB * self.T * f_n0_TE
