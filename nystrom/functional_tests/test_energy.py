@@ -1,3 +1,8 @@
+"""
+Script to test results for the energy against an older version of this software and also against CAPS.
+
+The data files from the older version contains the git version which they stem from.
+"""
 import numpy as np
 import sys
 from scipy.constants import hbar, c

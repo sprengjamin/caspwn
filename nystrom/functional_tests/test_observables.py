@@ -1,3 +1,8 @@
+"""
+Script to test that the caculated force and forcegradient match with the numerical derivatives of the energy and force
+respectively.
+"""
+
 import numpy as np
 import sys
 sys.path.append('../..')
