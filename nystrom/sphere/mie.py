@@ -33,7 +33,8 @@ For perfectly reflecting spheres the mie coefficients are
 
 import numpy as np
 import math
-from numba import njit, jitclass
+from numba import njit
+from numba.experimental import jitclass
 from numba import int64, float64
 from numba.types import string
 from ..ufuncs.bessel import InuKnu_e, fraction
