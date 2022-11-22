@@ -1,3 +1,8 @@
+# setup
+build/
+dist/
+nystrom.egg-info/
+
 .idea/
 # slurm
 *.out
