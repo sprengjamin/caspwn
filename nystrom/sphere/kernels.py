@@ -34,7 +34,7 @@ def phase(R, L, r, K, k1, k2, phi):
     kappa1 = math.sqrt(k1 * k1 + K * K)
     kappa2 = math.sqrt(k2 * k2 + K * K)
     return -((k1 - k2) ** 2 + 4 * k1 * k2 * math.sin(phi / 2) ** 2) / (
-                math.sqrt(2 * (kappa1 * kappa2 + k1 * k2 * math.cos(phi) + K ** 2)) + kappa1 + kappa2) * R - r * L * (
+                math.sqrt(2 * abs(kappa1 * kappa2 + k1 * k2 * math.cos(phi) + K ** 2)) + kappa1 + kappa2) * R - r * L * (
                        kappa1 + kappa2)
 
 
