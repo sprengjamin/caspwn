@@ -3,6 +3,13 @@ build/
 dist/
 nystrom.egg-info/
 
+# virtual environment
+env/
+
+# misc
+misc/
+
+
 .idea/
 # slurm
 *.out
