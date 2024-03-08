@@ -1,9 +1,11 @@
 import numpy as np
-import sys
-sys.path.append(".")
-from mie import mie_e
-from bessel import InuKnu_e_asymptotics
+from nystrom.sphere.mie import mie_e
+from nystrom.ufuncs.bessel import InuKnu_e_asymptotics
 from mpmath import *
+import os
+
+dir_path = os.path.dirname(__file__)
+
 mp.dps = 80
 maxterms = 1e6
 
@@ -58,7 +60,7 @@ def mp_mie_e_mat(l, x, n):
 
 
 def test_mie_e():
-    mp_data = np.loadtxt("tests/testdata/mie_e.dat")
+    mp_data = np.loadtxt(os.path.join(dir_path,  "testdata/mie_e.dat"))
     for data in mp_data:
         l = data[0]
         x = data[1]
@@ -74,13 +76,3 @@ def test_mie_e():
 
 if __name__ == "__main__":
     test_mie_cache()
-    """
-    from mie import mie_e_array_mat
-    l = 100000
-    x = 133.
-    n = 1.6
-    ale, ble = mie_e_array_mat(l, x, n)
-    mp_ale, mp_ble = mp_mie_e_mat(l, x, n)
-    print(abs(ale[l-1]/mp_ale-1.))
-    print(abs(ble[l-1]/mp_ble-1.))
-    """

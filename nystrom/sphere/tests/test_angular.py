@@ -1,13 +1,13 @@
 import numpy as np
-import sys
-sys.path.append(".")
-import os
-from angular import pte_asymptotics, pte_low, pte_next, pte_array
-from angular import _c1, _c2, _c3, _c4, _c5
-
+from nystrom.sphere.angular import pte_asymptotics, pte_low, pte_next, pte_array
+from nystrom.sphere.angular import _c1, _c2, _c3, _c4, _c5
 from mpmath import *
+import os
+
+dir_path = os.path.dirname(__file__)
+
 mp.dps = 80
-maxterms = 1e6
+maxterms = 1e5
 def mp_pte(l, x):
     z = cosh(x)
     pe = (2*l+1)/(l*(l+1))*legenp(l, 1, z, type=3, maxterms=maxterms)/sinh(x)*exp(-(l+1/2)*x) 
@@ -40,7 +40,7 @@ def test_pte_lowx():
 rtol = 1e-15
 def test_pte_highx():
     # test pte for high l and high x values
-    InuKnue_data = np.loadtxt("tests/testdata/pte_high.dat")
+    InuKnue_data = np.loadtxt(os.path.join(dir_path,  "testdata/pte_high.dat"))
     for data in InuKnue_data:
         num_pe, num_te = pte_asymptotics(data[0], data[1])
         print("l", data[0], "x", data[1])
@@ -142,23 +142,3 @@ if __name__ == "__main__":
     #test_c_coefficients()
     #test_pte_lowl()
     test_pte_array()
-    """
-    #print(mp_c1(mpf(0.001)))
-    import matplotlib.pyplot as plt
-    x = np.arccosh(1.000001)
-    N = 40
-    L = np.floor(np.logspace(1, 4, 40))
-    pe = np.empty(N)
-    te = np.empty(N)
-    for i, l in enumerate(L):
-        print(i, l)
-        mp_pe, mp_te = mp_pte(mpf(l), mpf(x))
-        pe[i], te[i] = pte_asymptotics(l, x)
-        pe[i] = np.abs(pe[i]/mp_pe-1.)
-        te[i] = np.abs(te[i]/mp_te-1.)
-
-    f, ax = plt.subplots()
-    ax.loglog(L, pe)
-    ax.loglog(L, te)
-    plt.show()
-    """

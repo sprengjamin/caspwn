@@ -1,9 +1,11 @@
 import numpy as np
-import sys
-sys.path.append(".")
-from scattering_amplitudes import S1S2_finite, S1S2_asymptotics
-from mie import mie_e_array
+from nystrom.sphere.scattering_amplitudes import S1S2_finite, S1S2_asymptotics
+from nystrom.sphere.mie import mie_e_array
 from mpmath import *
+import os
+
+dir_path = os.path.dirname(__file__)
+
 mpf.dps = 80
 maxterms = 1e6
 
@@ -101,7 +103,7 @@ def mp_S1S2(x, z):
 
 def test_scattering_amplitude():
     rtol = 1.4e-10
-    mp_data = np.loadtxt("tests/testdata/scattering_amplitude.dat")
+    mp_data = np.loadtxt(os.path.join(dir_path,  "testdata/scattering_amplitude.dat"))
     for data in mp_data:
         x = data[0]
         z = data[1]
@@ -150,16 +152,3 @@ def test_asymptotics_high():
 
 if __name__ == "__main__":
     test_asymptotics_low()
-"""
-    x = 100000.
-    z = 1.000001
-
-    mpS1, mpS2, lmax = mp_S1S2(x, z)
-    #print(S1, S2)
-
-    ale, ble = mie_e_array(lmax, x)
-    S1, S2 = S1S2(x, z, ale, ble)
-    
-    print(fabs(S1/mpS1-1.))
-    print(fabs(S2/mpS2-1.))
-"""

@@ -1,7 +1,5 @@
 import numpy as np
-import sys
-sys.path.append(".")
-from scattering_amplitudes import S1S2_zero
+from nystrom.sphere.scattering_amplitudes import S1S2_zero
 from mpmath import *
 import mpmath as mp
 mpf.dps = 100
@@ -17,7 +15,7 @@ def test_PR():
     X = np.logspace(-5, 5, 100)
     for x in X:
         S1ref, S2ref = mp_PR(mpf(x))
-        S1, S2 = S1S2_zero(x, -1., -1., 'PR')
+        S1, S2 = S1S2_zero(x, -1., -1., 'PEC')
         print('x', x)
         print('rel S1', abs(S1/float(S1ref)-1))
         print('rel S2', abs(S2/float(S2ref)-1))
