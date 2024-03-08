@@ -283,8 +283,8 @@ def arm_full_finite(nproc, R, L, r, sign, K, N1, N2, M, k1, k2, n_sphere, lmax, 
     length = 0
     for i in range(ndiv):
         length += len(results[i][0])
-    row = np.empty(length, dtype=np.int)
-    col = np.empty(length, dtype=np.int)
+    row = np.empty(length, dtype=np.int64)
+    col = np.empty(length, dtype=np.int64)
     dataTMTM = np.empty((length, M))
     dataTETE = np.empty((length, M))
     dataTMTE = np.empty((length, M))
@@ -490,8 +490,8 @@ def arm_full_zero(nproc, R, L, r, N1, N2, M, k1, k2, alpha_sphere, materialclass
     length = 0
     for i in range(ndiv):
         length += len(results[i][0])
-    row = np.empty(length, dtype=np.int)
-    col = np.empty(length, dtype=np.int)
+    row = np.empty(length, dtype=np.int64)
+    col = np.empty(length, dtype=np.int64)
     dataTMTM = np.empty((length, M))
     dataTETE = np.empty((length, M))
     ini = 0
