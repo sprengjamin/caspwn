@@ -1,7 +1,5 @@
 import numpy as np
-import sys
-sys.path.append(".")
-from integration import auto_integration
+from nystrom.ufuncs.integration import auto_integration
 
 
 def test_function1():

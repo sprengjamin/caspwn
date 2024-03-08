@@ -1,8 +1,9 @@
 import numpy as np
 from mpmath import *
-import sys
-sys.path.append(".")
-from legendre import Ple_high, Ple_low, gammafraction
+from nystrom.ufuncs.legendre import Ple_high, Ple_low, gammafraction
+import os
+
+dir_path = os.path.dirname(__file__)
 
 mp.dps = 40
 maxterms = 1e6
@@ -46,7 +47,7 @@ def test_Ple_low():
         # create random data between 0. and xmax
         xValues = np.random.random(3)*xmax
         for x in xValues:
-            mp_ans = np.float(mp_Ple(mpf(l), mpf(x)))
+            mp_ans = float(mp_Ple(mpf(l), mpf(x)))
             low = Ple_low(l, x)
             #print("mp ", mp_val)
             #print("low", low)
@@ -61,12 +62,12 @@ def test_Ple_high():
         high = Ple_high(l, x)
         print("l", l, "x","%.16e"%x)
         print(high)
-        mp_ans = np.float(mp_Ple(mpf(l), mpf(x)))
+        mp_ans = float(mp_Ple(mpf(l), mpf(x)))
         print(mp_ans)
         np.testing.assert_allclose(high, mp_ans, rtol=rtol)
     # fixed x values
     print(" ")
-    mp_data = np.loadtxt("tests/testdata/Ple_high.dat")
+    mp_data = np.loadtxt(os.path.join(dir_path, "testdata/Ple_high.dat"))
     for data in mp_data:
         high = Ple_high(data[0], data[1])
         print("l", data[0], "x","%.16e"%data[1])
@@ -80,7 +81,7 @@ def mp_gammafraction(l):
 def test_gammafraction():
     lValues = np.floor(np.logspace(3.003, 9.08, 11))
     for l in lValues:
-        mp_gf = np.float(mp_gammafraction(mpf(l)))
+        mp_gf = float(mp_gammafraction(mpf(l)))
         num_gf = gammafraction(l)
         np.testing.assert_allclose(mp_gf, num_gf, rtol=rtol)
 
