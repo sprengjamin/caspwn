@@ -1,5 +1,5 @@
 import numpy as np
-from nystrom.ufuncs.bessel import InuKnu_e_asymptotics, Ine
+from caspwn.ufuncs.bessel import InuKnu_e_asymptotics, Ine
 import os
 
 dir_path = os.path.dirname(__file__)

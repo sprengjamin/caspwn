@@ -1,6 +1,6 @@
 import numpy as np
 from mpmath import *
-from nystrom.ufuncs.legendre import Ple_high, Ple_low, gammafraction
+from caspwn.ufuncs.legendre import Ple_high, Ple_low, gammafraction
 import os
 
 dir_path = os.path.dirname(__file__)

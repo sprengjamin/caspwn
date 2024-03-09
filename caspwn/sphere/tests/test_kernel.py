@@ -2,7 +2,7 @@ import numpy as np
 from hypothesis import given
 from hypothesis.strategies import floats
 from mpmath import *
-from nystrom.sphere.kernels import phase
+from caspwn.sphere.kernels import phase
 mp.dps = 80
 
 def mp_phase(R, L, xi, k1, k2, phi):

@@ -1,5 +1,5 @@
 import numpy as np
-from nystrom.ufuncs.integration import auto_integration
+from caspwn.ufuncs.integration import auto_integration
 
 
 def test_function1():

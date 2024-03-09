@@ -1,5 +1,5 @@
 import numpy as np
-from nystrom.sphere.scattering_amplitudes import S1S2_zero
+from caspwn.sphere.scattering_amplitudes import S1S2_zero
 from mpmath import *
 import mpmath as mp
 mpf.dps = 100

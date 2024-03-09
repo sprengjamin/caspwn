@@ -1,6 +1,6 @@
 import numpy as np
-from nystrom.sphere.scattering_amplitudes import S1S2_finite, S1S2_asymptotics
-from nystrom.sphere.mie import mie_e_array
+from caspwn.sphere.scattering_amplitudes import S1S2_finite, S1S2_asymptotics
+from caspwn.sphere.mie import mie_e_array
 from mpmath import *
 import os
 

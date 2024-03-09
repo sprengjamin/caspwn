@@ -1,6 +1,6 @@
 import numpy as np
-from nystrom.sphere.mie import mie_e
-from nystrom.ufuncs.bessel import InuKnu_e_asymptotics
+from caspwn.sphere.mie import mie_e
+from caspwn.ufuncs.bessel import InuKnu_e_asymptotics
 from mpmath import *
 import os
 

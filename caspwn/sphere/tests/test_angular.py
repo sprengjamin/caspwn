@@ -1,6 +1,6 @@
 import numpy as np
-from nystrom.sphere.angular import pte_asymptotics, pte_low, pte_next, pte_array
-from nystrom.sphere.angular import _c1, _c2, _c3, _c4, _c5
+from caspwn.sphere.angular import pte_asymptotics, pte_low, pte_next, pte_array
+from caspwn.sphere.angular import _c1, _c2, _c3, _c4, _c5
 from mpmath import *
 import os
 
