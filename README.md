@@ -1,7 +1,16 @@
 # caspwn
-A tool to calculate the Casimir interaction between two spheres of arbitrary radii (R1 and R2) or a sphere and a plane immersed in a dielectric medium.
-The Casimir energy is calculated within the scattering theory using plane waves as a basis for the electromagnetic modes.
-A Nystrom discretization is employed to make the continuous basis amendable for linear algebra routines.
+
+A package that provides tools to compute the **Ca**simir force (see wikipedia) involving **s**pheres. [some statement about van der Waals force] The tools provide
+numerical results based on the scattering formalism utilizing a **p**lane-**w**ave representation of modes and **N**ystrom discretization.
+Specifically, the plane-sphere and the sphere-sphere geometry are considered here as depicted in the figure.
+
+Included features:
+* Support for wide range of values for separation and sphere radii and temperatures, in particular those relevant for Casimir force experiments
+* Support for commonly employed material models for the surfaces such as the 'Drude' and the 'plasma' model for metals  
+and arbitrary dielectric model for the surfaces
+* Support for an arbitrary dielectric medium between the surfaces
+* Easy integration of user-specified materials
+* Accelerated evaluation of the Matsubara sum using Pade spectrum decomposition
 
 <p align="center">
   <img src="images/plsp_spsp_geometry.svg" height="80%" width="80%" >
