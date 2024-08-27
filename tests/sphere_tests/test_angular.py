@@ -137,8 +137,9 @@ def test_pte_array():
 
 
 if __name__ == "__main__":
+    test_recurrence()
     #test_pte_lowx()
     #test_pte_highx()
     #test_c_coefficients()
     #test_pte_lowl()
-    test_pte_array()
+    #test_pte_array()
