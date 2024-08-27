@@ -60,9 +60,9 @@ Calling the `calculate` method with the desired observable as an argument then y
 in units of Newton:
 ```
 print(s.calculate('force'))
->>> -6.803006937069336e-15
+>>> -1.632226192726807e-14
 ```
-The resulting Casimir force is attractive (negative sign) and about 6.8fN in magnitude. 
+The resulting Casimir force is attractive (negative sign) and about 16.3fN in magnitude. 
 
 ### Example 2 (plane-sphere geometry)
 
@@ -78,9 +78,9 @@ from caspwn import plane_sphere_system
 from caspwn.materials import gold_drude as gold, vacuum
 s = plane_sphere_system(T=300., L=100.e-9, R=50.e-6, mat_plane=gold, mat_sphere=gold, mat_medium=vacuum)
 s.calculate('forcegradient')
->>> 7.948084793980571e-05
+>>> 0.0017678510810457248
 ```
-The resulting Casimir force gradient is about 79.4uN/m.
+The resulting Casimir force gradient is about 1.77mN/m.
 
 ## Documentation (wip)
 
