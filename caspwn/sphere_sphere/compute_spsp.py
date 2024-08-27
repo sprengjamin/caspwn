@@ -8,7 +8,7 @@ from .spsp_interaction import contribution_finite, contribution_zero
 from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
-class system:
+class sphere_sphere_system:
     def __init__(self, T, L, R1, R2, mat_sphere1, mat_sphere2, mat_medium):
         self.T = T
         self.L = L

@@ -9,7 +9,7 @@ from .plsp_interaction import contribution_finite, contribution_zero
 from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
-class system:
+class plane_sphere_system:
     def __init__(self, T, L, R, mat_sphere, mat_plane, mat_medium):
         self.T = T
         self.L = L
