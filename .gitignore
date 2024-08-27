@@ -1,7 +1,7 @@
 # setup
 build/
 dist/
-nystrom.egg-info/
+caspwn.egg-info/
 
 # virtual environment
 env/
@@ -9,8 +9,9 @@ env/
 # misc
 misc/
 
-
+# pycharm
 .idea/
+
 # slurm
 *.out
 
