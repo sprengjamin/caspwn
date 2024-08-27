@@ -6,11 +6,10 @@ Specifically, the plane-sphere and the sphere-sphere geometry are considered her
 
 Included features:
 * Support for wide range of values for separation and sphere radii and temperatures, in particular those relevant for Casimir force experiments
-* Support for commonly employed material models for the surfaces such as the 'Drude' and the 'plasma' model for metals  
-and arbitrary dielectric model for the surfaces
+* Support for commonly employed material models for the surfaces such as the 'Drude' and the 'plasma' model for metals and arbitrary dielectric model for the surfaces
 * Support for an arbitrary dielectric medium between the surfaces
 * Easy integration of user-specified materials
-* Accelerated evaluation of the Matsubara sum using Pade spectrum decomposition
+* Accelerated evaluation of the summation over Matsubara frequencies using Pade spectrum decomposition
 
 <p align="center">
   <img src="images/plsp_spsp_geometry.svg" height="80%" width="80%" >
