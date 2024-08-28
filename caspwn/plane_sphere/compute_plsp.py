@@ -35,7 +35,7 @@ class plane_sphere_system:
         self.thicknesses = thicknesses
 
 
-    def calculate(self, observable, ht_limit=False, etaM=5.1, M=None, etaN=5.6, N=None, etalmax=12., lmax=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count()):
+    def calculate(self, observable, ht_limit=False, etaM=5.1, M=None, etaN=5.6, N=None, etalmax=12., lmax=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False):
         if observable == "energy":
             j = 0
         if observable == "force":
@@ -74,7 +74,7 @@ class plane_sphere_system:
                 contribution_finite(self.R, self.L, x/self.L, nfunc_medium(c * x / self.L) * x/self.L,
                                     nfunc_sphere(c * x / self.L) / nfunc_medium(c * x / self.L), plane_refl_coeff, self.N,
                                     self.M,
-                                    k, w, self.lmax, cores, observable)[j]
+                                    k, w, self.lmax, cores, observable, debug)[j]
 
             if self.automatic_integration:
                 result = quad(self.f, 0., np.inf)[0]
@@ -95,10 +95,13 @@ class plane_sphere_system:
             else:  # will not be used
                 alpha_sphere = 0.
 
+            if debug:
+                print('# K*L, logdet, t_matrix, t_fft, t_logdet')
+
             f_n0_TM, f_n0_TE = contribution_zero(self.R, self.L, alpha_sphere,
                                                  materialclass_sphere, plane_refl_coeff, self.N, self.M,
                                                  k,
-                                                 w, self.lmax, cores, observable, self.calculate_n0_TE)
+                                                 w, self.lmax, cores, observable, self.calculate_n0_TE, debug)
             self.f_n0_TM = 0.5 * kB * self.T * f_n0_TM
             self.f_n0_TE = 0.5 * kB * self.T * f_n0_TE
 
@@ -117,7 +120,7 @@ class plane_sphere_system:
             self.f = lambda k0: \
                 contribution_finite(self.R, self.L, k0, nfunc_medium(c * k0) * k0,
                                     nfunc_sphere(c * k0) / nfunc_medium(c * k0), plane_refl_coeff, self.N, self.M,
-                                    k, w, self.lmax, cores, observable)
+                                    k, w, self.lmax, cores, observable, debug)
 
             self.f_n1 = fsum(self.T, self.L, self.f, epsrel=epsrel, order=O)
             self.result = self.f_n0_TM + self.f_n0_TE + self.f_n1

@@ -199,7 +199,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
                 raise ValueError
 
 
-def contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable):
+def contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable, debug=False):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -229,6 +229,8 @@ def contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lma
         number of processes
     observable : string
         observable to be computed
+    debug : boolean
+        Debug mode. Prints results and timings in this function.
 
     Returns
     -------
@@ -255,15 +257,15 @@ def contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lma
 
     end_matrix = perf_counter()
     timing_matrix = end_matrix-start_matrix
-    start_dft = end_matrix
+    start_fft = end_matrix
     if len(row) != 0:
         dataTMTM = np.fft.rfft(dataTMTM).real
         dataTETE = np.fft.rfft(dataTETE).real
         dataTMTE = np.fft.rfft(dataTMTE).imag
         dataTETM = np.fft.rfft(dataTETM).imag
-    end_dft = perf_counter()
-    timing_dft = end_dft-start_dft
-    start_logdet = end_dft
+    end_fft = perf_counter()
+    timing_fft = end_fft-start_fft
+    start_logdet = end_fft
 
     kappa = np.sqrt(K ** 2 + k ** 2)
 
@@ -297,8 +299,8 @@ def contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lma
         d2L_logdet += 2 * term3
     end_logdet = perf_counter()
     timing_logdet = end_logdet-start_logdet
-    print("# ", end="")
-    print(K, logdet, "%.3f"%timing_matrix, "%.3f"%timing_dft, "%.3f"%timing_logdet, sep=", ")
+    if debug:
+        print("# {:6.6e}, {:6.6e}, {:2.2e}, {:2.2e}, {:2.2e}".format(K, logdet, timing_matrix, timing_fft, timing_logdet))
     return np.array([logdet, dL_logdet, d2L_logdet])
 
 #@njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], int64, int64, float64[:], float64[:], float64[:])", cache=True)
@@ -356,7 +358,7 @@ def construct_roundtrip_zero(row, col, data, N, M, k, w, rp):
     return mat, dL_mat, d2L_mat
 
 
-def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable, calculate_TE=True):
+def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable, calculate_TE=True, debug=False):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -385,6 +387,8 @@ def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff
         observable to be computed
     calculate_TE : boolean
         If True, calculation for TE mode is performed. Otherwise it is skipped.
+    debug : boolean
+        Debug mode. Prints results and timings in this function.
 
     Returns
     -------
@@ -473,8 +477,8 @@ def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff
 
     end_logdet = perf_counter()
     timing_logdet = end_logdet-start_logdet
-    print("# ", end="")
-    print(0., logdet_TM + logdet_TE, "%.3f"%timing_matrix, "%.3f"%timing_fft, "%.3f"%timing_logdet, sep=", ")
+    if debug:
+        print("# {:6.6e}, {:6.6e}, {:2.2e}, {:2.2e}, {:2.2e}".format(0., logdet_TM + logdet_TE, timing_matrix, timing_fft, timing_logdet))
     return np.array([logdet_TM, dL_logdet_TM, d2L_logdet_TM]), np.array([logdet_TE, dL_logdet_TE, d2L_logdet_TE])
 
 if __name__ == '__main__':
