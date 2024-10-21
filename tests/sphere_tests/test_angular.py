@@ -89,6 +89,7 @@ def mp_c5(x):
 rtol = 1.e-14
 def test_c_coefficients():
     X = np. logspace(-6, 3, 50)
+    mp.dps = 80
     for x in X:
         print(x)
         # allow less precision for higher coefficients since contribution decreases
@@ -137,9 +138,9 @@ def test_pte_array():
 
 
 if __name__ == "__main__":
-    test_recurrence()
+    #test_recurrence()
     #test_pte_lowx()
     #test_pte_highx()
-    #test_c_coefficients()
+    test_c_coefficients()
     #test_pte_lowl()
     #test_pte_array()
