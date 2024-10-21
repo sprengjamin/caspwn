@@ -3,6 +3,9 @@ build/
 dist/
 caspwn.egg-info/
 
+# pytest
+tests/unit_tests/sphere_tests/.pytest_cache/
+
 # virtual environment
 env/
 
