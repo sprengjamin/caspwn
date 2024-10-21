@@ -28,7 +28,7 @@ misc/
 *.tex.bak
 
 # notes output
-notes.pdf
+notes/
 
 # analysis plots
 *.pdf
