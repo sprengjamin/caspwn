@@ -6,8 +6,8 @@ respectively.
 import numpy as np
 import sys
 sys.path.append('../..')
-from caspwn.plane_sphere.compute_plsp import system as plsp_system
-from caspwn.sphere_sphere.compute_spsp import system as spsp_system
+from caspwn.plane_sphere.compute_plsp import plane_sphere_system as plsp_system
+from caspwn.sphere_sphere.compute_spsp import sphere_sphere_system as spsp_system
 from caspwn.materials import PEC, vacuum, silica, polystyrene, water_zwol
 
 # PLANE-SPHERE
