@@ -6,7 +6,7 @@ setup(
    author='Benjamin Spreng',
    author_email='sprengjamin@gmail.com',
    packages=['caspwn', 'caspwn.plane', 'caspwn.sphere', 'caspwn.plane_sphere', 'caspwn.sphere_sphere', 'caspwn.ufuncs', 'caspwn.materials'],
-   license='LICENSE.txt',
+   license='LICENSE',
    description='Casimir interaction involving spheres and planes',
    long_description=open('README.md').read(),
    install_requires=[],
