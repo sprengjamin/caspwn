@@ -60,7 +60,7 @@ def mp_mie_e_mat(l, x, n):
 
 
 def test_mie_e():
-    mp_data = np.loadtxt(os.path.join(dir_path,  "testdata/mie_e.dat"))
+    mp_data = np.loadtxt(os.path.join(dir_path, "testdata/mie_e.dat"))
     for data in mp_data:
         l = data[0]
         x = data[1]

@@ -40,7 +40,7 @@ def test_pte_lowx():
 rtol = 1e-15
 def test_pte_highx():
     # test pte for high l and high x values
-    InuKnue_data = np.loadtxt(os.path.join(dir_path,  "testdata/pte_high.dat"))
+    InuKnue_data = np.loadtxt(os.path.join(dir_path, "testdata/pte_high.dat"))
     for data in InuKnue_data:
         num_pe, num_te = pte_asymptotics(data[0], data[1])
         print("l", data[0], "x", data[1])

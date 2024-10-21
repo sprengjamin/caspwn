@@ -16,7 +16,7 @@ def mp_Ine(l, x):
 
 rtol = 1e-15
 def test_InuKnu_e_asymptotics():
-    InuKnue_data = np.loadtxt(os.path.join(dir_path,  "testdata/InuKnue.dat"))
+    InuKnue_data = np.loadtxt(os.path.join(dir_path, "testdata/InuKnue.dat"))
     for data in InuKnue_data:
         num_Inue, num_Knue = InuKnu_e_asymptotics(data[0], data[1])
         print("l", data[0], "x", data[1])

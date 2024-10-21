@@ -103,7 +103,7 @@ def mp_S1S2(x, z):
 
 def test_scattering_amplitude():
     rtol = 1.4e-10
-    mp_data = np.loadtxt(os.path.join(dir_path,  "testdata/scattering_amplitude.dat"))
+    mp_data = np.loadtxt(os.path.join(dir_path, "testdata/scattering_amplitude.dat"))
     for data in mp_data:
         x = data[0]
         z = data[1]

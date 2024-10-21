@@ -1,7 +1,7 @@
 import numpy as np
 import os, sys
 sys.path.append("../")
-sys.path.append("../../") # to prevent crash
+sys.path.append("../../../") # to prevent crash
 from test_scattering_amplitude import mp_S1S2
 
 X = np.logspace(-5, 5, 10)
