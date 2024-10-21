@@ -66,6 +66,19 @@ you can install `caspwn` using pip:
 pip install .
 ```
 
+### Veryfing the installation
+
+To ensure the installation was successful, you can run the test suite using pytest by executing the following command
+from the root of the `caspwn` directory:
+
+```bash
+pytest tests/
+```
+This will run all unit and functional tests in the `tests/` folder and verify that the package is functioning as expected.
+Please note that running the tests may take several minutes depending on the complexity and size of the test suite.
+
+If all tests pass, the installation is verified.
+
 ---
 
 ## Getting started
