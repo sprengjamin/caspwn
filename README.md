@@ -1,15 +1,15 @@
 # caspwn
 
-A package that provides tools to compute the **Ca**simir force (see wikipedia) involving **s**pheres. [some statement about van der Waals force] The tools provide
-numerical results based on the scattering formalism utilizing a **p**lane-**w**ave representation of modes and **N**ystrom discretization.
-Specifically, the plane-sphere and the sphere-sphere geometry are considered here as depicted in the figure.
+`caspwn` is a Python package for computing **Casimir and van der Waals forces** involving **spherical geometries**.  
+The package implements the **scattering formalism** using a **plane-wave representation** of electromagnetic modes combined with **Nyström discretization**, enabling precise and efficient numerical evaluations.  
+Currently, the **plane–sphere** and **sphere–sphere** configurations are supported, as illustrated below.
 
-Included features:
-* Support for wide range of values for separation and sphere radii and temperatures, in particular those relevant for Casimir force experiments
-* Support for commonly employed material models for the surfaces such as the 'Drude' and the 'plasma' model for metals and arbitrary dielectric model for the surfaces
-* Support for an arbitrary dielectric medium between the surfaces
-* Easy integration of user-specified materials
-* Accelerated evaluation of the summation over Matsubara frequencies using Pade spectrum decomposition
+### Features
+- Covers a broad range of separations, sphere radii, and temperatures relevant to modern Casimir-force experiments.  
+- Supports commonly used material models such as the **Drude** and **plasma** models for metals, as well as **arbitrary dielectric functions**.  
+- Allows for **arbitrary dielectric media** between interacting surfaces.  
+- Provides a simple interface for **user-defined materials**.  
+- Includes **accelerated Matsubara-frequency summation** through **Padé spectrum decomposition** for improved convergence and reduced runtime.
 
 <p align="center">
   <img src="images/plsp_spsp_geometry.svg" height="80%" width="80%" >
