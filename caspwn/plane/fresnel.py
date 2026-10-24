@@ -131,11 +131,3 @@ def rTM_zero(k, epsilon, materialclass):
         # throw assert if materialclass is not supported
         assert(False)
         return 0.
-
-if __name__ == "__main__":
-    K = 0.
-    k = 1.
-    eps = 2.
-    materialclass = "dielectric"
-    print(rTE(K, k, eps, materialclass))
-    print(rTM(K, k, eps, materialclass))

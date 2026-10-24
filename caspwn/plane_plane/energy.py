@@ -87,13 +87,3 @@ def energy_finite(L, T, materials, mode, epsrel=1.e-08, N=None):
         assert(True)
     return 0.5*T*Boltzmann*energy0, 0.5*T*Boltzmann*energy
     
-
-
-if __name__ == "__main__":
-    L = 0.01e-06
-    T = 298.015
-    materials = ("PS1", "WaterRT", "PS1")
-    #materials = ("PR", "Vacuum", "PR")
-    print(energy_finite(L, T, materials, "msd", N=700))
-    print(energy_finite(L, T, materials, "psd"))
-
