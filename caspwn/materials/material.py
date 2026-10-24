@@ -559,16 +559,3 @@ uv = [[8.34, 4.47e-2, 0.75],
 lorentz = np.vstack((np.array(ir), np.array(uv)))
 
 WaterRT = DebyeLorentzModel("WaterRT", debye, lorentz)
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    X = np.logspace(10,22,100)/c
-    eps1 = [Water.epsilon(x) for x in X]
-    eps2 = [WaterRT.epsilon(x) for x in X]
-
-    plt.semilogx(X*c*hbar/e, eps1, label="my")
-    plt.semilogx(X*c*hbar/e, eps2, label="new")
-    #plt.xlim(0.1,1.e3)
-    #plt.ylim(1.,2.5)
-    plt.legend()
-    plt.show()

@@ -546,35 +546,3 @@ def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff
     if debug:
         print("# {:6.6e}, {:6.6e}, {:2.2e}, {:2.2e}, {:2.2e}".format(0., logdet_TM + logdet_TE, timing_matrix, timing_fft, timing_logdet))
     return np.array([logdet_TM, dL_logdet_TM, d2L_logdet_TM]), np.array([logdet_TE, dL_logdet_TE, d2L_logdet_TE])
-
-if __name__ == '__main__':
-    # run as module: python -m caspwn.plane_sphere.plsp_interaction
-    from ..ufuncs.integration import fc_quadrature
-    from ..plane.reflection_coefficients import def_reflection_coeff
-    from ..materials import PEC, vacuum
-
-    R = 100.e-9
-    L = 1.e-9
-
-    k0 = 1./L
-    K = k0
-    n_sphere = np.inf
-    plane_refl_coeff = def_reflection_coeff(vacuum, [PEC], [None])
-
-    rho = max(50, R/L)
-    N = int(5.6*np.sqrt(rho))
-    M = int(5.1*np.sqrt(rho))
-    lmax = int(12.*rho)
-
-    nproc = 4
-    observable = "forcegradient"
-
-    nds, wts = fc_quadrature(N)
-    k = nds/L
-    w = wts/L
-
-    print("finite:", contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable))
-
-    alpha_sphere = 0.
-    materialclass_sphere = 'PEC'
-    print("zero (TM, TE):", contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable))

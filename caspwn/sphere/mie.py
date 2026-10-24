@@ -206,19 +206,3 @@ def mie_e_array(lmax, x, n):
         return mie_e_array_PR(lmax, x)
     else:
         return mie_e_array_mat(lmax, x, n)
-
-
-if __name__ == "__main__":
-    lmax = 1e4
-    x = 200.3
-    n = 100.
-    ale, ble = mie_e_array(lmax, x, n)
-    import matplotlib.pyplot as plt
-    l = np.arange(1, lmax+1)
-    plt.loglog(l, ale, label="a")
-    plt.loglog(l, ble, label="b")
-    plt.loglog(l, l**(-2.), "k-")
-    plt.legend()
-    plt.show()
-    print(ale)
-    print(ble)
