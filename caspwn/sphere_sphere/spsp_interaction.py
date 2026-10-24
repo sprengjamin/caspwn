@@ -151,7 +151,7 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
             return logdet, dL_logdet, 0.
         d2L_mat = d2L_mat1.dot(mat2) + 2 * dL_mat1.dot(dL_mat2) + mat1.dot(d2L_mat2)
         matB = lu_solve((lu, piv), d2L_mat)
-        d2L_logdet = np.trace(matB) + np.sum(matA**2)
+        d2L_logdet = np.trace(matB) + np.sum(matA*matA.T)
         if observable == "forcegradient":
             return logdet, dL_logdet, d2L_logdet
         else:
