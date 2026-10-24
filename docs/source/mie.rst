@@ -1,6 +1,5 @@
 Mie
 ===
 
-.. automodule:: mie
+.. automodule:: caspwn.sphere.mie
     :members:
-

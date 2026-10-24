@@ -1,6 +1,5 @@
 Legendre
 ========
 
-.. automodule:: legendre
+.. automodule:: caspwn.ufuncs.legendre
     :members:
-

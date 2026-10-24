@@ -384,20 +384,3 @@ def S1S2_finite(x, z, n, lmax, mie_a, mie_b, use_asymptotics):
             if l == 0:
                 break
         return -S1, S2
-
-
-if __name__ == "__main__":
-    import numpy as np
-    x = 0.001
-    z = 1.1
-    n = 0.2
-    lmax = 100
-    from mie import mie_e_array
-    mie_a, mie_b = mie_e_array(lmax, x, n)
-    S1, S2 = S1S2_finite(x, z, n, lmax, mie_a, mie_b, False)
-
-    expo = np.exp(2*x*np.sqrt((1+z)/2))
-    print(S1*expo, S2*expo)
-
-    print(-(n**2-1)/(n**2+2)*x**3)
-    print(-(n**2-1)/(n**2+2)*x**3*(-z))

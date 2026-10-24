@@ -14,16 +14,3 @@ def alpha(xi):
 def epsilon(xi):
     a = alpha(xi)
     return (1 + 2*a/4/pi/epsilon_0/r**3)/(1 - a/4/pi/epsilon_0/r**3)
-
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    xi, e = np.loadtxt("optical_data/dielectric_CH4.txt", unpack=True)
-    E = np.array([epsilon(x) for x in xi])
-
-    plt.semilogx(xi, E, label="mine")
-    plt.semilogx(xi, e, label="his")
-    plt.legend()
-    plt.show()
-

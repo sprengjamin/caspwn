@@ -70,7 +70,3 @@ def psd(N):
     eta = __eta(ndim, -xi**2)
 
     return xi, eta
-
-if __name__ == "__main__":
-    N = 100
-    print(psd(N))

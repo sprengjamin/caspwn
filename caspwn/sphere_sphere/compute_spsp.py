@@ -9,6 +9,24 @@ from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
 class sphere_sphere_system:
+    r"""Casimir interaction between two spheres.
+
+    Parameters
+    ----------
+    T : float
+        temperature in K
+    L : float
+        surface-to-surface distance in m
+    R1, R2 : float
+        sphere radii in m
+    mat_sphere1, mat_sphere2, mat_medium : material
+        materials of the spheres and the medium in between
+
+    """
+    # (R1+R2)/L above which sparse round-trip matrices are used by default. For (R1+R2)/L up to a few thousand the
+    # sparse path is not faster than the dense one, it is therefore switched off by default.
+    sparse_threshold = np.inf
+
     def __init__(self, T, L, R1, R2, mat_sphere1, mat_sphere2, mat_medium):
         self.T = T
         self.L = L
@@ -30,13 +48,55 @@ class sphere_sphere_system:
             self.K_quad = fc_quadrature
 
 
-    def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False):
+    def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
+        r"""Computes the Casimir free energy, force or force gradient.
+
+        Parameters
+        ----------
+        observable : string
+            "energy", "force" or "forcegradient"
+        ht_limit : boolean
+            if True, only the zero-frequency contribution (high-temperature limit) is computed
+        etaM, etaNin, etaNout, etalmax1, etalmax2 : float
+            discretization parameters, M = etaM*sqrt((R1+R2)/L), Nin = etaNin*sqrt((R1+R2)/L),
+            Nout = etaNout*sqrt(Reff/L) with Reff = R1*R2/(R1+R2) and lmax1/2 = etalmax1/2*R1/2/L, where the ratios are
+            at least 50
+        M, Nin, Nout, lmax1, lmax2 : int
+            discretization orders and multipole cut-offs, overwrite the parameters above
+        fs : string
+            Matsubara frequency summation, "psd" (Pade spectrum decomposition) or "msd" (plain Matsubara sum)
+        epsrel : float
+            relative accuracy of the frequency summation
+        O : int
+            order of the Pade spectrum decomposition, determined from epsrel if None
+        cores : int
+            number of threads used for the computation of the matrix elements
+        debug : boolean
+            print intermediate results and timings for each frequency
+        sparse : boolean or None
+            use sparse round-trip matrices; if None, they are used if (R1+R2)/L is at least ``sparse_threshold``
+
+        Returns
+        -------
+        float
+            free energy in J, force in N or force gradient in N/m (a negative force is attractive). For T > 0 the
+            attribute ``result`` holds the array [energy, force, forcegradient] where only the requested observable
+            and the ones before it are computed.
+
+        """
         if observable == "energy":
             j = 0
-        if observable == "force":
+        elif observable == "force":
             j = 1
-        if observable == "forcegradient":
+        elif observable == "forcegradient":
             j = 2
+        else:
+            raise ValueError("Supported observables are 'energy', 'force' and 'forcegradient'!")
+
+        if sparse == None:
+            self.sparse = (self.R1 + self.R2) / self.L >= self.sparse_threshold
+        else:
+            self.sparse = sparse
 
         rhosum = max((self.R1 + self.R2) / self.L, 50)
         if Nin == None:
@@ -81,7 +141,7 @@ class sphere_sphere_system:
                                     nfunc_sphere1(c * x / self.L) / nfunc_medium(c * x / self.L),
                                     nfunc_sphere2(c * x / self.L) / nfunc_medium(c * x / self.L), self.Nout, self.Nin, self.M,
                                     k_outer, w_outer, k_inner,
-                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug)[j]
+                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug, self.sparse)[j]
 
             if self.automatic_integration:
                 result = quad(self.f, 0., np.inf)[0]
@@ -114,7 +174,7 @@ class sphere_sphere_system:
 
             f_n0_TM, f_n0_TE = contribution_zero(self.R1, self.R2, self.L, alpha_sphere1, alpha_sphere2,
                                                  materialclass_sphere1, materialclass_sphere2, self.Nout, self.Nin, self.M, k_outer,
-                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable, self.calculate_n0_TE, debug)
+                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable, self.calculate_n0_TE, debug, self.sparse)
 
             self.f_n0_TM = 0.5 * kB * self.T * f_n0_TM
             self.f_n0_TE = 0.5 * kB * self.T * f_n0_TE
@@ -136,7 +196,7 @@ class sphere_sphere_system:
                                     nfunc_sphere1(c * k0) / nfunc_medium(c * k0),
                                     nfunc_sphere2(c * k0) / nfunc_medium(c * k0), self.Nout, self.Nin, self.M,
                                     k_outer, w_outer, k_inner,
-                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug)
+                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug, self.sparse)
 
             self.f_n1 = fsum(self.T, self.L, self.f, epsrel=epsrel, order=O)
             self.result = self.f_n0_TM + self.f_n0_TE + self.f_n1

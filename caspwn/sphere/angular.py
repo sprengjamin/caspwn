@@ -301,31 +301,3 @@ def pte_asymptotics(l, x):
         return pe[-1], te[-1]
     else:
         return pte_high(l, x)
-
-if __name__ == "__main__":
-    import time
-    lmin = 1200
-    lmax = 3000
-    x = 1.
-    a1, a2 = (pte_array(lmin, lmax, x))
-    start = time.time()
-    a1, a2 = (pte_array(lmin, lmax, x))
-    end = time.time()
-    print(a1)
-    print(a2)
-    print("time", end-start)
-    @njit
-    def foo(lmin, lmax, x):
-        pe = np.empty(lmax-lmin+1)
-        te = np.empty(lmax-lmin+1)
-        for l in range(lmin, lmax+1):
-            pe[l-lmin], te[l-lmin] = pte_asymptotics(l, x)
-        return pe, te
-    b1, b2 = foo(lmin, lmax, x)
-    start = time.time()
-    b1, b2 = foo(lmin, lmax, x)
-    end = time.time()
-    print(b1)
-    print(b2)
-    print("time", end-start)
-

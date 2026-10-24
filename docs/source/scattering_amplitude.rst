@@ -1,6 +1,5 @@
-Scattering Amplitude
-====================
+Scattering amplitudes
+=====================
 
-.. automodule:: scattering_amplitude
+.. automodule:: caspwn.sphere.scattering_amplitudes
     :members:
-

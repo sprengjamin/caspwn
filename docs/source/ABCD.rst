@@ -1,7 +1,5 @@
 ABCD
 ====
 
-.. automodule:: ABCD
+.. automodule:: caspwn.ufuncs.ABCD
     :members:
-
-

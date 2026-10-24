@@ -133,16 +133,3 @@ def kernel_polar_zero(R, L, r, k1, k2, phi, alpha, materialclass, lmax):
     TMTM = norm * S2 * e
     TETE = norm * S1 * e
     return TMTM, TETE
-
-if __name__ == "__main__":
-    rho = 1.
-    K = 1.
-    k1 = 1.
-    k2 = 1.
-    phi = 1.
-    # print(phase(rho, K, k1, k2, phi))
-    from mie import mie_cache
-
-    mie = mie_cache(1e4, K, 1.7)
-    print(kernel_polar(rho, 0.5, +1, K, k1, k2, phi, mie))
-    print(kernel_polar(rho, 0.5, -1, K, k1, k2, phi, mie))

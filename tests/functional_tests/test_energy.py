@@ -5,11 +5,14 @@ The data files from the older version contains the git version which they stem f
 """
 import numpy as np
 import os
+import pytest
 from scipy.constants import hbar, c
 #sys.path.append('../..')
 from caspwn.plane_sphere.compute_plsp import plane_sphere_system as plsp_system
 from caspwn.sphere_sphere.compute_spsp import sphere_sphere_system as spsp_system
 from caspwn.materials import PEC, vacuum, silica, polystyrene, water_zwol, gold_drude
+
+pytestmark = pytest.mark.slow
 
 
 # PLANE-SPHERE
