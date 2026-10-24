@@ -1,13 +1,11 @@
-sphere modules
-==============
+Sphere
+======
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
-   
+
    angular.rst
    mie.rst
    scattering_amplitude.rst
-   
-   
-
+   kernel.rst
+   reflection_matrix.rst

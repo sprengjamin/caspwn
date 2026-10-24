@@ -9,6 +9,20 @@ from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
 class sphere_sphere_system:
+    r"""Casimir interaction between two spheres.
+
+    Parameters
+    ----------
+    T : float
+        temperature in K
+    L : float
+        surface-to-surface distance in m
+    R1, R2 : float
+        sphere radii in m
+    mat_sphere1, mat_sphere2, mat_medium : material
+        materials of the spheres and the medium in between
+
+    """
     # (R1+R2)/L above which sparse round-trip matrices are used by default. For (R1+R2)/L up to a few thousand the
     # sparse path is not faster than the dense one, it is therefore switched off by default.
     sparse_threshold = np.inf
@@ -35,6 +49,41 @@ class sphere_sphere_system:
 
 
     def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
+        r"""Computes the Casimir free energy, force or force gradient.
+
+        Parameters
+        ----------
+        observable : string
+            "energy", "force" or "forcegradient"
+        ht_limit : boolean
+            if True, only the zero-frequency contribution (high-temperature limit) is computed
+        etaM, etaNin, etaNout, etalmax1, etalmax2 : float
+            discretization parameters, M = etaM*sqrt((R1+R2)/L), Nin = etaNin*sqrt((R1+R2)/L),
+            Nout = etaNout*sqrt(Reff/L) with Reff = R1*R2/(R1+R2) and lmax1/2 = etalmax1/2*R1/2/L, where the ratios are
+            at least 50
+        M, Nin, Nout, lmax1, lmax2 : int
+            discretization orders and multipole cut-offs, overwrite the parameters above
+        fs : string
+            Matsubara frequency summation, "psd" (Pade spectrum decomposition) or "msd" (plain Matsubara sum)
+        epsrel : float
+            relative accuracy of the frequency summation
+        O : int
+            order of the Pade spectrum decomposition, determined from epsrel if None
+        cores : int
+            number of threads used for the computation of the matrix elements
+        debug : boolean
+            print intermediate results and timings for each frequency
+        sparse : boolean or None
+            use sparse round-trip matrices; if None, they are used if (R1+R2)/L is at least ``sparse_threshold``
+
+        Returns
+        -------
+        float
+            free energy in J, force in N or force gradient in N/m (a negative force is attractive). For T > 0 the
+            attribute ``result`` holds the array [energy, force, forcegradient] where only the requested observable
+            and the ones before it are computed.
+
+        """
         if observable == "energy":
             j = 0
         elif observable == "force":

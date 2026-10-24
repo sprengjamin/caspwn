@@ -1,5 +1,5 @@
 Bessel
 ======
 
-.. automodule:: bessel
+.. automodule:: caspwn.ufuncs.bessel
     :members:

@@ -20,7 +20,7 @@ Currently, the **plane–sphere** and **sphere–sphere** configurations are sup
 ## Installation
 In order to install `caspwn`, first navigate to package folder
 ```
-cd path/to/califorcia
+cd path/to/caspwn
 ```
 
 We recommend creating a virtual environment with either of the two 
@@ -66,7 +66,7 @@ you can install `caspwn` using pip:
 pip install .
 ```
 
-### Veryfing the installation
+### Verifying the installation
 
 To ensure the installation was successful, you can run the test suite using pytest by executing the following command
 from the root of the `caspwn` directory:
@@ -124,9 +124,38 @@ from caspwn import plane_sphere_system
 from caspwn.materials import gold_drude as gold, vacuum
 s = plane_sphere_system(T=300., L=100.e-9, R=50.e-6, mat_plane=gold, mat_sphere=gold, mat_medium=vacuum)
 s.calculate('forcegradient')
->>> 0.0017678510810457248
+>>> 0.0017678242955927433
 ```
 The resulting Casimir force gradient is about 1.77mN/m.
+
+## Usage
+
+### Units and conventions
+
+All input quantities are in SI units (temperature in K, lengths in m). `calculate` returns the Casimir free energy in J,
+the force in N or the force gradient in N/m. A negative force is attractive.
+
+For `T > 0` the free energy is given by the sum over Matsubara frequencies. After a call of `calculate`, the attribute
+`result` holds the array `[energy, force, forcegradient]`, where only the requested observable and the ones before it
+are computed (e.g. `'force'` computes energy and force). For `T = 0` the frequency integral is computed by numerical
+integration and only the requested observable is returned.
+
+### Options of `calculate`
+
+| argument | meaning |
+|---|---|
+| `observable` | `'energy'`, `'force'` or `'forcegradient'` |
+| `ht_limit` | if `True`, only the zero-frequency contribution (high-temperature limit) is computed |
+| `etaN`, `etaM`, `etalmax` | discretization parameters, the radial and angular discretization orders and the multipole cut-off scale as `eta*sqrt(R/L)` and `eta*R/L` (with `R/L` at least 50); the sphere-sphere geometry uses `etaNin`, `etaNout`, `etaM`, `etalmax1`, `etalmax2` |
+| `N`, `M`, `lmax` | set the discretization orders directly instead (sphere-sphere: `Nin`, `Nout`, `M`, `lmax1`, `lmax2`) |
+| `fs` | Matsubara frequency summation, `'psd'` (Padé spectrum decomposition, default) or `'msd'` (plain Matsubara sum) |
+| `epsrel` | relative accuracy of the frequency summation |
+| `O` | order of the Padé spectrum decomposition (determined from `epsrel` if not given) |
+| `cores` | number of threads used for the computation of the matrix elements |
+| `debug` | print intermediate results and timings for each frequency |
+| `sparse` | use sparse round-trip matrices, see below |
+
+### Sparse round-trip matrices
 
 For large aspect ratios R/L most elements of the round-trip matrices vanish. For R/L of at least
 `plane_sphere_system.sparse_threshold` (default 100) the round-trip matrices are therefore stored and decomposed
@@ -134,6 +163,29 @@ in a sparse (envelope) format. This can be enforced or switched off with the `sp
 `s.calculate('forcegradient', sparse=False)`.
 The `sphere_sphere_system` supports the same `sparse` argument. There, the sparse path is not faster than the dense
 one for (R1+R2)/L up to a few thousand and is therefore switched off by default.
+
+### Layered planes
+
+The plane can consist of up to four materials. The material `mat_plane` forms the top layer facing the sphere, the
+further materials follow below and the last one is the substrate. For example, a 50nm gold film on silica:
+```
+from caspwn import plane_sphere_system
+from caspwn.materials import gold_drude as gold, silica, vacuum
+s = plane_sphere_system(T=300., L=100.e-9, R=50.e-6, mat_plane=gold, mat_sphere=gold, mat_medium=vacuum)
+s.add_plane_layers([silica], [50.e-9])
+s.calculate('force')
+```
+
+### User-defined materials
+
+A material is any object (or module) with the attributes
+- `materialclass`: one of `'dielectric'`, `'drude'`, `'plasma'` or `'PEC'`, which determines the zero-frequency
+  contribution,
+- `epsilon(xi)`: the permittivity at the imaginary angular frequency `xi` in rad/s.
+
+Drude materials additionally need the plasma frequency `wp` and the damping `gamma` (both in rad/s), plasma materials
+need `wp` and `K_plasma = wp/c`. See the modules in `caspwn/materials/` (e.g. `gold_drude.py` or `silica.py`) for
+examples.
 
 ## Documentation (wip)
 
@@ -175,5 +227,5 @@ to build the documentation. The html files can be found in the folder `docs/buil
   Tanja Schoger, Benjamin Spreng, Gert-Ludwig Ingold, Paulo A. Maia Neto, Serge Reynaud, Physical Review Letters **128**, 230602 (2022). DOI:10.1103/PhysRevLett.128.230602 [arXiv:2112.08800](https://arxiv.org/abs/2112.08800)
 
 * [Universal Casimir interactions in the sphere–sphere geometry](https://www.worldscientific.com/doi/10.1142/S0217751X22410056)\
-  Tanja Schoger, Benjamin Spreng, Gert-Ludwig Ingold, Astrid Lambrecht, Paulo A. Maia Neto, Serge Reynaud, International Journal of Modern Physics A **37**, 2241005 (2022). DOI:10.1103/PhysRevLett.128.230602 [arXiv:2205.10812](https://arxiv.org/abs/2205.10812)
+  Tanja Schoger, Benjamin Spreng, Gert-Ludwig Ingold, Astrid Lambrecht, Paulo A. Maia Neto, Serge Reynaud, International Journal of Modern Physics A **37**, 2241005 (2022). DOI:10.1142/S0217751X22410056 [arXiv:2205.10812](https://arxiv.org/abs/2205.10812)
 

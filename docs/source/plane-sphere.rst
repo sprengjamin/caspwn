@@ -1,13 +1,9 @@
-plane-sphere modules
-====================
+Plane-sphere geometry
+=====================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-   energy.rst
-   kernel.rst
-   
-   
-   
-
+   compute_plsp.rst
+   plsp_interaction.rst
+   plsp_sparse.rst

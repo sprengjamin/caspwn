@@ -1,6 +1,5 @@
-Kernel
-======
+Kernels
+=======
 
-.. automodule:: kernel
+.. automodule:: caspwn.sphere.kernels
     :members:
-
