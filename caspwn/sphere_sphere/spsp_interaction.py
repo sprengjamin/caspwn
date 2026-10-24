@@ -1,4 +1,4 @@
-r""" Casimir interaction for the plane-sphere geometry at given frequency/wavenumber
+r""" Casimir interaction for the sphere-sphere geometry at given frequency/wavenumber
 
 """
 import numpy as np
@@ -9,6 +9,7 @@ from time import perf_counter
 from ..sphere.mie import mie_e_array
 from ..sphere.reflection_matrix import arm_full_zero, arm_full_finite
 from ..plane_sphere.plsp_sparse import observable_order
+from ..plane_sphere.plsp_interaction import lu_logdet
 from .spsp_sparse import sparse_roundtrip
 
 
@@ -142,7 +143,7 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
     else:
         # compute logdet etc. exactly
         lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
-        logdet = np.sum(np.log(np.diag(lu)))
+        logdet = lu_logdet(lu, piv)
         if observable == "energy":
             return logdet, 0., 0.
 
@@ -458,42 +459,38 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
     return np.array([logdet_TM, dL_logdet_TM, d2L_logdet_TM]), np.array([logdet_TE, dL_logdet_TE, d2L_logdet_TE])
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
-    from integration import fc_quadrature
+    # run as module: python -m caspwn.sphere_sphere.spsp_interaction
+    from ..ufuncs.integration import fc_quadrature
 
-    R1 = 1#1.e-6
-    R2 = 2#1.e-6
-    L = 0.01#10.e-9
+    R1 = 1.
+    R2 = 2.
+    L = 0.01
 
-    K = 1.
+    K = 1./L
     n_sphere1 = 2.3
     n_sphere2 = 4.5
 
     rho1 = max(50, R1/L)
     rho2 = max(50, R2/L)
     rhoeff = max(50, R1*R2/(R1+R2)/L)
-    N_outer = int(8.*np.sqrt(rhoeff))
-    N_inner = int(8.*np.sqrt(rho1+rho2))
-    print(N_outer)
-    print(N_inner)
-    M = int(6.*np.sqrt(rho1+rho2))
+    N_outer = int(5.3*np.sqrt(rhoeff))
+    N_inner = int(8.4*np.sqrt(rho1+rho2))
+    M = int(6.2*np.sqrt(rho1+rho2))
     lmax1 = int(12.*rho1)
     lmax2 = int(12.*rho2)
 
-
     nproc = 4
-    observable = "energy"
+    observable = "forcegradient"
 
     nds_outer, wts_outer = fc_quadrature(N_outer)
     nds_inner, wts_inner = fc_quadrature(N_inner)
+    k_outer, w_outer = nds_outer/L, wts_outer/L
+    k_inner, w_inner = nds_inner/L, wts_inner/L
 
-    #c = contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M, nds_outer, wts_outer, nds_inner, wts_inner, lmax1, lmax2, nproc, observable)
+    print("finite:", contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable))
 
     alpha_sphere1 = 4.
     alpha_sphere2 = 4.
-    materialclass_sphere2 = 'drude'
-    materialclass_sphere1 = 'drude'
-
-    c0 = contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sphere1, materialclass_sphere2, N_outer, N_inner, M, nds_outer, wts_outer, nds_inner, wts_inner, lmax1, lmax2, nproc, observable)
-
-
+    materialclass_sphere1 = 'dielectric'
+    materialclass_sphere2 = 'dielectric'
+    print("zero (TM, TE):", contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sphere1, materialclass_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable))

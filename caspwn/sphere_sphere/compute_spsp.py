@@ -37,10 +37,12 @@ class sphere_sphere_system:
     def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
         if observable == "energy":
             j = 0
-        if observable == "force":
+        elif observable == "force":
             j = 1
-        if observable == "forcegradient":
+        elif observable == "forcegradient":
             j = 2
+        else:
+            raise ValueError("Supported observables are 'energy', 'force' and 'forcegradient'!")
 
         if sparse == None:
             self.sparse = (self.R1 + self.R2) / self.L >= self.sparse_threshold

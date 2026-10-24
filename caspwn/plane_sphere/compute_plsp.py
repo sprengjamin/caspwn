@@ -41,10 +41,12 @@ class plane_sphere_system:
     def calculate(self, observable, ht_limit=False, etaM=5.1, M=None, etaN=5.6, N=None, etalmax=12., lmax=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
         if observable == "energy":
             j = 0
-        if observable == "force":
+        elif observable == "force":
             j = 1
-        if observable == "forcegradient":
+        elif observable == "forcegradient":
             j = 2
+        else:
+            raise ValueError("Supported observables are 'energy', 'force' and 'forcegradient'!")
 
         if hasattr(self, 'thicknesses'):
             plane_refl_coeff = def_reflection_coeff(self.mat_medium, self.mats_plane, self.thicknesses)

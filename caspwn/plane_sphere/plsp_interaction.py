@@ -115,6 +115,30 @@ def construct_roundtrip_finite(row, col, dataTMTM, dataTETE, dataTMTE, dataTETM,
 
     return mat, dL_mat, d2L_mat
 
+def lu_logdet(lu, piv):
+    r"""Computes :math:`\log\det(A)` from the LU decomposition of :math:`A` as returned by ``scipy.linalg.lu_factor``.
+
+        Row interchanges and negative diagonal elements of :math:`U` can occur even if :math:`\det(A)>0`. The sign of
+        the determinant is therefore determined separately. Since :math:`\det(1-\mathcal{M})>0` for physical
+        round-trip matrices, NaN is returned for a non-positive determinant.
+
+        Parameters
+        ----------
+        lu, piv : ndarray
+            LU decomposition and pivot indices
+
+        Returns
+        -------
+        float
+
+    """
+    diag = np.diag(lu)
+    sign = (-1.)**np.sum(piv != np.arange(len(piv))) * np.prod(np.sign(diag))
+    if sign <= 0.:
+        return np.nan
+    return np.sum(np.log(np.abs(diag)))
+
+
 def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
     r"""Computes a 3-tuple containing the quantities
 
@@ -184,7 +208,7 @@ def compute_matrix_operations(mat, dL_mat, d2L_mat, observable):
                 raise ValueError
         else:
             lu, piv = lu_factor(np.eye(mat.shape[0]) - mat)
-            logdet = np.sum(np.log(np.diag(lu)))
+            logdet = lu_logdet(lu, piv)
             if observable == "energy":
                 return logdet, 0., 0.
 
@@ -524,33 +548,33 @@ def contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff
     return np.array([logdet_TM, dL_logdet_TM, d2L_logdet_TM]), np.array([logdet_TE, dL_logdet_TE, d2L_logdet_TE])
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ufuncs/"))
-    from integration import quadrature
+    # run as module: python -m caspwn.plane_sphere.plsp_interaction
+    from ..ufuncs.integration import fc_quadrature
+    from ..plane.reflection_coefficients import def_reflection_coeff
+    from ..materials import PEC, vacuum
 
-    R = 1.e-6
+    R = 100.e-9
     L = 1.e-9
 
-    K = 1.
-    n_plane = np.inf
+    k0 = 1./L
+    K = k0
     n_sphere = np.inf
+    plane_refl_coeff = def_reflection_coeff(vacuum, [PEC], [None])
 
     rho = max(50, R/L)
-    N = int(8.*np.sqrt(rho))
-    M = int(6.*np.sqrt(rho))
+    N = int(5.6*np.sqrt(rho))
+    M = int(5.1*np.sqrt(rho))
     lmax = int(12.*rho)
 
     nproc = 4
-    observable = "energy"
+    observable = "forcegradient"
 
-    k, w = quadrature(N)
+    nds, wts = fc_quadrature(N)
+    k = nds/L
+    w = wts/L
 
-    c = contribution_finite(R, L, K, n_plane, n_sphere, N, M, k, w, lmax, nproc, observable)
+    print("finite:", contribution_finite(R, L, k0, K, n_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable))
 
-    alpha_plane = 4.
-    alpha_sphere = 4.
-    materialclass_plane = 'dielectric'
-    materialclass_sphere = 'dielectric'
-
-    #c0 = contribution_zero(R, L, alpha_plane, alpha_sphere, materialclass_plane, materialclass_sphere, N, M, k, w, lmax, nproc, observable)
-
-
+    alpha_sphere = 0.
+    materialclass_sphere = 'PEC'
+    print("zero (TM, TE):", contribution_zero(R, L, alpha_sphere, materialclass_sphere, plane_refl_coeff, N, M, k, w, lmax, nproc, observable))
