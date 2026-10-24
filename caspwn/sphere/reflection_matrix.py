@@ -5,8 +5,8 @@ r"""sphere reflection matrix in angular representation
 
 import numpy as np
 from math import sqrt
-import concurrent.futures as futures
-from numba import njit
+import numba
+from numba import njit, prange
 from .kernels import kernel_polar_finite, kernel_polar_zero
 
 @njit("int64[:,:](int64, int64)", cache=True)
@@ -224,15 +224,85 @@ def arm_partial_finite(tuples, R, L, r, sign, K, len_init, M, k1, k2, n_sphere, 
     return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
 
 
-def arm_full_finite(nproc, R, L, r, sign, K, N1, N2, M, k1, k2, n_sphere, lmax, mie_a, mie_b):
+@njit("boolean[:](int64[:,:], float64, float64, float64, float64, float64[:], float64[:])", parallel=True, cache=True)
+def finite_mask(tuples, R, L, r, K, k1, k2):
+    r"""Evaluates ``isFinite`` for all index tuples in parallel."""
+    mask = np.empty(len(tuples), dtype=np.bool_)
+    for t in prange(len(tuples)):
+        mask[t] = isFinite(R, L, r, K, k1[tuples[t, 0]], k2[tuples[t, 1]])
+    return mask
+
+
+def finite_tuples(nproc, R, L, r, K, N1, N2, k1, k2):
     r"""
-    FULL Angular Reflection Matrix for a FINITE frequency/wavenumber.
-    The calculation is parellelized among nproc processes.
+    Index tuples of the matrix elements that must not be neglected.
 
     Parameters
     ----------
     nproc: int
-        number of processes
+        number of threads
+    R, L, r, K: float
+        see ``isFinite``
+    N1, N2: int
+        positive, radial discretization order
+    k1, k2 : np.ndarray
+        nodes of the radial quadrature rule
+
+    Returns
+    -------
+    np.ndarray
+        2D array containing row and column indices
+
+    """
+    numba.set_num_threads(max(1, min(nproc, numba.config.NUMBA_NUM_THREADS)))
+    tuples = generate_tuples(N1, N2)
+    tuples = tuples[finite_mask(tuples, R, L, r, K, k1, k2)]
+    # random order balances the load among the threads
+    return tuples[np.random.permutation(len(tuples))]
+
+
+@njit("UniTuple(float64[:,:], 4)(int64[:,:], float64, float64, float64, float64, float64, int64, float64[:], float64[:], float64, int64, float64[:], float64[:])", parallel=True, cache=True)
+def arm_parallel_finite(tuples, R, L, r, sign, K, M, k1, k2, n_sphere, lmax, mie_a, mie_b):
+    r"""
+    Angular Reflection Matrix elements for FINITE frequencies/wavenumbers for the given indices,
+    computed in parallel threads.
+
+    Parameters
+    ----------
+    tuples : np.ndarray
+        2D array containing row and column indices
+    R, L, r, sign, K, M, k1, k2, n_sphere, lmax, mie_a, mie_b
+        see ``arm_full_finite``
+
+    Returns
+    -------
+    dataTMTM, dataTETE, dataTMTE, dataTETM : np.ndarray
+        angular matrix elements for TMTM, TETE, TMTE, TETM polarization
+
+    """
+    n = len(tuples)
+    dataTMTM = np.empty((n, M))
+    dataTETE = np.empty((n, M))
+    dataTMTE = np.empty((n, M))
+    dataTETM = np.empty((n, M))
+    for t in prange(n):
+        TMTM, TETE, TMTE, TETM = arm_elements_finite(R, L, r, sign, K, M, k1[tuples[t, 0]], k2[tuples[t, 1]], n_sphere, lmax, mie_a, mie_b)
+        dataTMTM[t, :] = TMTM
+        dataTETE[t, :] = TETE
+        dataTMTE[t, :] = TMTE
+        dataTETM[t, :] = TETM
+    return dataTMTM, dataTETE, dataTMTE, dataTETM
+
+
+def arm_full_finite(nproc, R, L, r, sign, K, N1, N2, M, k1, k2, n_sphere, lmax, mie_a, mie_b):
+    r"""
+    FULL Angular Reflection Matrix for a FINITE frequency/wavenumber.
+    The calculation is parellelized among nproc threads.
+
+    Parameters
+    ----------
+    nproc: int
+        number of threads
     R: float
         positive, sphere radius
     L: float
@@ -265,40 +335,13 @@ def arm_full_finite(nproc, R, L, r, sign, K, N1, N2, M, k1, k2, n_sphere, lmax, 
 
     Dependencies
     ------------
-    ARM_partial_finite
+    finite_tuples, arm_parallel_finite
 
     """
-    ndiv = nproc*8 # factor is arbitrary, but can be chosen optimally
-
-    len_init = max(N1, N2)
-    tuple_list = generate_tuples(N1, N2)
-    tuples = np.array_split(np.random.permutation(tuple_list), ndiv)
-
-    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
-        wait_for = [executors.submit(arm_partial_finite, tuples[i], R, L, r, sign, K, len_init, M, k1, k2, n_sphere, lmax, mie_a, mie_b)
-                    for i in range(ndiv)]
-        results = [f.result() for f in futures.as_completed(wait_for)]
-    
-    # gather results into arrays
-    length = 0
-    for i in range(ndiv):
-        length += len(results[i][0])
-    row = np.empty(length, dtype=np.int64)
-    col = np.empty(length, dtype=np.int64)
-    dataTMTM = np.empty((length, M))
-    dataTETE = np.empty((length, M))
-    dataTMTE = np.empty((length, M))
-    dataTETM = np.empty((length, M))
-    ini = 0
-    for i in range(ndiv):
-        fin = ini + len(results[i][0])
-        row[ini:fin] = results[i][0]
-        col[ini:fin] = results[i][1]
-        dataTMTM[ini:fin] = results[i][2]
-        dataTETE[ini:fin] = results[i][3]
-        dataTMTE[ini:fin] = results[i][4]
-        dataTETM[ini:fin] = results[i][5]
-        ini = fin
+    tuples = finite_tuples(nproc, R, L, r, K, N1, N2, k1, k2)
+    dataTMTM, dataTETE, dataTMTE, dataTETM = arm_parallel_finite(tuples, R, L, r, sign, K, M, k1, k2, n_sphere, lmax, mie_a, mie_b)
+    row = np.ascontiguousarray(tuples[:, 0])
+    col = np.ascontiguousarray(tuples[:, 1])
     return row, col, dataTMTM, dataTETE, dataTMTE, dataTETM
 
 
@@ -434,15 +477,44 @@ def arm_partial_zero(tuples, R, L, r, len_init, M, k1, k2, alpha_sphere, materia
     return row, col, dataTMTM, dataTETE
 
 
+@njit("UniTuple(float64[:,:], 2)(int64[:,:], float64, float64, float64, int64, float64[:], float64[:], float64, unicode_type, int64)", parallel=True, cache=True)
+def arm_parallel_zero(tuples, R, L, r, M, k1, k2, alpha_sphere, materialclass_sphere, lmax):
+    r"""
+    Angular Reflection Matrix elements for the ZERO-frequency/wavenumber contribution for the given indices,
+    computed in parallel threads.
+
+    Parameters
+    ----------
+    tuples : np.ndarray
+        2D array containing row and column indices
+    R, L, r, M, k1, k2, alpha_sphere, materialclass_sphere, lmax
+        see ``arm_full_zero``
+
+    Returns
+    -------
+    dataTMTM, dataTETE : np.ndarray
+        angular matrix elements for TMTM, TETE polarization
+
+    """
+    n = len(tuples)
+    dataTMTM = np.empty((n, M))
+    dataTETE = np.empty((n, M))
+    for t in prange(n):
+        TMTM, TETE = arm_elements_zero(R, L, r, M, k1[tuples[t, 0]], k2[tuples[t, 1]], alpha_sphere, materialclass_sphere, lmax)
+        dataTMTM[t, :] = TMTM
+        dataTETE[t, :] = TETE
+    return dataTMTM, dataTETE
+
+
 def arm_full_zero(nproc, R, L, r, N1, N2, M, k1, k2, alpha_sphere, materialclass_sphere, lmax):
     r"""
     FULL Angular Reflection Matrix for the ZERO-frequency/wavenumber contribution.
-    The calculation is parellelized among nproc processes.
+    The calculation is parellelized among nproc threads.
 
     Parameters
     ----------
     nproc: int
-        number of processes
+        number of threads
     R: float
         positive, sphere radius
     L: float
@@ -471,35 +543,11 @@ def arm_full_zero(nproc, R, L, r, N1, N2, M, k1, k2, alpha_sphere, materialclass
 
     Dependencies
     ------------
-    arm_partial_zero
+    finite_tuples, arm_parallel_zero
 
     """
-    ndiv = nproc * 8  # factor is arbitrary, but can be chosen optimally
-
-    len_init = max(N1, N2)
-    tuple_list = generate_tuples(N1, N2)
-    tuples = np.array_split(np.random.permutation(tuple_list), ndiv)
-
-    with futures.ProcessPoolExecutor(max_workers=nproc) as executors:
-        wait_for = [
-            executors.submit(arm_partial_zero, tuples[i], R, L, r, len_init, M, k1, k2, alpha_sphere, materialclass_sphere, lmax)
-            for i in range(ndiv)]
-        results = [f.result() for f in futures.as_completed(wait_for)]
-
-    # gather results into arrays
-    length = 0
-    for i in range(ndiv):
-        length += len(results[i][0])
-    row = np.empty(length, dtype=np.int64)
-    col = np.empty(length, dtype=np.int64)
-    dataTMTM = np.empty((length, M))
-    dataTETE = np.empty((length, M))
-    ini = 0
-    for i in range(ndiv):
-        fin = ini + len(results[i][0])
-        row[ini:fin] = results[i][0]
-        col[ini:fin] = results[i][1]
-        dataTMTM[ini:fin] = results[i][2]
-        dataTETE[ini:fin] = results[i][3]
-        ini = fin
+    tuples = finite_tuples(nproc, R, L, r, 0., N1, N2, k1, k2)
+    dataTMTM, dataTETE = arm_parallel_zero(tuples, R, L, r, M, k1, k2, alpha_sphere, materialclass_sphere, lmax)
+    row = np.ascontiguousarray(tuples[:, 0])
+    col = np.ascontiguousarray(tuples[:, 1])
     return row, col, dataTMTM, dataTETE
