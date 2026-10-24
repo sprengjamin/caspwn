@@ -6,3 +6,6 @@ def pytest_collection_modifyitems(session, config, items):
             item.add_marker(pytest.mark.unit)
         elif "functional_tests" in str(item.fspath):
             item.add_marker(pytest.mark.functional)
+        # every test that is not marked as slow is quick
+        if item.get_closest_marker("slow") is None:
+            item.add_marker(pytest.mark.quick)
