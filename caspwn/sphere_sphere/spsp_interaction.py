@@ -8,6 +8,8 @@ from scipy.linalg import lu_factor, lu_solve
 from time import perf_counter
 from ..sphere.mie import mie_e_array
 from ..sphere.reflection_matrix import arm_full_zero, arm_full_finite
+from ..plane_sphere.plsp_sparse import observable_order
+from .spsp_sparse import sparse_roundtrip
 
 
 @njit("UniTuple(float64[:,:], 3)(int64[:], int64[:], float64[:], float64[:], float64[:], float64[:], float64, int64, int64, int64, float64[:], float64[:], float64[:], float64[:])", cache=True)
@@ -157,7 +159,7 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
         else:
             raise ValueError
 
-def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable, debug=False):
+def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable, debug=False, sparse=False):
     r"""
     Computes the contribution to the observable depending on the wave number K.
 
@@ -185,6 +187,8 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M,
         observable to be computed
     debug : bool
         Debug mode. Prints results and timings in this function.
+    sparse : bool
+        If True, the round-trip matrices are computed and decomposed in sparse format, see ``spsp_sparse.py``.
 
     Returns
     -------
@@ -240,34 +244,35 @@ def contribution_finite(R1, R2, L, K, n_sphere1, n_sphere2, N_outer, N_inner, M,
     kappa_outer = np.sqrt(K ** 2 + k_outer ** 2)
     kappa_inner = np.sqrt(K ** 2 + k_inner ** 2)
 
-    # m=0
-    mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:,0], TETE1[:,0], TMTE1[:,0], TETM1[:,0], 0.5, N_outer, N_inner, M, kappa_outer, kappa_inner, w_outer, w_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:,0], TETE2[:,0], TMTE2[:,0], TETM2[:,0], 0.5, N_inner, N_outer, M, kappa_inner, kappa_outer, w_inner, w_outer)
+    if sparse:
+        structure = sparse_roundtrip(row1, col1, row2, col2, N_outer, N_inner, 2, kappa_outer, kappa_inner, w_outer, w_inner, M, 0.5)
+        order = observable_order(observable)
+        def matrix_operations(m):
+            data1 = np.stack((TMTM1[:, m], TETE1[:, m], TMTE1[:, m], TETM1[:, m]))
+            data2 = np.stack((TMTM2[:, m], TETE2[:, m], TMTE2[:, m], TETM2[:, m]))
+            return structure.matrix_operations(data1, data2, order)
+    else:
+        def matrix_operations(m):
+            mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:, m], TETE1[:, m], TMTE1[:, m],
+                                                              TETM1[:, m], 0.5, N_outer, N_inner, M, kappa_outer, kappa_inner,
+                                                              w_outer, w_inner)
+            mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:, m], TETE2[:, m], TMTE2[:, m],
+                                                              TETM2[:, m], 0.5, N_inner, N_outer, M, kappa_inner, kappa_outer,
+                                                              w_inner, w_outer)
+            return compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
 
-    logdet, dL_logdet, d2L_logdet = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
+    # m=0
+    logdet, dL_logdet, d2L_logdet = matrix_operations(0)
+
     # m>0
     for m in range(1, M//2):
-        mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:, m], TETE1[:, m], TMTE1[:, m],
-                                                          TETM1[:, m], 0.5, N_outer, N_inner, M, kappa_outer, kappa_inner,
-                                                          w_outer, w_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:, m], TETE2[:, m], TMTE2[:, m],
-                                                          TETM2[:, m], 0.5, N_inner, N_outer, M, kappa_inner, kappa_outer,
-                                                          w_inner, w_outer)
-        term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                                  observable)
+        term1, term2, term3 = matrix_operations(m)
         logdet += 2 * term1
         dL_logdet += 2 * term2
         d2L_logdet += 2 * term3
 
     # last m
-    mat1, dL_mat1, d2L_mat1 = construct_matrix_finite(row1, col1, TMTM1[:, M//2], TETE1[:, M//2], TMTE1[:, M//2],
-                                                      TETM1[:, M//2], 0.5, N_outer, N_inner, M, kappa_outer, kappa_inner,
-                                                      w_outer, w_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_matrix_finite(row2, col2, TMTM2[:, M//2], TETE2[:, M//2], TMTE2[:, M//2],
-                                                      TETM2[:, M//2], 0.5, N_inner, N_outer, M, kappa_inner, kappa_outer,
-                                                      w_inner, w_outer)
-    term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                    observable)
+    term1, term2, term3 = matrix_operations(M//2)
     if M%2==0:
         logdet += term1
         dL_logdet += term2
@@ -322,7 +327,7 @@ def construct_roundtrip_zero(row, col, data, r, N1, N2, M, k1, k2, w1, w2):
     return mat, dL_mat, d2L_mat
 
 
-def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sphere1, materialclass_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable, calculate_TE=True, debug=False):
+def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sphere1, materialclass_sphere2, N_outer, N_inner, M, k_outer, w_outer, k_inner, w_inner, lmax1, lmax2, nproc, observable, calculate_TE=True, debug=False, sparse=False):
     r"""
     Computes the contribution to the observable for a vanishing frequency/wavenumber.
 
@@ -353,6 +358,8 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
         If True, calculation for TE mode is performed. Otherwise it is skipped.
     debug : bool
         Debug mode. Prints results and timings in this function.
+    sparse : bool
+        If True, the round-trip matrices are computed and decomposed in sparse format, see ``spsp_sparse.py``.
 
     Returns
     -------
@@ -382,31 +389,32 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
 
     start_logdet = end_fft
 
+    if sparse:
+        structure = sparse_roundtrip(row1, col1, row2, col2, N_outer, N_inner, 1, k_outer, k_inner, w_outer, w_inner, M, 0.5)
+        order = observable_order(observable)
+        def matrix_operations(data1, data2, m):
+            return structure.matrix_operations(data1[None, :, m], data2[None, :, m], order)
+    else:
+        def matrix_operations(data1, data2, m):
+            mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, data1[:, m], 0.5, N_outer, N_inner, M, k_outer,
+                                                               k_inner, w_outer, w_inner)
+            mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, data2[:, m], 0.5, N_inner, N_outer, M, k_inner,
+                                                               k_outer, w_inner, w_outer)
+            return compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
+
     ## TM contribution
     # m=0
-    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:,0], 0.5, N_outer, N_inner, M, k_outer, k_inner, w_outer, w_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:,0], 0.5, N_inner, N_outer, M, k_inner, k_outer, w_inner, w_outer)
-    logdet_TM, dL_logdet_TM, d2L_logdet_TM = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, observable)
+    logdet_TM, dL_logdet_TM, d2L_logdet_TM = matrix_operations(TM1, TM2, 0)
 
     # m>0
     for m in range(1, M//2):
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, m], 0.5, N_outer, N_inner, M, k_outer,
-                                                           k_inner, w_outer, w_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, m], 0.5, N_inner, N_outer, M, k_inner,
-                                                           k_outer, w_inner, w_outer)
-        term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                                  observable)
+        term1, term2, term3 = matrix_operations(TM1, TM2, m)
         logdet_TM += 2 * term1
         dL_logdet_TM += 2 * term2
         d2L_logdet_TM += 2 * term3
 
     # last m
-    mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TM1[:, M//2], 0.5, N_outer, N_inner, M, k_outer,
-                                                       k_inner, w_outer, w_inner)
-    mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TM2[:, M//2], 0.5, N_inner, N_outer, M, k_inner,
-                                                       k_outer, w_inner, w_outer)
-    term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                    observable)
+    term1, term2, term3 = matrix_operations(TM1, TM2, M//2)
     if M%2==0:
         logdet_TM += term1
         dL_logdet_TM += term2
@@ -419,32 +427,17 @@ def contribution_zero(R1, R2, L, alpha_sphere1, alpha_sphere2, materialclass_sph
     ## TE contribution
     if calculate_TE:
         # m=0
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, 0], 0.5, N_outer, N_inner, M, k_outer,
-                                                           k_inner, w_outer, w_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, 0], 0.5, N_inner, N_outer, M, k_inner,
-                                                           k_outer, w_inner, w_outer)
-        logdet_TE, dL_logdet_TE,d2L_logdet_TE = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                                  observable)
+        logdet_TE, dL_logdet_TE, d2L_logdet_TE = matrix_operations(TE1, TE2, 0)
 
         # m>0
         for m in range(1, M//2):
-            mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, m], 0.5, N_outer, N_inner, M, k_outer,
-                                                               k_inner, w_outer, w_inner)
-            mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, m], 0.5, N_inner, N_outer, M, k_inner,
-                                                               k_outer, w_inner, w_outer)
-            term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                            observable)
+            term1, term2, term3 = matrix_operations(TE1, TE2, m)
             logdet_TE += 2 * term1
             dL_logdet_TE += 2 * term2
             d2L_logdet_TE += 2 * term3
 
         # last m
-        mat1, dL_mat1, d2L_mat1 = construct_roundtrip_zero(row1, col1, TE1[:, M//2], 0.5, N_outer, N_inner, M, k_outer,
-                                                           k_inner, w_outer, w_inner)
-        mat2, dL_mat2, d2L_mat2 = construct_roundtrip_zero(row2, col2, TE2[:, M//2], 0.5, N_inner, N_outer, M, k_inner,
-                                                           k_outer, w_inner, w_outer)
-        term1, term2, term3 = compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2,
-                                                                  observable)
+        term1, term2, term3 = matrix_operations(TE1, TE2, M//2)
         if M%2==0:
             logdet_TE += term1
             dL_logdet_TE += term2
