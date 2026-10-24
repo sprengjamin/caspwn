@@ -10,6 +10,9 @@ from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
 class plane_sphere_system:
+    # aspect ratio R/L above which sparse round-trip matrices are used by default
+    sparse_threshold = 100.
+
     def __init__(self, T, L, R, mat_sphere, mat_plane, mat_medium):
         self.T = T
         self.L = L
@@ -35,7 +38,7 @@ class plane_sphere_system:
         self.thicknesses = thicknesses
 
 
-    def calculate(self, observable, ht_limit=False, etaM=5.1, M=None, etaN=5.6, N=None, etalmax=12., lmax=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False):
+    def calculate(self, observable, ht_limit=False, etaM=5.1, M=None, etaN=5.6, N=None, etalmax=12., lmax=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
         if observable == "energy":
             j = 0
         if observable == "force":
@@ -47,6 +50,11 @@ class plane_sphere_system:
             plane_refl_coeff = def_reflection_coeff(self.mat_medium, self.mats_plane, self.thicknesses)
         else:
             plane_refl_coeff = def_reflection_coeff(self.mat_medium, [self.mat_plane], [None])
+
+        if sparse == None:
+            self.sparse = self.R / self.L >= self.sparse_threshold
+        else:
+            self.sparse = sparse
 
         rho = max(self.R / self.L, 50.)
         if M == None:
@@ -74,7 +82,7 @@ class plane_sphere_system:
                 contribution_finite(self.R, self.L, x/self.L, nfunc_medium(c * x / self.L) * x/self.L,
                                     nfunc_sphere(c * x / self.L) / nfunc_medium(c * x / self.L), plane_refl_coeff, self.N,
                                     self.M,
-                                    k, w, self.lmax, cores, observable, debug)[j]
+                                    k, w, self.lmax, cores, observable, debug, self.sparse)[j]
 
             if self.automatic_integration:
                 result = quad(self.f, 0., np.inf)[0]
@@ -101,7 +109,7 @@ class plane_sphere_system:
             f_n0_TM, f_n0_TE = contribution_zero(self.R, self.L, alpha_sphere,
                                                  materialclass_sphere, plane_refl_coeff, self.N, self.M,
                                                  k,
-                                                 w, self.lmax, cores, observable, self.calculate_n0_TE, debug)
+                                                 w, self.lmax, cores, observable, self.calculate_n0_TE, debug, self.sparse)
             self.f_n0_TM = 0.5 * kB * self.T * f_n0_TM
             self.f_n0_TE = 0.5 * kB * self.T * f_n0_TE
 
@@ -120,7 +128,7 @@ class plane_sphere_system:
             self.f = lambda k0: \
                 contribution_finite(self.R, self.L, k0, nfunc_medium(c * k0) * k0,
                                     nfunc_sphere(c * k0) / nfunc_medium(c * k0), plane_refl_coeff, self.N, self.M,
-                                    k, w, self.lmax, cores, observable, debug)
+                                    k, w, self.lmax, cores, observable, debug, self.sparse)
 
             self.f_n1 = fsum(self.T, self.L, self.f, epsrel=epsrel, order=O)
             self.result = self.f_n0_TM + self.f_n0_TE + self.f_n1
