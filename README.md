@@ -79,7 +79,7 @@ Please note that running the tests may take several minutes depending on the com
 For a quick check, the slow tests can be skipped:
 
 ```bash
-pytest tests/ -m "not slow"
+pytest tests/ -m quick
 ```
 
 If all tests pass, the installation is verified.
