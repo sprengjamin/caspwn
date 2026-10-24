@@ -123,6 +123,11 @@ s.calculate('forcegradient')
 ```
 The resulting Casimir force gradient is about 1.77mN/m.
 
+For large aspect ratios R/L most elements of the round-trip matrices vanish. For R/L of at least
+`plane_sphere_system.sparse_threshold` (default 100) the round-trip matrices are therefore stored and decomposed
+in a sparse (envelope) format. This can be enforced or switched off with the `sparse` argument, e.g.
+`s.calculate('forcegradient', sparse=False)`.
+
 ## Documentation (wip)
 
 The documentation contains more information about the classes and functions defined in this package.
