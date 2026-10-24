@@ -4,6 +4,7 @@ respectively.
 """
 
 import numpy as np
+import pytest
 import sys
 sys.path.append('../..')
 from caspwn.plane_sphere.compute_plsp import plane_sphere_system as plsp_system
@@ -11,6 +12,7 @@ from caspwn.sphere_sphere.compute_spsp import sphere_sphere_system as spsp_syste
 from caspwn.materials import PEC, vacuum, silica, polystyrene, water_zwol
 
 # PLANE-SPHERE
+@pytest.mark.slow
 def test_plsp():
     mat_sphere = [PEC, polystyrene, PEC, polystyrene]
     mat_plane = [PEC, silica, PEC, silica]
@@ -36,6 +38,7 @@ def test_plsp():
 
 
 # SPHERE-SPHERE
+@pytest.mark.slow
 def test_spsp():
     mat_sphere1 = [PEC, polystyrene, PEC, polystyrene]
     mat_sphere2 = [PEC, polystyrene, PEC, polystyrene]

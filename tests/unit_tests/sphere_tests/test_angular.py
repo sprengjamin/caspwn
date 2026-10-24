@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from caspwn.sphere.angular import pte_asymptotics, pte_low, pte_next, pte_array
 from caspwn.sphere.angular import _c1, _c2, _c3, _c4, _c5
 from mpmath import *
@@ -101,6 +102,7 @@ def test_c_coefficients():
         np.testing.assert_allclose(_c4(x), float(mp_c4(mpf(x))), rtol=1.e-9)
         np.testing.assert_allclose(_c5(x), float(mp_c5(mpf(x))), rtol=1.e-7)
 
+@pytest.mark.slow
 def test_recurrence():
     rtol = 1.e-12
     L = [10, 100, 1000, 10000]#, 100000, 1000000]

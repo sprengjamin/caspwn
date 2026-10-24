@@ -76,6 +76,11 @@ pytest tests/
 ```
 This will run all unit and functional tests in the `tests/` folder and verify that the package is functioning as expected.
 Please note that running the tests may take several minutes depending on the complexity and size of the test suite.
+For a quick check, the slow tests can be skipped:
+
+```bash
+pytest tests/ -m "not slow"
+```
 
 If all tests pass, the installation is verified.
 
