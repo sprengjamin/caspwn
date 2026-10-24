@@ -88,6 +88,7 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
             \end{aligned}
 
         where
+
         .. math::
             \begin{aligned}
             \mathcal{M}&=\mathcal{M}_1\mathcal{M}_2\,,\\
@@ -95,7 +96,7 @@ def compute_matrix_operations(mat1, dL_mat1, d2L_mat1, mat2, dL_mat2, d2L_mat2, 
             \partial^2_L\mathcal{M}&= (\partial^2_L\mathcal{M}_1)\mathcal{M}_2 + 2(\partial_L\mathcal{M}_1)(\partial_L\mathcal{M}_2) + \mathcal{M}_1(\partial^2_L\mathcal{M}_2)\,.
             \end{aligned}
 
-        with :math:`\mathtt{mat1}=\mathcal{M}_2`, :math:`\mathtt{dL_mat1}=\partial_L\mathcal{M}_1` and :math:`\mathtt{d2L_mat1}=\partial^2_L\mathcal{M}_1` and the same for the index 2.
+        with :math:`\mathtt{mat1}=\mathcal{M}_1`, :math:`\mathtt{dL_mat1}=\partial_L\mathcal{M}_1` and :math:`\mathtt{d2L_mat1}=\partial^2_L\mathcal{M}_1` and the same for the index 2.
 
         When observable="energy" only the first quantity is computed and the other two returned as zero.
         For observable="force" only the first two quantities are computed and the last one returned as zero.

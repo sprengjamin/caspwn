@@ -1,24 +1,19 @@
-.. Fredholm documentation master file, created by
-   sphinx-quickstart on Thu Sep 13 14:22:53 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+caspwn documentation
+====================
 
-Welcome to Fredholm's documentation!
-====================================
+``caspwn`` computes Casimir and van der Waals interactions in the plane-sphere and sphere-sphere geometries within the
+scattering formalism, using a plane-wave representation combined with a Nyström discretization. See the README for
+installation instructions and examples.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   sphere.rst
    plane-sphere.rst
+   sphere-sphere.rst
+   sphere.rst
+   plane.rst
    ufuncs.rst
-   
-
-.. todo::
-    Use sphinx spell checker
-
-    grammer checker?!
 
 Indices and tables
 ==================

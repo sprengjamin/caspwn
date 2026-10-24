@@ -1,6 +1,5 @@
 Angular
 =======
 
-.. automodule:: angular
+.. automodule:: caspwn.sphere.angular
     :members:
-

@@ -1,6 +1,5 @@
 Integration
 ===========
 
-.. automodule:: integration
+.. automodule:: caspwn.ufuncs.integration
     :members:
-

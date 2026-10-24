@@ -1,5 +1,7 @@
 r"""sphere reflection matrix in angular representation
-.. to do:
+
+.. todo::
+
     * why does jit slow down arm_partial_finite?
 """
 

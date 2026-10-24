@@ -1,6 +1,0 @@
-Energy
-======
-
-.. automodule:: energy
-    :members:
-
