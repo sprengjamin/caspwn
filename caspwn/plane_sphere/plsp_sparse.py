@@ -182,47 +182,27 @@ def construct_roundtrip_zero_sparse(mat, first, ptr, row, col, data, M, w, rp):
     return sym
 
 
-@njit("UniTuple(float64, 3)(float64[:,:], int64[:], int64[:], float64[:], int64, boolean)", cache=True)
-def compute_matrix_operations_sparse(mat, first, ptr, kappa, order, sym):
-    r"""Sparse counterpart of ``compute_matrix_operations``.
-
-        Computes the 3-tuple
-
-        .. math::
-            \begin{aligned}
-            \log\det(1-\mathcal{M})\,,\\
-            \mathrm{tr}\left[\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right]\,,\\
-            \mathrm{tr}\left[\frac{\partial_L^2\mathcal{M}}{1-\mathcal{M}} + \left(\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right)^2\right]\,.
-            \end{aligned}
-
-        The round-trip matrix is LU decomposed (without pivoting) within its envelope,
-        :math:`1-\mathcal{M} = \mathcal{L}\mathcal{U}` with :math:`\mathrm{diag}(\mathcal{L})=1`. The decomposition is
-        differentiated twice with respect to :math:`L` alongside, such that
-
-        .. math::
-            \begin{aligned}
-            \log\det(1-\mathcal{M}) &= \sum_i \log \mathcal{U}_{ii}\,,\\
-            \partial_L\log\det(1-\mathcal{M}) &= \sum_i \frac{\mathcal{U}'_{ii}}{\mathcal{U}_{ii}}\,,\\
-            \partial_L^2\log\det(1-\mathcal{M}) &= \sum_i \left[\frac{\mathcal{U}''_{ii}}{\mathcal{U}_{ii}} - \left(\frac{\mathcal{U}'_{ii}}{\mathcal{U}_{ii}}\right)^2\right]\,.
-            \end{aligned}
+@njit("UniTuple(float64, 3)(float64[:,:], int64[:], int64[:], int64, boolean)", cache=True)
+def envelope_lu(mat, first, ptr, order, sym):
+    r"""Envelope LU decomposition of :math:`\mathcal{A}=1-\mathcal{M}` (without pivoting) together with its first two
+        derivatives with respect to :math:`L`.
 
         Parameters
         ----------
         mat : ndarray
-            2D array of shape (3, 2*S), ``mat[0]`` contains the round-trip matrix in envelope storage, ``mat[1]`` and
-            ``mat[2]`` are used as workspace. All rows are overwritten.
+            2D array of shape (3, 2*S) containing :math:`\mathcal{A}`, :math:`\partial_L\mathcal{A}` and
+            :math:`\partial^2_L\mathcal{A}` in envelope storage. It is overwritten by the decomposition.
         first, ptr : ndarray
             envelope structure, see ``envelope_structure``
-        kappa : ndarray
-            imaginary z-component of the wave vectors for each (interleaved) matrix index
         order : int
             0, 1 or 2 for the observables "energy", "force" and "forcegradient", respectively
         sym : boolean
-            True if the round-trip matrix is symmetric
+            True if the matrix is symmetric
 
         Returns
         -------
         (float, float, float)
+            same as ``compute_matrix_operations_sparse``
 
     """
     n = len(first)
@@ -230,44 +210,6 @@ def compute_matrix_operations_sparse(mat, first, ptr, kappa, order, sym):
     a0 = mat[0]
     a1 = mat[1]
     a2 = mat[2]
-
-    # trace and norm of round-trip matrix
-    norm2_mat = 0.
-    for l in range(2*S):
-        norm2_mat += a0[l]**2
-    tr_mat = 0.
-    tr_dL_mat = 0.
-    tr_d2L_mat = 0.
-    for i in range(n):
-        m_ii = a0[S + ptr[i+1] - 1]
-        tr_mat += m_ii
-        tr_dL_mat += -2*kappa[i]*m_ii
-        tr_d2L_mat += 4*kappa[i]**2*m_ii
-    norm_mat = sqrt(norm2_mat)
-    if tr_mat == 0.:
-        assert(norm_mat == 0.)
-        return 0., 0., 0.
-    if abs(norm_mat**2/(1-norm_mat)/tr_mat) < 1.e-10:
-        # make trace approximation
-        if order == 0:
-            return -tr_mat, 0., 0.
-        if order == 1:
-            return -tr_mat, tr_dL_mat, 0.
-        return -tr_mat, tr_dL_mat, tr_d2L_mat
-
-    # A = 1 - M, A' = -dL_M and A'' = -d2L_M
-    for i in range(n):
-        for j in range(first[i], i+1):
-            factor = kappa[i] + kappa[j]
-            # (i, j) in lower part, (j, i) in upper part, the diagonal is stored in the upper part only
-            lo = ptr[i] + j - first[i]
-            up = S + ptr[i] + j - first[i]
-            for p in (lo, up):
-                m = a0[p]
-                a0[p] = -m
-                a1[p] = factor*m
-                a2[p] = -factor**2*m
-        a0[S + ptr[i+1] - 1] += 1.
 
     logdet = 0.
     dL_logdet = 0.
@@ -352,6 +294,132 @@ def compute_matrix_operations_sparse(mat, first, ptr, kappa, order, sym):
     if order == 1:
         return logdet, -dL_logdet, 0.
     return logdet, -dL_logdet, -d2L_logdet
+
+
+
+
+@njit("UniTuple(float64, 3)(float64[:,:], int64[:], int64[:], float64[:], int64, boolean)", cache=True)
+def envelope_lu_logdet(mat, first, ptr, kappa, order, sym):
+    r"""Computes the quantities of ``compute_matrix_operations_sparse`` exactly, i.e. without trace approximation.
+
+        Parameters and return values are the same as for ``compute_matrix_operations_sparse``. The derivatives of the
+        matrix elements are :math:`\partial_L\mathcal{M}_{ij} = -(\kappa_i+\kappa_j)\mathcal{M}_{ij}` and
+        :math:`\partial_L^2\mathcal{M}_{ij} = (\kappa_i+\kappa_j)^2\mathcal{M}_{ij}`.
+
+    """
+    n = len(first)
+    S = ptr[-1]
+    a0 = mat[0]
+    a1 = mat[1]
+    a2 = mat[2]
+
+    # A = 1 - M, A' = -dL_M and A'' = -d2L_M
+    for i in range(n):
+        for j in range(first[i], i+1):
+            factor = kappa[i] + kappa[j]
+            # (i, j) in lower part, (j, i) in upper part, the diagonal is stored in the upper part only
+            lo = ptr[i] + j - first[i]
+            up = S + ptr[i] + j - first[i]
+            for p in (lo, up):
+                m = a0[p]
+                a0[p] = -m
+                a1[p] = factor*m
+                a2[p] = -factor**2*m
+        a0[S + ptr[i+1] - 1] += 1.
+
+    return envelope_lu(mat, first, ptr, order, sym)
+
+
+@njit("UniTuple(float64, 3)(float64[:,:], int64[:], int64[:], int64, boolean)", cache=True)
+def envelope_lu_logdet_explicit(mat, first, ptr, order, sym):
+    r"""Same as ``envelope_lu_logdet``, but ``mat[0]``, ``mat[1]`` and ``mat[2]`` contain :math:`\mathcal{M}`,
+        :math:`\partial_L\mathcal{M}` and :math:`\partial^2_L\mathcal{M}` explicitly in envelope storage.
+
+    """
+    n = len(first)
+    S = ptr[-1]
+    for l in range(2*S):
+        mat[0, l] = -mat[0, l]
+        mat[1, l] = -mat[1, l]
+        mat[2, l] = -mat[2, l]
+    for i in range(n):
+        mat[0, S + ptr[i+1] - 1] += 1.
+    return envelope_lu(mat, first, ptr, order, sym)
+
+
+@njit("UniTuple(float64, 3)(float64[:,:], int64[:], int64[:], float64[:], int64, boolean)", cache=True)
+def compute_matrix_operations_sparse(mat, first, ptr, kappa, order, sym):
+    r"""Sparse counterpart of ``compute_matrix_operations``.
+
+        Computes the 3-tuple
+
+        .. math::
+            \begin{aligned}
+            \log\det(1-\mathcal{M})\,,\\
+            \mathrm{tr}\left[\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right]\,,\\
+            \mathrm{tr}\left[\frac{\partial_L^2\mathcal{M}}{1-\mathcal{M}} + \left(\frac{\partial_L\mathcal{M}}{1-\mathcal{M}}\right)^2\right]\,.
+            \end{aligned}
+
+        The round-trip matrix is LU decomposed (without pivoting) within its envelope,
+        :math:`1-\mathcal{M} = \mathcal{L}\mathcal{U}` with :math:`\mathrm{diag}(\mathcal{L})=1`. The decomposition is
+        differentiated twice with respect to :math:`L` alongside, such that
+
+        .. math::
+            \begin{aligned}
+            \log\det(1-\mathcal{M}) &= \sum_i \log \mathcal{U}_{ii}\,,\\
+            \partial_L\log\det(1-\mathcal{M}) &= \sum_i \frac{\mathcal{U}'_{ii}}{\mathcal{U}_{ii}}\,,\\
+            \partial_L^2\log\det(1-\mathcal{M}) &= \sum_i \left[\frac{\mathcal{U}''_{ii}}{\mathcal{U}_{ii}} - \left(\frac{\mathcal{U}'_{ii}}{\mathcal{U}_{ii}}\right)^2\right]\,.
+            \end{aligned}
+
+        Parameters
+        ----------
+        mat : ndarray
+            2D array of shape (3, 2*S), ``mat[0]`` contains the round-trip matrix in envelope storage, ``mat[1]`` and
+            ``mat[2]`` are used as workspace. All rows are overwritten.
+        first, ptr : ndarray
+            envelope structure, see ``envelope_structure``
+        kappa : ndarray
+            imaginary z-component of the wave vectors for each (interleaved) matrix index
+        order : int
+            0, 1 or 2 for the observables "energy", "force" and "forcegradient", respectively
+        sym : boolean
+            True if the round-trip matrix is symmetric
+
+        Returns
+        -------
+        (float, float, float)
+
+    """
+    n = len(first)
+    S = ptr[-1]
+    a0 = mat[0]
+    a1 = mat[1]
+    a2 = mat[2]
+
+    # trace and norm of round-trip matrix
+    norm2_mat = 0.
+    for l in range(2*S):
+        norm2_mat += a0[l]**2
+    tr_mat = 0.
+    tr_dL_mat = 0.
+    tr_d2L_mat = 0.
+    for i in range(n):
+        m_ii = a0[S + ptr[i+1] - 1]
+        tr_mat += m_ii
+        tr_dL_mat += -2*kappa[i]*m_ii
+        tr_d2L_mat += 4*kappa[i]**2*m_ii
+    norm_mat = sqrt(norm2_mat)
+    if tr_mat == 0.:
+        assert(norm_mat == 0.)
+        return 0., 0., 0.
+    if abs(norm_mat**2/(1-norm_mat)/tr_mat) < 1.e-10:
+        # make trace approximation
+        if order == 0:
+            return -tr_mat, 0., 0.
+        if order == 1:
+            return -tr_mat, tr_dL_mat, 0.
+        return -tr_mat, tr_dL_mat, tr_d2L_mat
+    return envelope_lu_logdet(mat, first, ptr, kappa, order, sym)
 
 
 def observable_order(observable):

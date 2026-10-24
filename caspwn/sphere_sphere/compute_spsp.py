@@ -9,6 +9,10 @@ from ..ufuncs.integration import fc_quadrature
 from ..ufuncs.summation import msd_sum, psd_sum
 
 class sphere_sphere_system:
+    # (R1+R2)/L above which sparse round-trip matrices are used by default. For (R1+R2)/L up to a few thousand the
+    # sparse path is not faster than the dense one, it is therefore switched off by default.
+    sparse_threshold = np.inf
+
     def __init__(self, T, L, R1, R2, mat_sphere1, mat_sphere2, mat_medium):
         self.T = T
         self.L = L
@@ -30,13 +34,18 @@ class sphere_sphere_system:
             self.K_quad = fc_quadrature
 
 
-    def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False):
+    def calculate(self, observable, ht_limit=False, etaM=6.2, M=None, etaNin=8.4, Nin=None, etaNout=5.3, Nout=None, etalmax1=12., lmax1=None, etalmax2=12., lmax2=None, fs='psd', epsrel=1.e-8, O=None, cores=cpu_count(), debug=False, sparse=None):
         if observable == "energy":
             j = 0
         if observable == "force":
             j = 1
         if observable == "forcegradient":
             j = 2
+
+        if sparse == None:
+            self.sparse = (self.R1 + self.R2) / self.L >= self.sparse_threshold
+        else:
+            self.sparse = sparse
 
         rhosum = max((self.R1 + self.R2) / self.L, 50)
         if Nin == None:
@@ -81,7 +90,7 @@ class sphere_sphere_system:
                                     nfunc_sphere1(c * x / self.L) / nfunc_medium(c * x / self.L),
                                     nfunc_sphere2(c * x / self.L) / nfunc_medium(c * x / self.L), self.Nout, self.Nin, self.M,
                                     k_outer, w_outer, k_inner,
-                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug)[j]
+                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug, self.sparse)[j]
 
             if self.automatic_integration:
                 result = quad(self.f, 0., np.inf)[0]
@@ -114,7 +123,7 @@ class sphere_sphere_system:
 
             f_n0_TM, f_n0_TE = contribution_zero(self.R1, self.R2, self.L, alpha_sphere1, alpha_sphere2,
                                                  materialclass_sphere1, materialclass_sphere2, self.Nout, self.Nin, self.M, k_outer,
-                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable, self.calculate_n0_TE, debug)
+                                                 w_outer, k_inner, w_inner, self.lmax1, self.lmax2, cores, observable, self.calculate_n0_TE, debug, self.sparse)
 
             self.f_n0_TM = 0.5 * kB * self.T * f_n0_TM
             self.f_n0_TE = 0.5 * kB * self.T * f_n0_TE
@@ -136,7 +145,7 @@ class sphere_sphere_system:
                                     nfunc_sphere1(c * k0) / nfunc_medium(c * k0),
                                     nfunc_sphere2(c * k0) / nfunc_medium(c * k0), self.Nout, self.Nin, self.M,
                                     k_outer, w_outer, k_inner,
-                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug)
+                                    w_inner, self.lmax1, self.lmax2, cores, observable, debug, self.sparse)
 
             self.f_n1 = fsum(self.T, self.L, self.f, epsrel=epsrel, order=O)
             self.result = self.f_n0_TM + self.f_n0_TE + self.f_n1

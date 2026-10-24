@@ -127,6 +127,8 @@ For large aspect ratios R/L most elements of the round-trip matrices vanish. For
 `plane_sphere_system.sparse_threshold` (default 100) the round-trip matrices are therefore stored and decomposed
 in a sparse (envelope) format. This can be enforced or switched off with the `sparse` argument, e.g.
 `s.calculate('forcegradient', sparse=False)`.
+The `sphere_sphere_system` supports the same `sparse` argument. There, the sparse path is not faster than the dense
+one for (R1+R2)/L up to a few thousand and is therefore switched off by default.
 
 ## Documentation (wip)
 
